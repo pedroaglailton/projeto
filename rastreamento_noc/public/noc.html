@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NOC - Rastreamento Equipes</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
+
+    .top {
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #1e293b, #0f172a);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid #334155;
+    }
+    .top .title { font-size: 15px; letter-spacing: 0.5px; }
+    .top .live-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #22c55e; box-shadow: 0 0 8px #22c55e;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    .top .live-dot.off { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .top .spacer { flex: 1; }
+    .top .stats { font-size: 12px; color: #94a3b8; }
+    .top .stats.secondary { margin-left: 10px; color: #93c5fd; }
+
+    .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 48px); transition: grid-template-columns .2s ease; }
+    body.sidebar-collapsed .layout { grid-template-columns: 0 1fr; }
+    @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } #sidebar { position: absolute; top: 48px; left: -340px; height: calc(100vh - 48px); z-index: 1000; transition: left .2s; } #sidebar.open { left: 0; } .toggle-sidebar { display: inline-flex !important; } }
+
+    #sidebar {
+      background: #111827;
+      border-right: 1px solid #1f2937;
+      padding: 14px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    body.sidebar-collapsed #sidebar {
+      padding: 0;
+      border-right: 0;
+      overflow: hidden;
+    }
+    #sidebar::-webkit-scrollbar { width: 0; height: 0; }
+    #sidebar h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #38bdf8;
+    }
+    #sidebar .section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #1f2937; }
+    #sidebar label { display: block; font-size: 11px; color: #94a3b8; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    #sidebar select, #sidebar input[type="date"] {
+      width: 100%; padding: 8px 10px;
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 6px;
+      font-size: 14px;
+    }
+    #sidebar input[type="text"] {
+      width: 100%; padding: 8px 10px;
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 6px;
+      font-size: 14px;
+    }
+    #sidebar button {
+      width: 100%; padding: 9px; margin-top: 8px;
+      background: #0ea5e9; color: #fff; border: 0;
+      border-radius: 6px; font-weight: 600; cursor: pointer;
+      font-size: 13px;
+    }
+    #sidebar button:hover { background: #0284c7; }
+    #sidebar button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+    #sidebar button.ghost:hover { background: #1e293b; color: #e2e8f0; }
+
+    #equipesList { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow-y: auto; }
+    #equipesList li {
+      padding: 8px 10px; margin-bottom: 4px;
+      background: #0f172a; border-radius: 6px;
+      font-size: 13px; cursor: pointer;
+      border-left: 3px solid transparent;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #equipesList li:hover { background: #1e293b; }
+    #equipesList li.active { border-left-color: #0ea5e9; background: #1e293b; }
+    #equipesList li .ago { font-size: 10px; color: #64748b; }
+    #equipesList li.stale .ago { color: #f59e0b; }
+
+    #proximosList { list-style: none; padding: 0; margin: 0; max-height: 160px; overflow-y: auto; }
+    #proximosList li {
+      padding: 8px 10px; margin-bottom: 4px;
+      background: #0f172a; border-radius: 6px;
+      font-size: 12px;
+      border-left: 3px solid #f59e0b;
+      color: #e2e8f0;
+    }
+    #proximosList .dist { color: #fbbf24; font-size: 11px; }
+
+    .toggle-sidebar {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 6px;
+      background: #1e293b; color: #e2e8f0; border: 0;
+      cursor: pointer; font-size: 18px;
+    }
+
+    #map { width: 100%; height: 100%; }
+    .car-marker {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #0ea5e9; border: 2px solid #ffffff;
+      box-shadow: 0 3px 10px rgba(2, 132, 199, 0.5);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      transform: translate(-17px, -17px);
+    }
+    .car-marker.stale { background: #64748b; opacity: 0.65; }
+    .endpoint-marker {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      transform: translate(-11px, -11px);
+    }
+    .endpoint-marker.start { background: #22c55e; }
+    .endpoint-marker.end   { background: #ef4444; }
+
+    .playback-info {
+      position: absolute; top: 60px; right: 12px;
+      background: rgba(17,24,39,0.95); padding: 10px 14px;
+      border-radius: 8px; border: 1px solid #334155;
+      font-size: 12px; z-index: 999; display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .playback-info.visible { display: block; }
+    .playback-info .label { color: #94a3b8; }
+    .playback-info .val { color: #38bdf8; font-weight: 600; }
+
+    .alert-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 3000;
+      pointer-events: none;
+    }
+    .alert-modal.visible { display: flex; }
+    .alert-modal .card {
+      min-width: 320px;
+      max-width: 92vw;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid #334155;
+      border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+      padding: 16px 18px;
+      text-align: center;
+      animation: alertIn .2s ease-out;
+    }
+    .alert-modal .title {
+      font-size: 13px;
+      letter-spacing: .8px;
+      color: #fbbf24;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .alert-modal .main {
+      color: #e2e8f0;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .alert-modal .sub {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #93c5fd;
+    }
+    @keyframes alertIn {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .token-box {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #93c5fd;
+      word-break: break-all;
+      background: #0b1220;
+      border: 1px dashed #334155;
+      border-radius: 6px;
+      padding: 8px;
+      display: none;
+    }
+    .token-box.visible { display: block; }
+
+    .muted { color: #94a3b8; font-size: 11px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <button class="toggle-sidebar" id="toggleSidebar" title="Menu">≡</button>
+    <span class="live-dot" id="liveDot" title="Conexão WebSocket"></span>
+    <span class="title">NOC — Equipes em Campo</span>
+    <span class="spacer"></span>
+    <span class="stats" id="stats">— equipes</span>
+    <span class="stats secondary" id="statsPontos">Planejados: 0 | Visitados: 0 | Pendentes: 0</span>
+  </div>
+
+  <div class="layout">
+    <aside id="sidebar">
+      <div class="section">
+        <h3>Equipes ativas</h3>
+        <ul id="equipesList"><li style="opacity:0.5;cursor:default">Aguardando...</li></ul>
+      </div>
+
+      <div class="section">
+        <h3>Proximos do ponto</h3>
+        <ul id="proximosList"><li style="opacity:0.5;cursor:default">Sem equipe proxima</li></ul>
+      </div>
+
+      <div class="section">
+        <h3>Playback de rota</h3>
+        <label for="pbDate">Data</label>
+        <input type="date" id="pbDate">
+        <label for="pbEquipe">Equipe</label>
+        <select id="pbEquipe"><option value="">— Todas —</option></select>
+        <button id="btnPlayback">Mostrar rota</button>
+        <button id="btnLimparPlayback" class="ghost">Limpar rota</button>
+      </div>
+
+      <div class="section">
+        <h3>Filtro de pontos</h3>
+        <label for="filtroCidade">Regiao</label>
+        <select id="filtroCidade">
+          <option value="TODAS">Todas</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <h3>Gerar key equipe</h3>
+        <label for="newEquipeId">Equipe ID</label>
+        <input type="text" id="newEquipeId" placeholder="EQUIPE-03">
+        <label for="newEquipeNome">Nome exibicao</label>
+        <input type="text" id="newEquipeNome" placeholder="Joao + Pedro">
+        <label for="nocAdminKey">Admin key (opcional)</label>
+        <input type="text" id="nocAdminKey" placeholder="Se configurada no servidor">
+        <button id="btnGerarKey">Gerar key</button>
+        <button id="btnRegenerarKey" class="ghost">Regenerar key</button>
+        <button id="btnDesativarEquipe" class="ghost">Desativar equipe</button>
+        <button id="btnAtivarEquipe" class="ghost">Ativar equipe</button>
+        <div class="muted">Acoes usam o Equipe ID informado acima.</div>
+        <div id="tokenGerado" class="token-box"></div>
+      </div>
+
+      <div class="section" style="border-bottom:0">
+        <h3>Status</h3>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.6">
+          WebSocket: <span id="wsStatus">conectando…</span><br>
+          Última msg: <span id="lastMsg">—</span>
+        </div>
+      </div>
+    </aside>
+
+    <div style="position:relative">
+      <div id="map"></div>
+      <div class="playback-info" id="playbackInfo"></div>
+    </div>
+  </div>
+
+  <div class="alert-modal" id="proximidadeModal" aria-live="polite" aria-atomic="true">
+    <div class="card">
+      <div class="title">Equipe proxima ao ponto</div>
+      <div class="main" id="proximidadeMain">—</div>
+      <div class="sub" id="proximidadeSub">—</div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // =========================================================================
+    // Setup do mapa
+    // =========================================================================
+    const map = L.map('map').setView([-3.7319, -38.5267], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // =========================================================================
+    // Estado
+    // =========================================================================
+    const markers = new Map();   // equipeId -> Leaflet marker (posicao atual)
+    const ultimoTs = new Map();  // equipeId -> timestamp da ultima posicao
+    const trilhasHoje = new Map(); // equipeId -> { polyline, latlngs, pontos }
+    const paradasHoje = new Map(); // equipeId -> [Leaflet marker]
+    let trilhasLayer = L.layerGroup().addTo(map);
+    let paradasLayer = L.layerGroup().addTo(map);
+    let pontosLayer = L.layerGroup().addTo(map);
+    const pontosPlanejados = [];
+    const pontosVisitados = new Set();
+    const pontosMarkers = new Map();
+    const alertaAproximacao = new Map();
+    const equipesProximas = new Map(); // equipeId -> { equipeNome, pontoNome, dist, ts }
+    const equipeValidacao = new Map(); // equipeId -> { ok, pontoNome, dist, ts }
+    let modalTimer = null;
+    let audioAlertEnabled = false;
+    let playbackLayer = null;    // L.LayerGroup do playback atual
+    let equipeSelecionada = null;
+    const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
+
+    function carIcon(stale = false) {
+      return L.divIcon({
+        className: '',
+        html: `<div class="car-marker${stale ? ' stale' : ''}">🚗</div>`,
+        iconSize: [34, 34], iconAnchor: [17, 17]
+      });
+    }
+
+    function upsert(reg) {
+      const valid = validarProximidadePonto(reg);
+      const pontoTxt = reg.pontoNumero ? `<br>Ponto app: ${reg.pontoNumero}` : '';
+      const validTxt = valid
+        ? `<br>Validacao: <b style="color:#22c55e">OK</b> (${Math.round(valid.dist)}m de ${valid.pontoNome})`
+        : `<br>Validacao: <b style="color:#ef4444">PENDENTE</b>`;
+      const txt = `<b>${reg.equipeNome}</b>${pontoTxt}${validTxt}<br>Lat: ${reg.lat.toFixed(6)}<br>Lng: ${reg.lng.toFixed(6)}<br>Precisao: ${reg.accuracy ?? '-'} m<br>${new Date(reg.ts).toLocaleTimeString('pt-BR')}`;
+      ultimoTs.set(reg.equipeId, reg.ts || Date.now());
+      if (!markers.has(reg.equipeId)) {
+        const m = L.marker([reg.lat, reg.lng], { icon: carIcon() })
+          .addTo(map)
+          .bindPopup(txt)
+          .bindTooltip(reg.equipeNome, { direction: 'top', offset: [0, -18] });
+        m.on('click', () => focusEquipe(reg.equipeId));
+        markers.set(reg.equipeId, m);
+      } else {
+        const m = markers.get(reg.equipeId);
+        m.setLatLng([reg.lat, reg.lng]).setPopupContent(txt);
+        m.setTooltipContent(reg.equipeNome);
+        m.setIcon(carIcon(false));
+      }
+      adicionarPontoTrilhaHoje(reg);
+      marcarVisitaPorPosicao(reg);
+      verificarAproximacaoPonto(reg);
+      renderEquipesList();
+    }
+
+    function validarProximidadePonto(reg) {
+      if (!pontosPlanejados.length) {
+        equipeValidacao.set(reg.equipeId, { ok: false, pontoNome: '-', dist: Infinity, ts: reg.ts || Date.now() });
+        return null;
+      }
+      let melhor = null;
+      for (const p of pontosPlanejados) {
+        const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
+        if (!melhor || d < melhor.dist) melhor = { pontoNome: p.nome || (`PONTO ${p.id}`), dist: d };
+      }
+      const ok = !!(melhor && melhor.dist <= 50);
+      equipeValidacao.set(reg.equipeId, { ok, pontoNome: melhor ? melhor.pontoNome : '-', dist: melhor ? melhor.dist : Infinity, ts: reg.ts || Date.now() });
+      return ok ? melhor : null;
+    }
+
+    function stylePontoPlanejado(visitado) {
+      return {
+        radius: visitado ? 5 : 4,
+        color: visitado ? '#15803d' : '#334155',
+        weight: 1,
+        fillColor: visitado ? '#22c55e' : '#38bdf8',
+        fillOpacity: visitado ? 0.9 : 0.45
+      };
+    }
+
+    function aplicarFiltroPontos() {
+      const sel = document.getElementById('filtroCidade');
+      const filtro = sel ? sel.value : 'TODAS';
+      for (const p of pontosPlanejados) {
+        const mk = pontosMarkers.get(p.id);
+        if (!mk) continue;
+        const ok = filtro === 'TODAS' || (p.cidade || 'SEM CIDADE') === filtro;
+        if (ok) mk.addTo(pontosLayer);
+        else pontosLayer.removeLayer(mk);
+      }
+    }
+
+    function popularFiltroCidades() {
+      const sel = document.getElementById('filtroCidade');
+      if (!sel) return;
+      const cidades = Array.from(new Set(pontosPlanejados.map(p => p.cidade || 'SEM CIDADE'))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      sel.innerHTML = '<option value="TODAS">Todas</option>';
+      for (const c of cidades) {
+        const op = document.createElement('option');
+        op.value = c;
+        op.textContent = c;
+        sel.appendChild(op);
+      }
+    }
+
+    function distMetros(a, b) {
+      const R = 6371000;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+      const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    function marcarVisitaPorPosicao(reg) {
+      const RAIO_VISITA_M = 50;
+      for (const p of pontosPlanejados) {
+        if (pontosVisitados.has(p.id)) continue;
+        const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
+        if (d <= RAIO_VISITA_M) {
+          pontosVisitados.add(p.id);
+          const mk = pontosMarkers.get(p.id);
+          if (mk) mk.setStyle(stylePontoPlanejado(true));
+          atualizarStatsPontos();
+        }
+      }
+    }
+
+    function tocarAlarmeProximidade() {
+      if (!audioAlertEnabled) return;
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        const ctx = new Ctx();
+        const t0 = ctx.currentTime;
+        const beep = (start, freq, dur) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+          osc.connect(gain).connect(ctx.destination);
+          osc.start(start);
+          osc.stop(start + dur + 0.02);
+        };
+        beep(t0, 980, 0.2);
+        beep(t0 + 0.24, 1200, 0.2);
+        setTimeout(() => { try { ctx.close(); } catch (_) {} }, 700);
+      } catch (_) {}
+    }
+
+    function renderProximosList() {
+      const ul = document.getElementById('proximosList');
+      if (!ul) return;
+      const lista = Array.from(equipesProximas.entries())
+        .map(([equipeId, v]) => ({ equipeId, ...v }))
+        .sort((a, b) => a.dist - b.dist);
+
+      ul.innerHTML = '';
+      if (!lista.length) {
+        ul.innerHTML = '<li style="opacity:0.5;cursor:default">Sem equipe proxima</li>';
+        return;
+      }
+      for (const item of lista) {
+        const li = document.createElement('li');
+        li.innerHTML = `<b>${item.equipeNome || item.equipeId}</b><br>${item.pontoNome}<br><span class="dist">${Math.round(item.dist)}m</span>`;
+        ul.appendChild(li);
+      }
+    }
+
+    function verificarAproximacaoPonto(reg) {
+      const RAIO_ALERTA_M = 100;
+      const REARME_MS = 10 * 60 * 1000;
+      const agora = Date.now();
+      let melhor = null;
+      for (const p of pontosPlanejados) {
+        const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
+        if (!melhor || d < melhor.dist) {
+          melhor = { pontoId: p.id, pontoNome: p.nome || (`PONTO ${p.id}`), dist: d };
+        }
+        if (d > RAIO_ALERTA_M) continue;
+
+        const chave = `${reg.equipeId}:${p.id}`;
+        const ultimo = alertaAproximacao.get(chave) || 0;
+        if (agora - ultimo < REARME_MS) continue;
+        alertaAproximacao.set(chave, agora);
+
+        tocarAlarmeProximidade();
+        const nomePonto = p.nome || (`PONTO ${p.id}`);
+        const distancia = Math.round(d);
+        document.getElementById('lastMsg').textContent = `${reg.equipeNome || reg.equipeId} a ${distancia}m de ${nomePonto}`;
+        mostrarModalProximidade(reg.equipeNome || reg.equipeId, nomePonto, distancia);
+      }
+
+      if (melhor && melhor.dist <= RAIO_ALERTA_M) {
+        equipesProximas.set(reg.equipeId, {
+          equipeNome: reg.equipeNome || reg.equipeId,
+          pontoNome: melhor.pontoNome,
+          dist: melhor.dist,
+          ts: agora
+        });
+      } else {
+        equipesProximas.delete(reg.equipeId);
+      }
+      renderProximosList();
+    }
+
+    function mostrarModalProximidade(equipeNome, pontoNome, distancia) {
+      const modal = document.getElementById('proximidadeModal');
+      const main = document.getElementById('proximidadeMain');
+      const sub = document.getElementById('proximidadeSub');
+      if (!modal || !main || !sub) return;
+
+      main.textContent = `${equipeNome}`;
+      sub.textContent = `${pontoNome} - ${distancia}m`;
+      modal.classList.add('visible');
+
+      if (modalTimer) clearTimeout(modalTimer);
+      modalTimer = setTimeout(() => {
+        modal.classList.remove('visible');
+      }, 20000);
+    }
+
+    function atualizarStatsPontos() {
+      const total = pontosPlanejados.length;
+      const visitados = pontosVisitados.size;
+      const pendentes = Math.max(0, total - visitados);
+      const el = document.getElementById('statsPontos');
+      if (!el) return;
+      el.textContent = `Planejados: ${total} | Visitados: ${visitados} | Pendentes: ${pendentes}`;
+    }
+
+    async function carregarPontosPlanejados() {
+      try {
+        const r = await fetch('/pontos_planejados.json');
+        const j = await r.json();
+        const lista = Array.isArray(j.pontos) ? j.pontos : [];
+        for (const p of lista) {
+          if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
+          p.cidade = (p.cidade || 'SEM CIDADE').toString().trim();
+          pontosPlanejados.push(p);
+          const mk = L.circleMarker([p.lat, p.lng], stylePontoPlanejado(false))
+            .bindPopup(`<b>${p.nome || ('PONTO ' + p.id)}</b><br>${p.cidade}`)
+            .addTo(pontosLayer);
+          pontosMarkers.set(p.id, mk);
+        }
+        popularFiltroCidades();
+        aplicarFiltroPontos();
+        atualizarStatsPontos();
+      } catch (_) {}
+    }
+
+    function corPorEquipe(id) {
+      const cores = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+      return cores[Math.abs(hash) % cores.length];
+    }
+
+    function adicionarPontoTrilhaHoje(reg) {
+      const id = reg.equipeId;
+      const pt = [reg.lat, reg.lng];
+      const ponto = { lat: reg.lat, lng: reg.lng, ts: Number(reg.ts) || Date.now() };
+      if (!trilhasHoje.has(id)) {
+        const latlngs = [pt];
+        const polyline = L.polyline(latlngs, { color: corPorEquipe(id), weight: 3, opacity: 0.45 }).addTo(trilhasLayer);
+        trilhasHoje.set(id, { polyline, latlngs, pontos: [ponto] });
+        recalcularParadasEquipe(id);
+        return;
+      }
+      const t = trilhasHoje.get(id);
+      t.latlngs.push(pt);
+      t.pontos.push(ponto);
+      t.polyline.setLatLngs(t.latlngs);
+      recalcularParadasEquipe(id);
+    }
+
+    function limparParadasEquipe(id) {
+      const atuais = paradasHoje.get(id) || [];
+      for (const mk of atuais) paradasLayer.removeLayer(mk);
+      paradasHoje.set(id, []);
+    }
+
+    function recalcularParadasEquipe(id) {
+      const trilha = trilhasHoje.get(id);
+      if (!trilha || !trilha.pontos || trilha.pontos.length < 2) return;
+
+      limparParadasEquipe(id);
+
+      const pontos = trilha.pontos;
+      const DIST_STOP_M = 60;
+      const STOP_MIN_MS = 20 * 60 * 1000;
+      let ini = 0;
+
+      for (let i = 1; i < pontos.length; i++) {
+        const d = distMetros(pontos[ini], pontos[i]);
+        if (d > DIST_STOP_M) {
+          const dur = pontos[i - 1].ts - pontos[ini].ts;
+          if (dur >= STOP_MIN_MS) {
+            criarMarcadorParada(id, pontos[ini], dur);
+          }
+          ini = i;
+        }
+      }
+
+      const durFinal = pontos[pontos.length - 1].ts - pontos[ini].ts;
+      if (durFinal >= STOP_MIN_MS) {
+        criarMarcadorParada(id, pontos[ini], durFinal);
+      }
+    }
+
+    function criarMarcadorParada(equipeId, p, durMs) {
+      const min = Math.round(durMs / 60000);
+      const mk = L.circleMarker([p.lat, p.lng], {
+        radius: 8,
+        color: '#b91c1c',
+        weight: 2,
+        fillColor: '#ef4444',
+        fillOpacity: 0.85
+      }).bindPopup(`<b>${equipeId}</b><br>Parada > 20 min<br>Tempo: ${min} min<br>${new Date(p.ts).toLocaleTimeString('pt-BR')}`);
+
+      mk.addTo(paradasLayer);
+      const arr = paradasHoje.get(equipeId) || [];
+      arr.push(mk);
+      paradasHoje.set(equipeId, arr);
+    }
+
+    function focusEquipe(equipeId) {
+      equipeSelecionada = equipeId;
+      const m = markers.get(equipeId);
+      if (m) {
+        map.setView(m.getLatLng(), 16, { animate: true });
+        m.openPopup();
+      }
+      renderEquipesList();
+    }
+
+    function renderEquipesList() {
+      const ul = document.getElementById('equipesList');
+      ul.innerHTML = '';
+      const agora = Date.now();
+      const lista = Array.from(markers.keys()).sort();
+      if (!lista.length) {
+        ul.innerHTML = '<li style="opacity:0.5;cursor:default">Sem equipes ativas</li>';
+      }
+      for (const id of lista) {
+        const m = markers.get(id);
+        const ts = ultimoTs.get(id) || 0;
+        const ageMs = agora - ts;
+        const stale = ageMs > STALE_MS;
+        const ago = ageMs < 60000 ? `${Math.round(ageMs/1000)}s` : `${Math.round(ageMs/60000)}min`;
+        const li = document.createElement('li');
+        const val = equipeValidacao.get(id);
+        const badge = val ? (val.ok ? '✅' : '⚠️') : '•';
+        if (equipeSelecionada === id) li.classList.add('active');
+        if (stale) li.classList.add('stale');
+        li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${ago}</span>`;
+        li.onclick = () => focusEquipe(id);
+        ul.appendChild(li);
+        if (stale) m.setIcon(carIcon(true));
+      }
+      document.getElementById('stats').textContent = `${lista.length} equipe(s)`;
+      atualizarStatsPontos();
+    }
+    // Atualiza idade a cada 10s
+    setInterval(renderEquipesList, 10000);
+
+    // =========================================================================
+    // WebSocket
+    // =========================================================================
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${proto}://${location.host}`;
+    let ws;
+    let wsReconnectTimer = null;
+
+    function connectWs() {
+      ws = new WebSocket(wsUrl);
+      document.getElementById('liveDot').classList.add('off');
+      document.getElementById('wsStatus').textContent = 'conectando…';
+
+      ws.onopen = () => {
+        document.getElementById('liveDot').classList.remove('off');
+        document.getElementById('wsStatus').textContent = 'conectado';
+      };
+      ws.onmessage = (ev) => {
+        document.getElementById('lastMsg').textContent = new Date().toLocaleTimeString('pt-BR');
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
+          if (msg.type === 'position')  upsert(msg.data);
+        } catch (e) { console.warn('msg invalida:', e); }
+      };
+      ws.onclose = () => {
+        document.getElementById('liveDot').classList.add('off');
+        document.getElementById('wsStatus').textContent = 'desconectado — reconectando…';
+        clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = setTimeout(connectWs, 3000);
+      };
+      ws.onerror = () => { try { ws.close(); } catch (_) {} };
+    }
+    connectWs();
+
+    // =========================================================================
+    // Carrega lista de equipes (cadastro) e datas disponiveis
+    // =========================================================================
+    async function carregarEquipesCadastro() {
+      try {
+        const r = await fetch('/api/equipes');
+        const j = await r.json();
+        const sel = document.getElementById('pbEquipe');
+        sel.innerHTML = '<option value="">— Todas —</option>';
+        for (const e of (j.equipes || [])) {
+          const op = document.createElement('option');
+          op.value = e.equipeId;
+          op.textContent = `${e.equipeId} — ${e.nome}`;
+          sel.appendChild(op);
+        }
+      } catch (_) {}
+    }
+    async function carregarDatas() {
+      const inp = document.getElementById('pbDate');
+      const hoje = new Date().toISOString().slice(0, 10);
+      inp.value = hoje;
+      inp.max = hoje;
+      try {
+        const r = await fetch('/api/playback/datas');
+        const j = await r.json();
+        if (j.datas && j.datas.length) inp.min = j.datas[j.datas.length - 1];
+      } catch (_) {}
+    }
+    carregarEquipesCadastro();
+    carregarDatas();
+    carregarPontosPlanejados();
+    document.getElementById('filtroCidade').addEventListener('change', aplicarFiltroPontos);
+
+    async function carregarTrilhasHoje() {
+      try {
+        const hoje = new Date().toISOString().slice(0, 10);
+        const r = await fetch(`/api/playback?data=${encodeURIComponent(hoje)}`);
+        const j = await r.json();
+        if (!j.ok || !Array.isArray(j.posicoes)) return;
+        for (const p of j.posicoes) {
+          adicionarPontoTrilhaHoje(p);
+          marcarVisitaPorPosicao(p);
+        }
+      } catch (_) {}
+    }
+    carregarTrilhasHoje();
+
+    // =========================================================================
+    // Criacao de equipe/token
+    // =========================================================================
+    document.getElementById('btnGerarKey').addEventListener('click', async () => {
+      const equipeId = (document.getElementById('newEquipeId').value || '').trim().toUpperCase();
+      const nome = (document.getElementById('newEquipeNome').value || '').trim();
+      const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
+      const tokenBox = document.getElementById('tokenGerado');
+
+      if (!equipeId) {
+        alert('Informe o Equipe ID');
+        return;
+      }
+
+      const btn = document.getElementById('btnGerarKey');
+      btn.disabled = true;
+      btn.textContent = 'Gerando...';
+      tokenBox.classList.remove('visible');
+      tokenBox.textContent = '';
+
+      try {
+        const resp = await fetch('/api/equipes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {})
+          },
+          body: JSON.stringify({ equipeId, nome: nome || equipeId, ativo: true })
+        });
+        const json = await resp.json();
+        if (!json.ok) {
+          alert('Erro: ' + (json.error || 'falha ao gerar key'));
+          return;
+        }
+
+        const tok = json.equipe && json.equipe.token ? json.equipe.token : '';
+        tokenBox.textContent = `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | KEY: ${tok}`;
+        tokenBox.classList.add('visible');
+
+        try {
+          await navigator.clipboard.writeText(tok);
+          alert('KEY gerada e copiada para a area de transferencia.');
+        } catch (_) {
+          alert('KEY gerada. Copie manualmente no painel.');
+        }
+
+        document.getElementById('newEquipeId').value = '';
+        document.getElementById('newEquipeNome').value = '';
+        await carregarEquipesCadastro();
+      } catch (e) {
+        alert('Falha ao criar equipe: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Gerar key';
+      }
+    });
+
+    async function acaoEquipe(path, method = 'POST', body = null) {
+      const equipeId = (document.getElementById('newEquipeId').value || '').trim().toUpperCase();
+      const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
+      const tokenBox = document.getElementById('tokenGerado');
+      if (!equipeId) {
+        alert('Informe o Equipe ID');
+        return;
+      }
+      const resp = await fetch(path.replace(':id', encodeURIComponent(equipeId)), {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {})
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const json = await resp.json();
+      if (!json.ok) {
+        alert('Erro: ' + (json.error || 'falha na operacao'));
+        return null;
+      }
+      tokenBox.textContent = json.equipe.token
+        ? `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | KEY: ${json.equipe.token}`
+        : `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | Ativo: ${json.equipe.ativo ? 'SIM' : 'NAO'}`;
+      tokenBox.classList.add('visible');
+      await carregarEquipesCadastro();
+      return json;
+    }
+
+    document.getElementById('btnRegenerarKey').addEventListener('click', async () => {
+      const out = await acaoEquipe('/api/equipes/:id/regenerar-token', 'POST');
+      if (out && out.equipe && out.equipe.token) {
+        try { await navigator.clipboard.writeText(out.equipe.token); } catch (_) {}
+      }
+    });
+
+    document.getElementById('btnDesativarEquipe').addEventListener('click', async () => {
+      await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: false });
+    });
+
+    document.getElementById('btnAtivarEquipe').addEventListener('click', async () => {
+      await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: true });
+    });
+
+    // =========================================================================
+    // Playback
+    // =========================================================================
+    document.getElementById('btnPlayback').addEventListener('click', async () => {
+      const data = document.getElementById('pbDate').value;
+      const equipeId = document.getElementById('pbEquipe').value;
+      if (!data) { alert('Selecione uma data'); return; }
+
+      limparPlayback();
+
+      const url = `/api/playback?data=${encodeURIComponent(data)}` + (equipeId ? `&equipeId=${encodeURIComponent(equipeId)}` : '');
+      const btn = document.getElementById('btnPlayback');
+      btn.textContent = 'Carregando…'; btn.disabled = true;
+      try {
+        const r = await fetch(url);
+        const j = await r.json();
+        if (!j.ok) { alert('Erro: ' + j.error); return; }
+        desenharPlayback(j.posicoes, data, equipeId);
+      } catch (e) {
+        alert('Falha no fetch: ' + e.message);
+      } finally {
+        btn.textContent = 'Mostrar rota'; btn.disabled = false;
+      }
+    });
+
+    document.getElementById('btnLimparPlayback').addEventListener('click', limparPlayback);
+
+    function limparPlayback() {
+      if (playbackLayer) { map.removeLayer(playbackLayer); playbackLayer = null; }
+      document.getElementById('playbackInfo').classList.remove('visible');
+      document.getElementById('playbackInfo').innerHTML = '';
+    }
+
+    function desenharPlayback(posicoes, data, equipeId) {
+      if (!posicoes || !posicoes.length) {
+        document.getElementById('playbackInfo').classList.add('visible');
+        document.getElementById('playbackInfo').innerHTML = `<span class="label">Nenhuma posicao em</span> <span class="val">${data}</span>`;
+        return;
+      }
+
+      const grupo = L.layerGroup().addTo(map);
+
+      // Agrupa por equipe quando equipeId == ''
+      const porEquipe = new Map();
+      for (const p of posicoes) {
+        if (!porEquipe.has(p.equipeId)) porEquipe.set(p.equipeId, []);
+        porEquipe.get(p.equipeId).push(p);
+      }
+
+      const cores = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
+      let i = 0;
+      const bounds = [];
+
+      for (const [id, pontos] of porEquipe) {
+        const cor = cores[i++ % cores.length];
+        const latlngs = pontos.map(p => [p.lat, p.lng]);
+        L.polyline(latlngs, { color: cor, weight: 4, opacity: 0.75 }).addTo(grupo);
+
+        const inicio = pontos[0];
+        const fim    = pontos[pontos.length - 1];
+
+        L.circleMarker([inicio.lat, inicio.lng], { radius: 7, color: '#22c55e', weight: 2, fillColor: '#22c55e', fillOpacity: 0.9 })
+          .bindPopup(`<b>${id}</b><br>Inicio: ${new Date(inicio.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
+
+        L.circleMarker([fim.lat, fim.lng], { radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.9 })
+          .bindPopup(`<b>${id}</b><br>Fim: ${new Date(fim.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
+
+        bounds.push(...latlngs);
+      }
+
+      if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+
+      playbackLayer = grupo;
+
+      // Calcula distancia aproximada (Haversine) so para a equipe filtrada
+      const filtro = equipeId ? porEquipe.get(equipeId) : null;
+      let dist = 0;
+      if (filtro) {
+        for (let k = 1; k < filtro.length; k++) {
+          dist += haversine(filtro[k-1], filtro[k]);
+        }
+      }
+
+      const info = document.getElementById('playbackInfo');
+      info.classList.add('visible');
+      info.innerHTML = `
+        <div><span class="label">Data:</span> <span class="val">${data}</span></div>
+        <div><span class="label">Equipes:</span> <span class="val">${porEquipe.size}</span></div>
+        <div><span class="label">Pontos:</span> <span class="val">${posicoes.length}</span></div>
+        ${filtro ? `<div><span class="label">Distancia (${equipeId}):</span> <span class="val">${dist.toFixed(2)} km</span></div>` : ''}
+      `;
+    }
+
+    function haversine(a, b) {
+      const R = 6371; // km
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+      const h = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+    }
+
+    // =========================================================================
+    // Sidebar toggle mobile
+    // =========================================================================
+    document.body.classList.add('sidebar-collapsed');
+    const unlockAudio = () => { audioAlertEnabled = true; document.removeEventListener('click', unlockAudio, true); document.removeEventListener('touchend', unlockAudio, true); };
+    document.addEventListener('click', unlockAudio, true);
+    document.addEventListener('touchend', unlockAudio, true);
+    document.getElementById('toggleSidebar').addEventListener('click', () => {
+      if (window.innerWidth <= 720) {
+        document.getElementById('sidebar').classList.toggle('open');
+        return;
+      }
+      document.body.classList.toggle('sidebar-collapsed');
+    });
+  </script>
+</body>
+</html>

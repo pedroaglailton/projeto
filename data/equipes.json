@@ -1,0 +1,16 @@
+{
+  "equipes": [
+    {
+      "equipeId": "EQUIPE-01",
+      "nome": "Equipe 01",
+      "token": "a44b44021c0c766c0dd9e8f67e1919fae42b54282a501fd7d8e71a72edea8232",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-03",
+      "nome": "PEDRO / JOÃO",
+      "token": "b6afa77ff573a43475677e1d57983cd8dedfbb6599b3c9d1980f102b53abdb83",
+      "ativo": true
+    }
+  ]
+}

@@ -305,6 +305,7 @@
     const alertaAproximacao = new Map();
     const equipesProximas = new Map(); // equipeId -> { equipeNome, pontoNome, dist, ts }
     const equipeValidacao = new Map(); // equipeId -> { ok, pontoNome, dist, ts }
+    const moveAnim = new Map(); // equipeId -> { raf }
     let modalTimer = null;
     let audioAlertEnabled = false;
     let playbackLayer = null;    // L.LayerGroup do playback atual
@@ -317,6 +318,43 @@
         html: `<div class="car-marker${stale ? ' stale' : ''}">🚗</div>`,
         iconSize: [34, 34], iconAnchor: [17, 17]
       });
+    }
+
+    function animateMarkerMove(equipeId, marker, toLat, toLng, durationMs = 1200) {
+      const prev = moveAnim.get(equipeId);
+      if (prev && prev.raf) {
+        try { cancelAnimationFrame(prev.raf); } catch (_) {}
+      }
+
+      const from = marker.getLatLng();
+      const startLat = from.lat;
+      const startLng = from.lng;
+      const dLat = toLat - startLat;
+      const dLng = toLng - startLng;
+      const startTs = performance.now();
+
+      if (Math.abs(dLat) < 1e-8 && Math.abs(dLng) < 1e-8) {
+        marker.setLatLng([toLat, toLng]);
+        return;
+      }
+
+      function step(ts) {
+        const t = Math.min(1, (ts - startTs) / durationMs);
+        // ease-out suave para estilo "Uber"
+        const eased = 1 - Math.pow(1 - t, 3);
+        const lat = startLat + dLat * eased;
+        const lng = startLng + dLng * eased;
+        marker.setLatLng([lat, lng]);
+        if (t < 1) {
+          const raf = requestAnimationFrame(step);
+          moveAnim.set(equipeId, { raf });
+        } else {
+          moveAnim.delete(equipeId);
+        }
+      }
+
+      const raf = requestAnimationFrame(step);
+      moveAnim.set(equipeId, { raf });
     }
 
     function upsert(reg) {
@@ -336,7 +374,8 @@
         markers.set(reg.equipeId, m);
       } else {
         const m = markers.get(reg.equipeId);
-        m.setLatLng([reg.lat, reg.lng]).setPopupContent(txt);
+        animateMarkerMove(reg.equipeId, m, reg.lat, reg.lng, 1200);
+        m.setPopupContent(txt);
         m.setTooltipContent(reg.equipeNome);
         m.setIcon(carIcon(false));
       }

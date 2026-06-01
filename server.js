@@ -323,6 +323,18 @@ app.get('/api/playback/datas', (_req, res) => {
 // ============================================================================
 // Paginas
 // ============================================================================
+app.get('/', (_req, res) => {
+  res.type('text/html').send(
+    '<!doctype html><html><head><meta charset="utf-8"><title>Preventiva API</title></head><body style="font-family:Arial,sans-serif;padding:24px">' +
+    '<h2>CAMCONTROL PREVENTIVA-CE API online</h2>' +
+    '<p>Endpoints principais:</p>' +
+    '<ul>' +
+    '<li><a href="/api/status">/api/status</a></li>' +
+    '<li><a href="/noc">/noc</a></li>' +
+    '</ul>' +
+    '</body></html>'
+  );
+});
 app.get('/noc',     (_req, res) => res.sendFile(path.join(nocRoot, 'noc.html')));
 app.get('/tracker', (_req, res) => res.sendFile(path.join(nocRoot, 'tracker.html')));
 

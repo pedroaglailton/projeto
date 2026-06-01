@@ -59,6 +59,12 @@
       "nome": "CLAUDIO/ROMULO",
       "token": "88b1cd1a349e82a84a24d3bb20692767386a5d232333005a58b234670c83f08b",
       "ativo": true
+    },
+    {
+      "equipeId": "TESTE",
+      "nome": "pedro",
+      "token": "06859766499dc67b86d4e762dad1b483b363e2e94770a7b18174348103d1c253",
+      "ativo": true
     }
   ]
 }

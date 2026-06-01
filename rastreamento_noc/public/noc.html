@@ -229,6 +229,8 @@
         <select id="pbEquipe"><option value="">— Todas —</option></select>
         <button id="btnPlayback">Mostrar rota</button>
         <button id="btnLimparPlayback" class="ghost">Limpar rota</button>
+        <button id="btnToggleTrilhaDia" class="ghost">Ocultar trilha do dia</button>
+        <button id="btnLimparTrilhaDia" class="ghost">Limpar trilha da tela</button>
       </div>
 
       <div class="section">
@@ -311,6 +313,7 @@
     let playbackLayer = null;    // L.LayerGroup do playback atual
     let equipeSelecionada = null;
     const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
+    let trilhaDiaVisivel = true;
 
     function carIcon(stale = false) {
       return L.divIcon({
@@ -608,6 +611,26 @@
       t.pontos.push(ponto);
       t.polyline.setLatLngs(t.latlngs);
       recalcularParadasEquipe(id);
+    }
+
+    function toggleTrilhaDia() {
+      trilhaDiaVisivel = !trilhaDiaVisivel;
+      if (trilhaDiaVisivel) {
+        if (!map.hasLayer(trilhasLayer)) trilhasLayer.addTo(map);
+      } else {
+        if (map.hasLayer(trilhasLayer)) map.removeLayer(trilhasLayer);
+      }
+      const btn = document.getElementById('btnToggleTrilhaDia');
+      if (btn) btn.textContent = trilhaDiaVisivel ? 'Ocultar trilha do dia' : 'Mostrar trilha do dia';
+    }
+
+    function limparTrilhaDiaTela() {
+      if (map.hasLayer(trilhasLayer)) map.removeLayer(trilhasLayer);
+      trilhasLayer = L.layerGroup().addTo(map);
+      trilhasHoje.clear();
+      const btn = document.getElementById('btnToggleTrilhaDia');
+      if (btn) btn.textContent = 'Ocultar trilha do dia';
+      trilhaDiaVisivel = true;
     }
 
     function limparParadasEquipe(id) {
@@ -909,6 +932,8 @@
     });
 
     document.getElementById('btnLimparPlayback').addEventListener('click', limparPlayback);
+    document.getElementById('btnToggleTrilhaDia').addEventListener('click', toggleTrilhaDia);
+    document.getElementById('btnLimparTrilhaDia').addEventListener('click', limparTrilhaDiaTela);
 
     function limparPlayback() {
       if (playbackLayer) { map.removeLayer(playbackLayer); playbackLayer = null; }

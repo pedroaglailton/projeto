@@ -356,7 +356,7 @@
         const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
         if (!melhor || d < melhor.dist) melhor = { pontoNome: p.nome || (`PONTO ${p.id}`), dist: d };
       }
-      const ok = !!(melhor && melhor.dist <= 50);
+      const ok = !!(melhor && melhor.dist <= 100);
       equipeValidacao.set(reg.equipeId, { ok, pontoNome: melhor ? melhor.pontoNome : '-', dist: melhor ? melhor.dist : Infinity, ts: reg.ts || Date.now() });
       return ok ? melhor : null;
     }
@@ -407,7 +407,7 @@
     }
 
     function marcarVisitaPorPosicao(reg) {
-      const RAIO_VISITA_M = 50;
+      const RAIO_VISITA_M = 100;
       for (const p of pontosPlanejados) {
         if (pontosVisitados.has(p.id)) continue;
         const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);

@@ -7,7 +7,7 @@ const fs   = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DEFAULT_PATH = path.join(__dirname, '..', 'data', 'equipes.json');
+const DEFAULT_PATH = path.join(__dirname, 'data', 'equipes.json');
 
 class EquipesStore {
   constructor(filePath = DEFAULT_PATH) {

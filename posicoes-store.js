@@ -9,7 +9,7 @@ const fs   = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const POSICOES_DIR = path.join(__dirname, '..', 'data', 'posicoes');
+const POSICOES_DIR = path.join(__dirname, 'data', 'posicoes');
 
 function todayStr(d = new Date()) {
   // YYYY-MM-DD em horario local

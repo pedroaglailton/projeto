@@ -39,10 +39,10 @@ const posicoesStore = new PosicoesStore();
 const requireAuth = authMiddleware(equipesStore);
 
 // ----- Paths estaticos -----
-const pwaRoot = path.join(__dirname, '..');
-const nocRoot = path.join(__dirname, '..', 'rastreamento_noc', 'public');
-const producaoDir = path.join(__dirname, '..', 'data', 'producao');
-const producaoEquipesDir = path.join(__dirname, '..', 'data', 'producao_equipes');
+const pwaRoot = path.join(__dirname);
+const nocRoot = path.join(__dirname, 'rastreamento_noc', 'public');
+const producaoDir = path.join(__dirname, 'data', 'producao');
+const producaoEquipesDir = path.join(__dirname, 'data', 'producao_equipes');
 fs.mkdirSync(producaoDir, { recursive: true });
 fs.mkdirSync(producaoEquipesDir, { recursive: true });
 

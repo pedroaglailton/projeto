@@ -1,3 +1,40 @@
 {
-  "equipes": [ ]
+  "equipes": [
+    {
+      "equipeId": "EQUIPE-01",
+      "nome": "GENEGLEISON E JEFFER",
+      "token": "df086cc5ea2fee6c23744bff2b542a04ae0e9fc701fedc1a37ba04f6c228bcfc",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-01-12X36",
+      "nome": "CAUA/ALYSSON",
+      "token": "27f9d7677020213667e3e4e6a5e958fe951a7a9167bd3d1cbf2dd26de5a118af",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-02-12X36",
+      "nome": "SERGIO/REGIS",
+      "token": "2767c89bcca467de145dd1805d5a3013012a7cbb369b9d22bbbd1b8cece10cba",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-02",
+      "nome": "JONHY/FELIPE",
+      "token": "6a9ecf61a3cc782d28ce5a3a560d66302fc6f758371131a6473031522202b6a8",
+      "ativo": true
+    },
+    {
+      "equipeId": "CAMINHAO-01",
+      "nome": "HELIO/ANDREW/BRENO",
+      "token": "d922ea4bd1f1f3868aed5e573fae5a2e0652fcd27117a52d369d8077f9bccd5f",
+      "ativo": true
+    },
+    {
+      "equipeId": "CAMINHAO-02",
+      "nome": "JAILSON/ANDREW/BRENO",
+      "token": "db7928e9f8a93c7e9174636303b8f0ebf46b34a0615ed8b9b2c9eb07cb6547a1",
+      "ativo": true
+    }
+  ]
 }

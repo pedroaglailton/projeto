@@ -35,6 +35,30 @@
       "nome": "JAILSON/ANDREW/BRENO",
       "token": "db7928e9f8a93c7e9174636303b8f0ebf46b34a0615ed8b9b2c9eb07cb6547a1",
       "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-ITAPIPOCA",
+      "nome": "JONATHA/KAIO",
+      "token": "f2efddba75523740b56ffce271d5e9c9548f100645c892c70fa0075c904ca54e",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-JUAZEIRO",
+      "nome": "MARCELO/JOCIAS",
+      "token": "8160f31bd84c96b3a8fe49eca631ccc00aeb017f656bf370f965c69497be019f",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-IPUEIRAS",
+      "nome": "RENAN/DANIEL",
+      "token": "d2f68581ffe160a445708bba29b32186ef3dc96526d71de8bd1298ba37cb89de",
+      "ativo": true
+    },
+    {
+      "equipeId": "EQUIPE-QUIXADA",
+      "nome": "CLAUDIO/ROMULO",
+      "token": "88b1cd1a349e82a84a24d3bb20692767386a5d232333005a58b234670c83f08b",
+      "ativo": true
     }
   ]
 }

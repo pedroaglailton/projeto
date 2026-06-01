@@ -20,6 +20,11 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 47890;
 const HOST = process.env.HOST || (process.env.BEHIND_PROXY === '1' ? '127.0.0.1' : '0.0.0.0');
 const NOC_ADMIN_KEY = (process.env.NOC_ADMIN_KEY || '').trim();
+const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
+const GITHUB_OWNER = (process.env.GITHUB_OWNER || '').trim();
+const GITHUB_REPO = (process.env.GITHUB_REPO || '').trim();
+const GITHUB_BRANCH = (process.env.GITHUB_BRANCH || 'main').trim();
+const EQUIPES_FILE_ABS = path.join(__dirname, 'data', 'equipes.json');
 
 function checkAdminKey(req, res) {
   if (!NOC_ADMIN_KEY) return true;
@@ -29,6 +34,51 @@ function checkAdminKey(req, res) {
     return false;
   }
   return true;
+}
+
+async function syncEquipesJsonToGitHub(reason = 'update equipes via NOC') {
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return { ok: false, skipped: true, reason: 'github env vars ausentes' };
+  }
+
+  const filePath = 'data/equipes.json';
+  const contentRaw = fs.readFileSync(EQUIPES_FILE_ABS, 'utf8');
+  const encoded = Buffer.from(contentRaw, 'utf8').toString('base64');
+  const headers = {
+    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+    'Accept': 'application/vnd.github+json',
+    'User-Agent': 'preventiva-render-sync'
+  };
+
+  let sha = null;
+  const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
+  try {
+    const rGet = await fetch(getUrl, { headers });
+    if (rGet.ok) {
+      const j = await rGet.json();
+      sha = j.sha || null;
+    }
+  } catch (_) {}
+
+  const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
+  const payload = {
+    message: reason,
+    content: encoded,
+    branch: GITHUB_BRANCH,
+    sha: sha || undefined
+  };
+
+  const rPut = await fetch(putUrl, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!rPut.ok) {
+    const txt = await rPut.text();
+    throw new Error(`GitHub sync falhou (${rPut.status}): ${txt}`);
+  }
+  return { ok: true };
 }
 
 app.set('trust proxy', 'loopback');
@@ -260,7 +310,7 @@ app.post('/api/equipes', (req, res) => {
   const { equipeId, nome, ativo = true } = req.body || {};
   try {
     const criada = equipesStore.createEquipe({ equipeId, nome, ativo });
-    res.status(201).json({
+    const out = {
       ok: true,
       equipe: {
         equipeId: criada.equipeId,
@@ -268,7 +318,11 @@ app.post('/api/equipes', (req, res) => {
         ativo: criada.ativo,
         token: criada.token
       }
-    });
+    };
+    syncEquipesJsonToGitHub(`add equipe ${criada.equipeId} via NOC`)
+      .then(r => { if (r.ok) console.log(`[github] equipes.json sync OK (${criada.equipeId})`); })
+      .catch(err => console.warn('[github] sync falhou:', err.message));
+    res.status(201).json(out);
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
@@ -279,6 +333,9 @@ app.post('/api/equipes/:equipeId/regenerar-token', (req, res) => {
   if (!checkAdminKey(req, res)) return;
   try {
     const equipe = equipesStore.regenerateToken(req.params.equipeId);
+    syncEquipesJsonToGitHub(`regenerate token ${equipe.equipeId} via NOC`)
+      .then(r => { if (r.ok) console.log(`[github] equipes.json sync OK (${equipe.equipeId})`); })
+      .catch(err => console.warn('[github] sync falhou:', err.message));
     res.json({ ok: true, equipe });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -291,6 +348,9 @@ app.patch('/api/equipes/:equipeId/ativo', (req, res) => {
   const ativo = !!(req.body && req.body.ativo);
   try {
     const equipe = equipesStore.setEquipeAtiva(req.params.equipeId, ativo);
+    syncEquipesJsonToGitHub(`set ativo=${equipe.ativo} ${equipe.equipeId} via NOC`)
+      .then(r => { if (r.ok) console.log(`[github] equipes.json sync OK (${equipe.equipeId})`); })
+      .catch(err => console.warn('[github] sync falhou:', err.message));
     res.json({ ok: true, equipe });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });

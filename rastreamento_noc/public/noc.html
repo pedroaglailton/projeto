@@ -312,7 +312,7 @@
     let audioAlertEnabled = false;
     let playbackLayer = null;    // L.LayerGroup do playback atual
     let equipeSelecionada = null;
-    const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
+    const STALE_MS = 45 * 1000;  // se >45s sem update, equipe vira "stale" (mais sensivel)
     let trilhaDiaVisivel = true;
 
     function carIcon(stale = false) {

@@ -18,3 +18,16 @@ No GitHub, crie um token (fine-grained) com acesso ao repositório `projeto` e p
 - Ao criar equipe (`POST /api/equipes`), o backend salva local e tenta commitar `data/equipes.json` no GitHub.
 - Ao regenerar token e ativar/desativar equipe, também sincroniza.
 - Se sincronização falhar, o NOC continua respondendo e o erro aparece no log do Render.
+
+## Historico de locais e producao
+
+Para sincronizar tambem historico diario no GitHub, use:
+
+- `GITHUB_SYNC_HISTORY=1` (default)
+
+Arquivos sincronizados por lote (debounce):
+
+- `data/posicoes/YYYY-MM-DD.jsonl`
+- `data/producao/YYYY-MM-DD.jsonl`
+- `data/producao_equipes/<EQUIPE>/YYYY-MM-DD.txt`
+- `data/producao_equipes/<EQUIPE>/YYYY-MM-DD.xml`

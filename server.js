@@ -24,7 +24,9 @@ const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
 const GITHUB_OWNER = (process.env.GITHUB_OWNER || '').trim();
 const GITHUB_REPO = (process.env.GITHUB_REPO || '').trim();
 const GITHUB_BRANCH = (process.env.GITHUB_BRANCH || 'main').trim();
+const GITHUB_SYNC_HISTORY = (process.env.GITHUB_SYNC_HISTORY || '1').trim() === '1';
 const EQUIPES_FILE_ABS = path.join(__dirname, 'data', 'equipes.json');
+const syncTimers = new Map();
 
 function checkAdminKey(req, res) {
   if (!NOC_ADMIN_KEY) return true;
@@ -79,6 +81,70 @@ async function syncEquipesJsonToGitHub(reason = 'update equipes via NOC') {
     throw new Error(`GitHub sync falhou (${rPut.status}): ${txt}`);
   }
   return { ok: true };
+}
+
+async function syncLocalFileToGitHub(relativePath, reason = 'sync file') {
+  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
+    return { ok: false, skipped: true, reason: 'github env vars ausentes' };
+  }
+
+  const absPath = path.join(__dirname, relativePath);
+  if (!fs.existsSync(absPath)) return { ok: false, skipped: true, reason: 'arquivo nao existe' };
+
+  const contentRaw = fs.readFileSync(absPath, 'utf8');
+  const encoded = Buffer.from(contentRaw, 'utf8').toString('base64');
+  const headers = {
+    'Authorization': `Bearer ${GITHUB_TOKEN}`,
+    'Accept': 'application/vnd.github+json',
+    'User-Agent': 'preventiva-render-sync'
+  };
+
+  let sha = null;
+  const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${relativePath}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
+  try {
+    const rGet = await fetch(getUrl, { headers });
+    if (rGet.ok) {
+      const j = await rGet.json();
+      sha = j.sha || null;
+    }
+  } catch (_) {}
+
+  const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${relativePath}`;
+  const payload = {
+    message: reason,
+    content: encoded,
+    branch: GITHUB_BRANCH,
+    sha: sha || undefined
+  };
+
+  const rPut = await fetch(putUrl, {
+    method: 'PUT',
+    headers: { ...headers, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!rPut.ok) {
+    const txt = await rPut.text();
+    throw new Error(`GitHub sync falhou (${rPut.status}) ${relativePath}: ${txt}`);
+  }
+  return { ok: true };
+}
+
+function scheduleGitHubFileSync(relativePath, reason, delayMs = 60000) {
+  if (!GITHUB_SYNC_HISTORY) return;
+  const old = syncTimers.get(relativePath);
+  if (old) clearTimeout(old);
+  const t = setTimeout(async () => {
+    try {
+      await syncLocalFileToGitHub(relativePath, reason);
+      console.log(`[github] sync OK ${relativePath}`);
+    } catch (err) {
+      console.warn('[github] sync falhou:', err.message);
+    } finally {
+      syncTimers.delete(relativePath);
+    }
+  }, Math.max(5000, delayMs));
+  syncTimers.set(relativePath, t);
 }
 
 app.set('trust proxy', 'loopback');
@@ -247,6 +313,10 @@ app.post('/api/posicao', requireAuth, (req, res) => {
   };
 
   posicoesStore.append(registro);
+  if (GITHUB_SYNC_HISTORY) {
+    const d = todayStr(new Date(registro.ts || Date.now()));
+    scheduleGitHubFileSync(`data/posicoes/${d}.jsonl`, `sync posicoes ${d}`, 45000);
+  }
   broadcast({ type: 'position', data: registro });
   res.json({ ok: true });
 });
@@ -269,6 +339,13 @@ app.post('/api/producao', requireAuth, (req, res) => {
   if (!reg.pontoNumero) return res.status(400).json({ ok: false, error: 'pontoNumero obrigatorio' });
   appendProducao(reg);
   writeEquipeDiaArquivos(reg);
+  if (GITHUB_SYNC_HISTORY) {
+    const d = todayStr(new Date(reg.ts || Date.now()));
+    const equipeSafe = safeName(reg.equipeId);
+    scheduleGitHubFileSync(`data/producao/${d}.jsonl`, `sync producao ${d}`, 45000);
+    scheduleGitHubFileSync(`data/producao_equipes/${equipeSafe}/${d}.txt`, `sync producao txt ${equipeSafe} ${d}`, 60000);
+    scheduleGitHubFileSync(`data/producao_equipes/${equipeSafe}/${d}.xml`, `sync producao xml ${equipeSafe} ${d}`, 60000);
+  }
   broadcast({ type: 'production', data: reg });
   res.json({ ok: true });
 });

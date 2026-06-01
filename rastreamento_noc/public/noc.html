@@ -950,16 +950,27 @@
     // =========================================================================
     // Sidebar toggle mobile
     // =========================================================================
+    function refreshMapSize() {
+      try {
+        map.invalidateSize();
+      } catch (_) {}
+    }
+
     document.body.classList.add('sidebar-collapsed');
+    setTimeout(refreshMapSize, 120);
+    window.addEventListener('resize', () => setTimeout(refreshMapSize, 60));
+
     const unlockAudio = () => { audioAlertEnabled = true; document.removeEventListener('click', unlockAudio, true); document.removeEventListener('touchend', unlockAudio, true); };
     document.addEventListener('click', unlockAudio, true);
     document.addEventListener('touchend', unlockAudio, true);
     document.getElementById('toggleSidebar').addEventListener('click', () => {
       if (window.innerWidth <= 720) {
         document.getElementById('sidebar').classList.toggle('open');
+        setTimeout(refreshMapSize, 160);
         return;
       }
       document.body.classList.toggle('sidebar-collapsed');
+      setTimeout(refreshMapSize, 220);
     });
   </script>
 </body>

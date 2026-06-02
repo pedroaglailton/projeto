@@ -329,30 +329,26 @@
     function carIcon(stale = false) {
       const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="carGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#f8fafc"/>
-            <stop offset="50%" stop-color="#ffffff"/>
-            <stop offset="100%" stop-color="#e2e8f0"/>
+          <linearGradient id="carGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#3b82f6"/>
+            <stop offset="50%" stop-color="#2563eb"/>
+            <stop offset="100%" stop-color="#1d4ed8"/>
           </linearGradient>
-          <linearGradient id="winGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#0f172a"/>
-            <stop offset="50%" stop-color="#1e293b"/>
-            <stop offset="100%" stop-color="#0f172a"/>
+          <linearGradient id="winGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#1e3a8a"/>
+            <stop offset="100%" stop-color="#1e293b"/>
           </linearGradient>
         </defs>
-        <ellipse cx="50" cy="12" rx="12" ry="5" fill="#dc2626" opacity="0.85"/>
-        <ellipse cx="50" cy="88" rx="10" ry="4" fill="#fef2f2" opacity="0.9" stroke="#cbd5e1" stroke-width="0.5"/>
-        <path class="car-body" d="M 30 22 Q 30 18 35 16 L 65 16 Q 70 18 70 22 L 73 35 Q 75 40 75 45 L 75 65 Q 75 70 73 75 L 70 80 Q 70 84 65 84 L 35 84 Q 30 84 30 80 L 27 75 Q 25 70 25 65 L 25 45 Q 25 40 27 35 Z" fill="url(#carGrad)" stroke="#475569" stroke-width="1.2"/>
-        <path class="car-cabin" d="M 35 30 Q 35 26 40 26 L 60 26 Q 65 26 65 30 L 68 38 Q 70 42 70 46 L 70 58 Q 70 62 68 64 L 32 64 Q 30 62 30 58 L 30 46 Q 30 42 32 38 Z" fill="url(#winGrad)"/>
-        <rect x="40" y="28" width="20" height="3" rx="1" fill="#94a3b8" opacity="0.4"/>
-        <rect x="35" y="60" width="30" height="2" rx="1" fill="#94a3b8" opacity="0.3"/>
-        <line x1="50" y1="26" x2="50" y2="38" stroke="#64748b" stroke-width="0.8" opacity="0.5"/>
-        <line x1="50" y1="50" x2="50" y2="64" stroke="#64748b" stroke-width="0.8" opacity="0.5"/>
-        <line x1="30" y1="46" x2="70" y2="46" stroke="#64748b" stroke-width="0.6" opacity="0.3"/>
-        <rect x="28" y="32" width="3" height="10" rx="1" fill="#f1f5f9" stroke="#94a3b8" stroke-width="0.4"/>
-        <rect x="69" y="32" width="3" height="10" rx="1" fill="#f1f5f9" stroke="#94a3b8" stroke-width="0.4"/>
-        <rect x="28" y="58" width="3" height="10" rx="1" fill="#f1f5f9" stroke="#94a3b8" stroke-width="0.4"/>
-        <rect x="69" y="58" width="3" height="10" rx="1" fill="#f1f5f9" stroke="#94a3b8" stroke-width="0.4"/>
+        <path d="M 30 22 Q 30 18 35 16 L 65 16 Q 70 18 70 22 L 73 35 Q 75 40 75 45 L 75 65 Q 75 70 73 75 L 70 80 Q 70 84 65 84 L 35 84 Q 30 84 30 80 L 27 75 Q 25 70 25 65 L 25 45 Q 25 40 27 35 Z" fill="url(#carGrad)" stroke="#0c1e3e" stroke-width="1.4"/>
+        <path d="M 35 32 Q 35 28 40 28 L 60 28 Q 65 28 65 32 L 68 40 Q 70 44 70 48 L 70 56 Q 70 60 68 62 L 32 62 Q 30 60 30 56 L 30 48 Q 30 44 32 40 Z" fill="url(#winGrad)"/>
+        <line x1="50" y1="28" x2="50" y2="40" stroke="#0f172a" stroke-width="1" opacity="0.7"/>
+        <line x1="50" y1="50" x2="50" y2="62" stroke="#0f172a" stroke-width="1" opacity="0.7"/>
+        <line x1="30" y1="48" x2="70" y2="48" stroke="#0f172a" stroke-width="0.7" opacity="0.5"/>
+        <rect x="27" y="34" width="3" height="9" rx="1" fill="#dbeafe" stroke="#1e3a8a" stroke-width="0.4"/>
+        <rect x="70" y="34" width="3" height="9" rx="1" fill="#dbeafe" stroke="#1e3a8a" stroke-width="0.4"/>
+        <rect x="27" y="56" width="3" height="9" rx="1" fill="#fbbf24" stroke="#92400e" stroke-width="0.4"/>
+        <rect x="70" y="56" width="3" height="9" rx="1" fill="#fbbf24" stroke="#92400e" stroke-width="0.4"/>
+        <polygon points="50,8 56,20 53,20 53,26 47,26 47,20 44,20" fill="#fbbf24" stroke="#78350f" stroke-width="0.4"/>
       </svg>`;
       return L.divIcon({
         className: '',

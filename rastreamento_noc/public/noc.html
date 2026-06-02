@@ -111,10 +111,11 @@
 
     #map { width: 100%; height: 100%; }
     .car-marker {
-      width: 44px; height: 44px;
+      width: 44px; height: 88px;
       background: transparent;
       display: flex; align-items: center; justify-content: center;
       will-change: transform;
+      transform-origin: center center;
       filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.55));
     }
     .car-marker svg { width: 40px; height: 40px; display: block; }
@@ -327,33 +328,11 @@
     const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
 
     function carIcon(stale = false) {
-      const svg = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="carGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#3b82f6"/>
-            <stop offset="50%" stop-color="#2563eb"/>
-            <stop offset="100%" stop-color="#1d4ed8"/>
-          </linearGradient>
-          <linearGradient id="winGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#1e3a8a"/>
-            <stop offset="100%" stop-color="#1e293b"/>
-          </linearGradient>
-        </defs>
-        <path d="M 30 22 Q 30 18 35 16 L 65 16 Q 70 18 70 22 L 73 35 Q 75 40 75 45 L 75 65 Q 75 70 73 75 L 70 80 Q 70 84 65 84 L 35 84 Q 30 84 30 80 L 27 75 Q 25 70 25 65 L 25 45 Q 25 40 27 35 Z" fill="url(#carGrad)" stroke="#0c1e3e" stroke-width="1.4"/>
-        <path d="M 35 32 Q 35 28 40 28 L 60 28 Q 65 28 65 32 L 68 40 Q 70 44 70 48 L 70 56 Q 70 60 68 62 L 32 62 Q 30 60 30 56 L 30 48 Q 30 44 32 40 Z" fill="url(#winGrad)"/>
-        <line x1="50" y1="28" x2="50" y2="40" stroke="#0f172a" stroke-width="1" opacity="0.7"/>
-        <line x1="50" y1="50" x2="50" y2="62" stroke="#0f172a" stroke-width="1" opacity="0.7"/>
-        <line x1="30" y1="48" x2="70" y2="48" stroke="#0f172a" stroke-width="0.7" opacity="0.5"/>
-        <rect x="27" y="34" width="3" height="9" rx="1" fill="#dbeafe" stroke="#1e3a8a" stroke-width="0.4"/>
-        <rect x="70" y="34" width="3" height="9" rx="1" fill="#dbeafe" stroke="#1e3a8a" stroke-width="0.4"/>
-        <rect x="27" y="56" width="3" height="9" rx="1" fill="#fbbf24" stroke="#92400e" stroke-width="0.4"/>
-        <rect x="70" y="56" width="3" height="9" rx="1" fill="#fbbf24" stroke="#92400e" stroke-width="0.4"/>
-        <polygon points="50,8 56,20 53,20 53,26 47,26 47,20 44,20" fill="#fbbf24" stroke="#78350f" stroke-width="0.4"/>
-      </svg>`;
+      const svg = `<img src="car-topdown.svg" style="width:100%;height:100%;display:block;pointer-events:none;transform-origin:center;"/>`;
       return L.divIcon({
         className: '',
         html: `<div class="car-marker${stale ? ' stale' : ''}">${svg}</div>`,
-        iconSize: [44, 44], iconAnchor: [22, 22]
+        iconSize: [44, 88], iconAnchor: [22, 44]
       });
     }
 

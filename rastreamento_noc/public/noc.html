@@ -111,23 +111,24 @@
 
     #map { width: 100%; height: 100%; }
     .car-marker {
-      width: 38px; height: 38px; border-radius: 50%;
-      background: #0ea5e9; border: 2px solid #ffffff;
-      box-shadow: 0 3px 10px rgba(2, 132, 199, 0.5);
+      width: 44px; height: 44px;
+      background: transparent;
       display: flex; align-items: center; justify-content: center;
-      font-size: 18px;
-      transition: transform 0.3s ease-out;
       will-change: transform;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
     }
-    .car-marker.stale { background: #64748b; opacity: 0.65; }
+    .car-marker svg { width: 100%; height: 100%; display: block; }
+    .car-marker.stale { opacity: 0.55; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) grayscale(0.7); }
     .car-marker.flash {
-      box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6);
       animation: carPulse 1.4s ease-out;
     }
     @keyframes carPulse {
-      0%   { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6); }
-      100% { box-shadow: 0 0 0 18px rgba(14, 165, 233, 0); }
+      0%   { filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 3px 6px rgba(0,0,0,0.45)) drop-shadow(0 0 14px rgba(255,255,255,0.95)); }
+      100% { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 0 rgba(255,255,255,0)); }
     }
+    .car-marker path.car-body { fill: #000000; }
+    .car-marker circle.car-window { fill: #6b7280; }
+    .car-marker.stale path.car-body { fill: #475569; }
     .endpoint-marker {
       width: 22px; height: 22px; border-radius: 50%;
       border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
@@ -323,10 +324,15 @@
     const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
 
     function carIcon(stale = false) {
+      const svg = `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
+        <path class="car-body" d="M22 2 L36 18 L33 22 L36 26 L36 32 Q36 35 33 35 L28 35 L28 30 L16 30 L16 35 L11 35 Q8 35 8 32 L8 26 L11 22 L8 18 Z"/>
+        <circle class="car-window" cx="22" cy="20" r="5"/>
+        <path d="M22 4 L25 11 L19 11 Z" fill="#fbbf24"/>
+      </svg>`;
       return L.divIcon({
         className: '',
-        html: `<div class="car-marker${stale ? ' stale' : ''}">🚗</div>`,
-        iconSize: [38, 38], iconAnchor: [19, 19]
+        html: `<div class="car-marker${stale ? ' stale' : ''}">${svg}</div>`,
+        iconSize: [44, 44], iconAnchor: [22, 22]
       });
     }
 

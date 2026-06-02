@@ -111,24 +111,25 @@
 
     #map { width: 100%; height: 100%; }
     .car-marker {
-      width: 44px; height: 44px;
+      width: 40px; height: 40px;
       background: transparent;
       display: flex; align-items: center; justify-content: center;
       will-change: transform;
-      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
     }
-    .car-marker svg { width: 100%; height: 100%; display: block; }
-    .car-marker.stale { opacity: 0.55; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3)) grayscale(0.7); }
+    .car-marker svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .car-marker.stale { opacity: 0.55; }
+    .car-marker.stale .car-pin-body { fill: #64748b; }
+    .car-marker.stale .car-pin-arrow { fill: #94a3b8; }
     .car-marker.flash {
       animation: carPulse 1.4s ease-out;
     }
     @keyframes carPulse {
-      0%   { filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 3px 6px rgba(0,0,0,0.45)) drop-shadow(0 0 14px rgba(255,255,255,0.95)); }
-      100% { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 0 rgba(255,255,255,0)); }
+      0%   { filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 2px 4px rgba(0,0,0,0.4)) drop-shadow(0 0 16px rgba(56, 189, 248, 0.95)); }
+      100% { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4)) drop-shadow(0 0 0 rgba(56, 189, 248, 0)); }
     }
-    .car-marker path.car-body { fill: #000000; }
-    .car-marker circle.car-window { fill: #6b7280; }
-    .car-marker.stale path.car-body { fill: #475569; }
+    .car-marker .car-pin-body { fill: #0ea5e9; stroke: #ffffff; stroke-width: 2.5; }
+    .car-marker .car-pin-arrow { fill: #ffffff; }
     .endpoint-marker {
       width: 22px; height: 22px; border-radius: 50%;
       border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
@@ -324,15 +325,14 @@
     const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
 
     function carIcon(stale = false) {
-      const svg = `<svg viewBox="0 0 44 44" xmlns="http://www.w3.org/2000/svg">
-        <path class="car-body" d="M22 2 L36 18 L33 22 L36 26 L36 32 Q36 35 33 35 L28 35 L28 30 L16 30 L16 35 L11 35 Q8 35 8 32 L8 26 L11 22 L8 18 Z"/>
-        <circle class="car-window" cx="22" cy="20" r="5"/>
-        <path d="M22 4 L25 11 L19 11 Z" fill="#fbbf24"/>
+      const svg = `<svg viewBox="-50 -50 100 100" xmlns="http://www.w3.org/2000/svg">
+        <path class="car-pin-body" d="M 0 -38 C 18 -38 30 -24 30 -10 C 30 4 16 22 0 38 C -16 22 -30 4 -30 -10 C -30 -24 -18 -38 0 -38 Z"/>
+        <polygon class="car-pin-arrow" points="0,-22 11,-3 4,-3 4,8 -4,8 -4,-3 -11,-3"/>
       </svg>`;
       return L.divIcon({
         className: '',
         html: `<div class="car-marker${stale ? ' stale' : ''}">${svg}</div>`,
-        iconSize: [44, 44], iconAnchor: [22, 22]
+        iconSize: [40, 40], iconAnchor: [20, 20]
       });
     }
 

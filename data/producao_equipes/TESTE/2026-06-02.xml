@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<producao data="2026-06-02" equipeId="TESTE" equipeNome="pedro">
+  <registro>
+    <equipeId>TESTE</equipeId>
+    <equipeNome>pedro</equipeNome>
+    <pontoNumero>123</pontoNumero>
+    <cidade>FORTALEZA</cidade>
+    <ais>AIS 10</ais>
+    <lat>-3.8269750768030413</lat>
+    <lng>-38.50645831738375</lng>
+    <accuracy>90</accuracy>
+    <origem>live</origem>
+    <ts>1780404753974</ts>
+    <iso>2026-06-02T12:52:33.974Z</iso>
+  </registro>
+</producao>

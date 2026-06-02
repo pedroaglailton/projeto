@@ -244,3 +244,6 @@
 {"equipeId":"TESTE-02","equipeNome":"PEDRO/PDRO","pontoNumero":null,"lat":-3.8268182,"lng":-38.5065562,"speed":0.01234813965857029,"heading":null,"accuracy":13.607999801635742,"ts":1780423888662}
 {"equipeId":"TESTE-02","equipeNome":"PEDRO/PDRO","pontoNumero":null,"lat":-3.8268178,"lng":-38.5065556,"speed":0.0029628968331962824,"heading":null,"accuracy":13.451000213623047,"ts":1780423904285}
 {"equipeId":"TESTE-02","equipeNome":"PEDRO/PDRO","pontoNumero":null,"lat":-3.8268164,"lng":-38.5065555,"speed":0.04913688078522682,"heading":null,"accuracy":13.625,"ts":1780423920475}
+{"equipeId":"TESTE-02","equipeNome":"PEDRO/PDRO","pontoNumero":null,"lat":-3.8268102,"lng":-38.5065656,"speed":null,"heading":null,"accuracy":15.755000114440918,"ts":1780429915249}
+{"equipeId":"TESTE-02","equipeNome":"PEDRO/PDRO","pontoNumero":null,"lat":-3.8268102,"lng":-38.5065656,"speed":0,"heading":null,"accuracy":15.755000114440918,"ts":1780429920226}
+{"equipeId":"TESTE-02","equipeNome":"PEDRO/PDRO","pontoNumero":null,"lat":-3.8268102,"lng":-38.5065656,"speed":null,"heading":null,"accuracy":15.755000114440918,"ts":1780429915249}

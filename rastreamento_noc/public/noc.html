@@ -111,14 +111,23 @@
 
     #map { width: 100%; height: 100%; }
     .car-marker {
-      width: 34px; height: 34px; border-radius: 50%;
+      width: 38px; height: 38px; border-radius: 50%;
       background: #0ea5e9; border: 2px solid #ffffff;
       box-shadow: 0 3px 10px rgba(2, 132, 199, 0.5);
       display: flex; align-items: center; justify-content: center;
-      font-size: 16px;
-      transform: translate(-17px, -17px);
+      font-size: 18px;
+      transition: transform 0.3s ease-out;
+      will-change: transform;
     }
     .car-marker.stale { background: #64748b; opacity: 0.65; }
+    .car-marker.flash {
+      box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6);
+      animation: carPulse 1.4s ease-out;
+    }
+    @keyframes carPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.6); }
+      100% { box-shadow: 0 0 0 18px rgba(14, 165, 233, 0); }
+    }
     .endpoint-marker {
       width: 22px; height: 22px; border-radius: 50%;
       border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
@@ -294,6 +303,8 @@
     // =========================================================================
     const markers = new Map();   // equipeId -> Leaflet marker (posicao atual)
     const ultimoTs = new Map();  // equipeId -> timestamp da ultima posicao
+    const posicoesAnimadas = new Map(); // equipeId -> { lat, lng, ts, heading } (posicao que o marker esta exibindo)
+    const headingsAnimados = new Map(); // equipeId -> heading atual (graus)
     const trilhasHoje = new Map(); // trilhaId -> { polyline, latlngs, pontos, equipeId }
     const paradasHoje = new Map(); // equipeId -> [Leaflet marker]
     let trilhasLayer = L.layerGroup().addTo(map);
@@ -315,8 +326,55 @@
       return L.divIcon({
         className: '',
         html: `<div class="car-marker${stale ? ' stale' : ''}">🚗</div>`,
-        iconSize: [34, 34], iconAnchor: [17, 17]
+        iconSize: [38, 38], iconAnchor: [19, 19]
       });
+    }
+
+    function bearing(a, b) {
+      const toRad = x => x * Math.PI / 180;
+      const toDeg = x => x * 180 / Math.PI;
+      const dLng = toRad(b.lng - a.lng);
+      const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+      const y = Math.sin(dLng) * Math.cos(lat2);
+      const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+      return (toDeg(Math.atan2(y, x)) + 360) % 360;
+    }
+
+    function smoothHeading(prevHeading, newHeading) {
+      if (prevHeading == null) return newHeading;
+      let diff = newHeading - prevHeading;
+      if (diff > 180) diff -= 360;
+      if (diff < -180) diff += 360;
+      return (prevHeading + diff + 360) % 360;
+    }
+
+    const animacoes = new Map();
+
+    function animarMarker(m, de, para, heading, durMs) {
+      if (animacoes.has(m)) cancelAnimationFrame(animacoes.get(m));
+      const inicio = performance.now();
+      const dLat = para.lat - de.lat;
+      const dLng = para.lng - de.lng;
+      let headingAtual = heading;
+      function passo(t) {
+        const elapsed = t - inicio;
+        const k = Math.min(1, elapsed / durMs);
+        const ease = 1 - Math.pow(1 - k, 3);
+        const lat = de.lat + dLat * ease;
+        const lng = de.lng + dLng * ease;
+        m.setLatLng([lat, lng]);
+        const el = m.getElement();
+        if (el && headingAtual != null) {
+          const inner = el.querySelector('.car-marker');
+          if (inner) inner.style.transform = `rotate(${headingAtual}deg)`;
+        }
+        if (k < 1) {
+          animacoes.set(m, requestAnimationFrame(passo));
+        } else {
+          animacoes.delete(m);
+        }
+      }
+      animacoes.set(m, requestAnimationFrame(passo));
     }
 
     function upsert(reg) {
@@ -334,11 +392,39 @@
           .bindTooltip(reg.equipeNome, { direction: 'top', offset: [0, -18] });
         m.on('click', () => focusEquipe(reg.equipeId));
         markers.set(reg.equipeId, m);
+        posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: reg.heading });
+        headingsAnimados.set(reg.equipeId, reg.heading != null ? reg.heading : null);
       } else {
         const m = markers.get(reg.equipeId);
-        m.setLatLng([reg.lat, reg.lng]).setPopupContent(txt);
+        const ant = posicoesAnimadas.get(reg.equipeId) || { lat: reg.lat, lng: reg.lng };
+        let novoHeading = reg.heading;
+        if (novoHeading == null) {
+          const dist = distMetros(ant, { lat: reg.lat, lng: reg.lng });
+          if (dist > 5) {
+            novoHeading = bearing(ant, { lat: reg.lat, lng: reg.lng });
+            const hAnt = headingsAnimados.get(reg.equipeId);
+            if (hAnt != null) novoHeading = smoothHeading(hAnt, novoHeading);
+          } else {
+            novoHeading = headingsAnimados.get(reg.equipeId);
+          }
+        }
+        const dt = reg.ts && ant.ts ? Math.max(0.5, Math.min(8, (reg.ts - ant.ts) / 1000)) : 1.5;
+        const durMs = Math.max(400, Math.min(8000, dt * 900));
+        m.setPopupContent(txt);
         m.setTooltipContent(reg.equipeNome);
         m.setIcon(carIcon(false));
+        const el = m.getElement();
+        if (el) {
+          const inner = el.querySelector('.car-marker');
+          if (inner) {
+            inner.classList.remove('flash');
+            void inner.offsetWidth;
+            inner.classList.add('flash');
+          }
+        }
+        animarMarker(m, ant, { lat: reg.lat, lng: reg.lng }, novoHeading, durMs);
+        posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: novoHeading });
+        headingsAnimados.set(reg.equipeId, novoHeading);
       }
       adicionarPontoTrilhaHoje(reg);
       marcarVisitaPorPosicao(reg);

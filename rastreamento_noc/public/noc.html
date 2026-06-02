@@ -229,8 +229,6 @@
         <select id="pbEquipe"><option value="">— Todas —</option></select>
         <button id="btnPlayback">Mostrar rota</button>
         <button id="btnLimparPlayback" class="ghost">Limpar rota</button>
-        <button id="btnToggleTrilhaDia" class="ghost">Ocultar trilha do dia</button>
-        <button id="btnLimparTrilhaDia" class="ghost">Limpar trilha da tela</button>
       </div>
 
       <div class="section">
@@ -296,7 +294,7 @@
     // =========================================================================
     const markers = new Map();   // equipeId -> Leaflet marker (posicao atual)
     const ultimoTs = new Map();  // equipeId -> timestamp da ultima posicao
-    const trilhasHoje = new Map(); // equipeId -> { polyline, latlngs, pontos }
+    const trilhasHoje = new Map(); // trilhaId -> { polyline, latlngs, pontos, equipeId }
     const paradasHoje = new Map(); // equipeId -> [Leaflet marker]
     let trilhasLayer = L.layerGroup().addTo(map);
     let paradasLayer = L.layerGroup().addTo(map);
@@ -307,13 +305,11 @@
     const alertaAproximacao = new Map();
     const equipesProximas = new Map(); // equipeId -> { equipeNome, pontoNome, dist, ts }
     const equipeValidacao = new Map(); // equipeId -> { ok, pontoNome, dist, ts }
-    const moveAnim = new Map(); // equipeId -> { raf }
     let modalTimer = null;
     let audioAlertEnabled = false;
     let playbackLayer = null;    // L.LayerGroup do playback atual
     let equipeSelecionada = null;
-    const STALE_MS = 45 * 1000;  // status stale mantido na lista, sem mudar cor do carro
-    let trilhaDiaVisivel = true;
+    const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
 
     function carIcon(stale = false) {
       return L.divIcon({
@@ -321,43 +317,6 @@
         html: `<div class="car-marker${stale ? ' stale' : ''}">🚗</div>`,
         iconSize: [34, 34], iconAnchor: [17, 17]
       });
-    }
-
-    function animateMarkerMove(equipeId, marker, toLat, toLng, durationMs = 1200) {
-      const prev = moveAnim.get(equipeId);
-      if (prev && prev.raf) {
-        try { cancelAnimationFrame(prev.raf); } catch (_) {}
-      }
-
-      const from = marker.getLatLng();
-      const startLat = from.lat;
-      const startLng = from.lng;
-      const dLat = toLat - startLat;
-      const dLng = toLng - startLng;
-      const startTs = performance.now();
-
-      if (Math.abs(dLat) < 1e-8 && Math.abs(dLng) < 1e-8) {
-        marker.setLatLng([toLat, toLng]);
-        return;
-      }
-
-      function step(ts) {
-        const t = Math.min(1, (ts - startTs) / durationMs);
-        // ease-out suave para estilo "Uber"
-        const eased = 1 - Math.pow(1 - t, 3);
-        const lat = startLat + dLat * eased;
-        const lng = startLng + dLng * eased;
-        marker.setLatLng([lat, lng]);
-        if (t < 1) {
-          const raf = requestAnimationFrame(step);
-          moveAnim.set(equipeId, { raf });
-        } else {
-          moveAnim.delete(equipeId);
-        }
-      }
-
-      const raf = requestAnimationFrame(step);
-      moveAnim.set(equipeId, { raf });
     }
 
     function upsert(reg) {
@@ -377,8 +336,7 @@
         markers.set(reg.equipeId, m);
       } else {
         const m = markers.get(reg.equipeId);
-        animateMarkerMove(reg.equipeId, m, reg.lat, reg.lng, 1200);
-        m.setPopupContent(txt);
+        m.setLatLng([reg.lat, reg.lng]).setPopupContent(txt);
         m.setTooltipContent(reg.equipeNome);
         m.setIcon(carIcon(false));
       }
@@ -398,7 +356,7 @@
         const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
         if (!melhor || d < melhor.dist) melhor = { pontoNome: p.nome || (`PONTO ${p.id}`), dist: d };
       }
-      const ok = !!(melhor && melhor.dist <= 100);
+      const ok = !!(melhor && melhor.dist <= 50);
       equipeValidacao.set(reg.equipeId, { ok, pontoNome: melhor ? melhor.pontoNome : '-', dist: melhor ? melhor.dist : Infinity, ts: reg.ts || Date.now() });
       return ok ? melhor : null;
     }
@@ -449,7 +407,7 @@
     }
 
     function marcarVisitaPorPosicao(reg) {
-      const RAIO_VISITA_M = 100;
+      const RAIO_VISITA_M = 50;
       for (const p of pontosPlanejados) {
         if (pontosVisitados.has(p.id)) continue;
         const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
@@ -543,26 +501,20 @@
       renderProximosList();
     }
 
-    function mostrarModalAviso(titulo, principal, detalhe, tempoMs = 20000) {
+    function mostrarModalProximidade(equipeNome, pontoNome, distancia) {
       const modal = document.getElementById('proximidadeModal');
-      const titleEl = modal ? modal.querySelector('.title') : null;
       const main = document.getElementById('proximidadeMain');
       const sub = document.getElementById('proximidadeSub');
-      if (!modal || !main || !sub || !titleEl) return;
+      if (!modal || !main || !sub) return;
 
-      titleEl.textContent = titulo;
-      main.textContent = principal;
-      sub.textContent = detalhe;
+      main.textContent = `${equipeNome}`;
+      sub.textContent = `${pontoNome} - ${distancia}m`;
       modal.classList.add('visible');
 
       if (modalTimer) clearTimeout(modalTimer);
       modalTimer = setTimeout(() => {
         modal.classList.remove('visible');
-      }, tempoMs);
-    }
-
-    function mostrarModalProximidade(equipeNome, pontoNome, distancia) {
-      mostrarModalAviso('Equipe proxima ao ponto', `${equipeNome}`, `${pontoNome} - ${distancia}m`, 20000);
+      }, 20000);
     }
 
     function atualizarStatsPontos() {
@@ -601,42 +553,39 @@
       return cores[Math.abs(hash) % cores.length];
     }
 
+    let trilhaAtivaPorEquipe = new Map();
     function adicionarPontoTrilhaHoje(reg) {
       const id = reg.equipeId;
       const pt = [reg.lat, reg.lng];
       const ponto = { lat: reg.lat, lng: reg.lng, ts: Number(reg.ts) || Date.now() };
-      if (!trilhasHoje.has(id)) {
+      const tAtual = trilhaAtivaPorEquipe.get(id) ? trilhasHoje.get(trilhaAtivaPorEquipe.get(id)) : null;
+      const SALTO_GPS_M = 250;
+      const VELOCIDADE_MAX_KMH = 130;
+      if (!tAtual) {
+        const trilhaId = id + '#' + Date.now();
         const latlngs = [pt];
-        const polyline = L.polyline(latlngs, { color: corPorEquipe(id), weight: 3, opacity: 0.45 }).addTo(trilhasLayer);
-        trilhasHoje.set(id, { polyline, latlngs, pontos: [ponto] });
+        const polyline = L.polyline(latlngs, { color: corPorEquipe(id), weight: 3, opacity: 0.7 }).addTo(trilhasLayer);
+        trilhasHoje.set(trilhaId, { polyline, latlngs, pontos: [ponto], equipeId: id });
+        trilhaAtivaPorEquipe.set(id, trilhaId);
         recalcularParadasEquipe(id);
         return;
       }
-      const t = trilhasHoje.get(id);
-      t.latlngs.push(pt);
-      t.pontos.push(ponto);
-      t.polyline.setLatLngs(t.latlngs);
-      recalcularParadasEquipe(id);
-    }
-
-    function toggleTrilhaDia() {
-      trilhaDiaVisivel = !trilhaDiaVisivel;
-      if (trilhaDiaVisivel) {
-        if (!map.hasLayer(trilhasLayer)) trilhasLayer.addTo(map);
-      } else {
-        if (map.hasLayer(trilhasLayer)) map.removeLayer(trilhasLayer);
+      const ultimo = tAtual.pontos[tAtual.pontos.length - 1];
+      const d = distMetros(ultimo, ponto);
+      const dt = (ponto.ts - ultimo.ts) / 1000;
+      const velocidade = dt > 0 ? (d / dt) * 3.6 : 0;
+      if (d > SALTO_GPS_M || velocidade > VELOCIDADE_MAX_KMH) {
+        const trilhaId = id + '#' + Date.now();
+        const latlngs = [pt];
+        const polyline = L.polyline(latlngs, { color: corPorEquipe(id), weight: 3, opacity: 0.7, dashArray: '4,6' }).addTo(trilhasLayer);
+        trilhasHoje.set(trilhaId, { polyline, latlngs, pontos: [ponto], equipeId: id });
+        trilhaAtivaPorEquipe.set(id, trilhaId);
+        return;
       }
-      const btn = document.getElementById('btnToggleTrilhaDia');
-      if (btn) btn.textContent = trilhaDiaVisivel ? 'Ocultar trilha do dia' : 'Mostrar trilha do dia';
-    }
-
-    function limparTrilhaDiaTela() {
-      if (map.hasLayer(trilhasLayer)) map.removeLayer(trilhasLayer);
-      trilhasLayer = L.layerGroup().addTo(map);
-      trilhasHoje.clear();
-      const btn = document.getElementById('btnToggleTrilhaDia');
-      if (btn) btn.textContent = 'Ocultar trilha do dia';
-      trilhaDiaVisivel = true;
+      tAtual.latlngs.push(pt);
+      tAtual.pontos.push(ponto);
+      tAtual.polyline.setLatLngs(tAtual.latlngs);
+      recalcularParadasEquipe(id);
     }
 
     function limparParadasEquipe(id) {
@@ -646,30 +595,36 @@
     }
 
     function recalcularParadasEquipe(id) {
-      const trilha = trilhasHoje.get(id);
-      if (!trilha || !trilha.pontos || trilha.pontos.length < 2) return;
-
       limparParadasEquipe(id);
-
-      const pontos = trilha.pontos;
+      let todosPontos = [];
+      for (const [tid, t] of trilhasHoje) {
+        if (t.equipeId !== id) continue;
+        if (!t.pontos || t.pontos.length < 2) continue;
+        const iniTs = t.pontos[0].ts;
+        if (todosPontos.length && iniTs - todosPontos[todosPontos.length - 1].ts > 5 * 60 * 1000) {
+          todosPontos = todosPontos.concat(t.pontos);
+        } else {
+          todosPontos = todosPontos.concat(t.pontos);
+        }
+      }
+      if (todosPontos.length < 2) return;
+      todosPontos.sort((a, b) => a.ts - b.ts);
       const DIST_STOP_M = 60;
       const STOP_MIN_MS = 20 * 60 * 1000;
       let ini = 0;
-
-      for (let i = 1; i < pontos.length; i++) {
-        const d = distMetros(pontos[ini], pontos[i]);
+      for (let i = 1; i < todosPontos.length; i++) {
+        const d = distMetros(todosPontos[ini], todosPontos[i]);
         if (d > DIST_STOP_M) {
-          const dur = pontos[i - 1].ts - pontos[ini].ts;
+          const dur = todosPontos[i - 1].ts - todosPontos[ini].ts;
           if (dur >= STOP_MIN_MS) {
-            criarMarcadorParada(id, pontos[ini], dur);
+            criarMarcadorParada(id, todosPontos[ini], dur);
           }
           ini = i;
         }
       }
-
-      const durFinal = pontos[pontos.length - 1].ts - pontos[ini].ts;
+      const durFinal = todosPontos[todosPontos.length - 1].ts - todosPontos[ini].ts;
       if (durFinal >= STOP_MIN_MS) {
-        criarMarcadorParada(id, pontos[ini], durFinal);
+        criarMarcadorParada(id, todosPontos[ini], durFinal);
       }
     }
 
@@ -721,7 +676,7 @@
         li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${ago}</span>`;
         li.onclick = () => focusEquipe(id);
         ul.appendChild(li);
-        // Nao troca para cinza no mapa; mantem azul para leitura operacional.
+        if (stale) m.setIcon(carIcon(true));
       }
       document.getElementById('stats').textContent = `${lista.length} equipe(s)`;
       atualizarStatsPontos();
@@ -752,22 +707,6 @@
           const msg = JSON.parse(ev.data);
           if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
           if (msg.type === 'position')  upsert(msg.data);
-          if (msg.type === 'heartbeat' && msg.data) {
-            const d = msg.data;
-            ultimoTs.set(d.equipeId, d.ts || Date.now());
-            renderEquipesList();
-          }
-          if (msg.type === 'activity' && msg.data) {
-            const d = msg.data;
-            const equipe = d.equipeNome || d.equipeId;
-            if (d.tipo === 'coletando') {
-              mostrarModalAviso('Coletando dados do ponto', equipe, `Ponto: ${d.pontoNumero || '-'} `, 7000);
-            }
-            if (d.tipo === 'concluido') {
-              mostrarModalAviso('Concluido', equipe, `Ponto: ${d.pontoNumero || '-'} salvo`, 9000);
-            }
-            document.getElementById('lastMsg').textContent = `${equipe} - ${d.tipo}${d.pontoNumero ? ' - ponto ' + d.pontoNumero : ''}`;
-          }
         } catch (e) { console.warn('msg invalida:', e); }
       };
       ws.onclose = () => {
@@ -954,8 +893,6 @@
     });
 
     document.getElementById('btnLimparPlayback').addEventListener('click', limparPlayback);
-    document.getElementById('btnToggleTrilhaDia').addEventListener('click', toggleTrilhaDia);
-    document.getElementById('btnLimparTrilhaDia').addEventListener('click', limparTrilhaDiaTela);
 
     function limparPlayback() {
       if (playbackLayer) { map.removeLayer(playbackLayer); playbackLayer = null; }
@@ -985,8 +922,34 @@
 
       for (const [id, pontos] of porEquipe) {
         const cor = cores[i++ % cores.length];
-        const latlngs = pontos.map(p => [p.lat, p.lng]);
-        L.polyline(latlngs, { color: cor, weight: 4, opacity: 0.75 }).addTo(grupo);
+        const SALTO_GPS_M = 0.25;
+        const VELOCIDADE_MAX_KMH = 130;
+        const segmentos = [];
+        let segAtual = [pontos[0]];
+        for (let k = 1; k < pontos.length; k++) {
+          const ant = pontos[k - 1];
+          const atu = pontos[k];
+          const dkm = haversine(ant, atu);
+          const dt = ((atu.ts || 0) - (ant.ts || 0)) / 1000;
+          const vel = dt > 0 ? (dkm / dt) * 3.6 : 0;
+          if (dkm > SALTO_GPS_M || vel > VELOCIDADE_MAX_KMH) {
+            if (segAtual.length > 1) segmentos.push(segAtual);
+            segAtual = [atu];
+          } else {
+            segAtual.push(atu);
+          }
+        }
+        if (segAtual.length > 1) segmentos.push(segAtual);
+        segmentos.forEach((seg, idx) => {
+          const latlngs = seg.map(p => [p.lat, p.lng]);
+          const isTraco = idx > 0;
+          L.polyline(latlngs, {
+            color: cor,
+            weight: 4,
+            opacity: 0.75,
+            dashArray: isTraco ? '4,6' : null
+          }).addTo(grupo);
+        });
 
         const inicio = pontos[0];
         const fim    = pontos[pontos.length - 1];
@@ -997,7 +960,7 @@
         L.circleMarker([fim.lat, fim.lng], { radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.9 })
           .bindPopup(`<b>${id}</b><br>Fim: ${new Date(fim.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
 
-        bounds.push(...latlngs);
+        bounds.push(...pontos.map(p => [p.lat, p.lng]));
       }
 
       if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
@@ -1036,27 +999,16 @@
     // =========================================================================
     // Sidebar toggle mobile
     // =========================================================================
-    function refreshMapSize() {
-      try {
-        map.invalidateSize();
-      } catch (_) {}
-    }
-
     document.body.classList.add('sidebar-collapsed');
-    setTimeout(refreshMapSize, 120);
-    window.addEventListener('resize', () => setTimeout(refreshMapSize, 60));
-
     const unlockAudio = () => { audioAlertEnabled = true; document.removeEventListener('click', unlockAudio, true); document.removeEventListener('touchend', unlockAudio, true); };
     document.addEventListener('click', unlockAudio, true);
     document.addEventListener('touchend', unlockAudio, true);
     document.getElementById('toggleSidebar').addEventListener('click', () => {
       if (window.innerWidth <= 720) {
         document.getElementById('sidebar').classList.toggle('open');
-        setTimeout(refreshMapSize, 160);
         return;
       }
       document.body.classList.toggle('sidebar-collapsed');
-      setTimeout(refreshMapSize, 220);
     });
   </script>
 </body>

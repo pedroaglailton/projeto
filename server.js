@@ -321,6 +321,36 @@ app.post('/api/posicao', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+/** Heartbeat: app online mesmo sem nova coordenada. */
+app.post('/api/heartbeat', requireAuth, (req, res) => {
+  const body = req.body || {};
+  const reg = {
+    equipeId: req.equipe.equipeId,
+    equipeNome: req.equipe.nome,
+    lat: typeof body.lat === 'number' ? body.lat : null,
+    lng: typeof body.lng === 'number' ? body.lng : null,
+    ts: Number(body.ts) || Date.now(),
+    status: 'alive'
+  };
+  broadcast({ type: 'heartbeat', data: reg });
+  res.json({ ok: true });
+});
+
+/** Atividade operacional da equipe (coletando/concluido). */
+app.post('/api/atividade', requireAuth, (req, res) => {
+  const body = req.body || {};
+  const reg = {
+    equipeId: req.equipe.equipeId,
+    equipeNome: req.equipe.nome,
+    tipo: String(body.tipo || '').trim() || 'info',
+    pontoNumero: body.pontoNumero ? String(body.pontoNumero).trim() : null,
+    mensagem: body.mensagem ? String(body.mensagem).trim() : null,
+    ts: Number(body.ts) || Date.now()
+  };
+  broadcast({ type: 'activity', data: reg });
+  res.json({ ok: true });
+});
+
 /** Recebe producao do app (coleta de ponto) para auditoria NOC. */
 app.post('/api/producao', requireAuth, (req, res) => {
   const body = req.body || {};

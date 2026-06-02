@@ -312,7 +312,7 @@
     let audioAlertEnabled = false;
     let playbackLayer = null;    // L.LayerGroup do playback atual
     let equipeSelecionada = null;
-    const STALE_MS = 45 * 1000;  // se >45s sem update, equipe vira "stale" (mais sensivel)
+    const STALE_MS = 45 * 1000;  // status stale mantido na lista, sem mudar cor do carro
     let trilhaDiaVisivel = true;
 
     function carIcon(stale = false) {
@@ -543,20 +543,26 @@
       renderProximosList();
     }
 
-    function mostrarModalProximidade(equipeNome, pontoNome, distancia) {
+    function mostrarModalAviso(titulo, principal, detalhe, tempoMs = 20000) {
       const modal = document.getElementById('proximidadeModal');
+      const titleEl = modal ? modal.querySelector('.title') : null;
       const main = document.getElementById('proximidadeMain');
       const sub = document.getElementById('proximidadeSub');
-      if (!modal || !main || !sub) return;
+      if (!modal || !main || !sub || !titleEl) return;
 
-      main.textContent = `${equipeNome}`;
-      sub.textContent = `${pontoNome} - ${distancia}m`;
+      titleEl.textContent = titulo;
+      main.textContent = principal;
+      sub.textContent = detalhe;
       modal.classList.add('visible');
 
       if (modalTimer) clearTimeout(modalTimer);
       modalTimer = setTimeout(() => {
         modal.classList.remove('visible');
-      }, 20000);
+      }, tempoMs);
+    }
+
+    function mostrarModalProximidade(equipeNome, pontoNome, distancia) {
+      mostrarModalAviso('Equipe proxima ao ponto', `${equipeNome}`, `${pontoNome} - ${distancia}m`, 20000);
     }
 
     function atualizarStatsPontos() {
@@ -715,7 +721,7 @@
         li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${ago}</span>`;
         li.onclick = () => focusEquipe(id);
         ul.appendChild(li);
-        if (stale) m.setIcon(carIcon(true));
+        // Nao troca para cinza no mapa; mantem azul para leitura operacional.
       }
       document.getElementById('stats').textContent = `${lista.length} equipe(s)`;
       atualizarStatsPontos();
@@ -746,6 +752,22 @@
           const msg = JSON.parse(ev.data);
           if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
           if (msg.type === 'position')  upsert(msg.data);
+          if (msg.type === 'heartbeat' && msg.data) {
+            const d = msg.data;
+            ultimoTs.set(d.equipeId, d.ts || Date.now());
+            renderEquipesList();
+          }
+          if (msg.type === 'activity' && msg.data) {
+            const d = msg.data;
+            const equipe = d.equipeNome || d.equipeId;
+            if (d.tipo === 'coletando') {
+              mostrarModalAviso('Coletando dados do ponto', equipe, `Ponto: ${d.pontoNumero || '-'} `, 7000);
+            }
+            if (d.tipo === 'concluido') {
+              mostrarModalAviso('Concluido', equipe, `Ponto: ${d.pontoNumero || '-'} salvo`, 9000);
+            }
+            document.getElementById('lastMsg').textContent = `${equipe} - ${d.tipo}${d.pontoNumero ? ' - ponto ' + d.pontoNumero : ''}`;
+          }
         } catch (e) { console.warn('msg invalida:', e); }
       };
       ws.onclose = () => {

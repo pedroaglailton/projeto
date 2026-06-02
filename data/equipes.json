@@ -65,6 +65,12 @@
       "nome": "pedro",
       "token": "06859766499dc67b86d4e762dad1b483b363e2e94770a7b18174348103d1c253",
       "ativo": true
+    },
+    {
+      "equipeId": "TESTE-02",
+      "nome": "PEDRO/PDRO",
+      "token": "009b424c0309f953047bf15786023fddaf2e34ad96ee865b5b817311d28970f6",
+      "ativo": true
     }
   ]
 }

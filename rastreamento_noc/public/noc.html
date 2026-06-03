@@ -820,9 +820,9 @@
 
     function corPorEquipe(id) { return getEquipeColor(id); }
 
-    // =========================================================================
-    // Trilha GPS pura (sem snap-to-road)
-    // =========================================================================
+     // =========================================================================
+    // Trilha GPS pura (sem snap-to-road) - VERSÃO CORRIGIDA
+   // =========================================================================
     let trilhaAtivaPorEquipe = new Map();
 
     function adicionarPontoTrilhaHoje(reg) {
@@ -831,12 +831,12 @@
       const ponto = { lat: reg.lat, lng: reg.lng, ts: Number(reg.ts) || Date.now() };
       const trilhaIdAtual = trilhaAtivaPorEquipe.get(id);
       const tAtual = trilhaIdAtual ? trilhasHoje.get(trilhaIdAtual) : null;
-      const SALTO_GPS_M = 80;
-      const VELOCIDADE_MAX_KMH = 110;
+      const SALTO_GPS_M = 500;        // CORRIGIDO: 80 -> 500
+      const VELOCIDADE_MAX_KMH = 200;  // CORRIGIDO: 110 -> 200
 
       if (!tAtual) {
         const trilhaId = id + '#' + Date.now();
-        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.8 }).addTo(trilhasLayer);
+        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 4, opacity: 0.9 }).addTo(trilhasLayer);  // CORRIGIDO: weight 4, opacity 0.9
         trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
         recalcularParadasEquipe(id);
@@ -860,6 +860,7 @@
       tAtual.latlngs.push(pt);
       tAtual.pontos.push(ponto);
       tAtual.polyline.setLatLngs(tAtual.latlngs);
+      tAtual.polyline.bringToFront();  // CORRIGIDO: ADICIONADO - garante visibilidade
       recalcularParadasEquipe(id);
     }
 

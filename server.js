@@ -20,13 +20,6 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 47890;
 const HOST = process.env.HOST || (process.env.BEHIND_PROXY === '1' ? '127.0.0.1' : '0.0.0.0');
 const NOC_ADMIN_KEY = (process.env.NOC_ADMIN_KEY || '').trim();
-const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
-const GITHUB_OWNER = (process.env.GITHUB_OWNER || '').trim();
-const GITHUB_REPO = (process.env.GITHUB_REPO || '').trim();
-const GITHUB_BRANCH = (process.env.GITHUB_BRANCH || 'main').trim();
-const GITHUB_SYNC_HISTORY = (process.env.GITHUB_SYNC_HISTORY || '1').trim() === '1';
-const EQUIPES_FILE_ABS = path.join(__dirname, 'data', 'equipes.json');
-const syncTimers = new Map();
 
 function checkAdminKey(req, res) {
   if (!NOC_ADMIN_KEY) return true;
@@ -38,115 +31,6 @@ function checkAdminKey(req, res) {
   return true;
 }
 
-async function syncEquipesJsonToGitHub(reason = 'update equipes via NOC') {
-  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
-    return { ok: false, skipped: true, reason: 'github env vars ausentes' };
-  }
-
-  const filePath = 'data/equipes.json';
-  const contentRaw = fs.readFileSync(EQUIPES_FILE_ABS, 'utf8');
-  const encoded = Buffer.from(contentRaw, 'utf8').toString('base64');
-  const headers = {
-    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-    'Accept': 'application/vnd.github+json',
-    'User-Agent': 'preventiva-render-sync'
-  };
-
-  let sha = null;
-  const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
-  try {
-    const rGet = await fetch(getUrl, { headers });
-    if (rGet.ok) {
-      const j = await rGet.json();
-      sha = j.sha || null;
-    }
-  } catch (_) {}
-
-  const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${filePath}`;
-  const payload = {
-    message: reason,
-    content: encoded,
-    branch: GITHUB_BRANCH,
-    sha: sha || undefined
-  };
-
-  const rPut = await fetch(putUrl, {
-    method: 'PUT',
-    headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!rPut.ok) {
-    const txt = await rPut.text();
-    throw new Error(`GitHub sync falhou (${rPut.status}): ${txt}`);
-  }
-  return { ok: true };
-}
-
-async function syncLocalFileToGitHub(relativePath, reason = 'sync file') {
-  if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
-    return { ok: false, skipped: true, reason: 'github env vars ausentes' };
-  }
-
-  const absPath = path.join(__dirname, relativePath);
-  if (!fs.existsSync(absPath)) return { ok: false, skipped: true, reason: 'arquivo nao existe' };
-
-  const contentRaw = fs.readFileSync(absPath, 'utf8');
-  const encoded = Buffer.from(contentRaw, 'utf8').toString('base64');
-  const headers = {
-    'Authorization': `Bearer ${GITHUB_TOKEN}`,
-    'Accept': 'application/vnd.github+json',
-    'User-Agent': 'preventiva-render-sync'
-  };
-
-  let sha = null;
-  const getUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${relativePath}?ref=${encodeURIComponent(GITHUB_BRANCH)}`;
-  try {
-    const rGet = await fetch(getUrl, { headers });
-    if (rGet.ok) {
-      const j = await rGet.json();
-      sha = j.sha || null;
-    }
-  } catch (_) {}
-
-  const putUrl = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${relativePath}`;
-  const payload = {
-    message: reason,
-    content: encoded,
-    branch: GITHUB_BRANCH,
-    sha: sha || undefined
-  };
-
-  const rPut = await fetch(putUrl, {
-    method: 'PUT',
-    headers: { ...headers, 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-
-  if (!rPut.ok) {
-    const txt = await rPut.text();
-    throw new Error(`GitHub sync falhou (${rPut.status}) ${relativePath}: ${txt}`);
-  }
-  return { ok: true };
-}
-
-function scheduleGitHubFileSync(relativePath, reason, delayMs = 60000) {
-  if (!GITHUB_SYNC_HISTORY) return;
-  const old = syncTimers.get(relativePath);
-  if (old) clearTimeout(old);
-  const t = setTimeout(async () => {
-    try {
-      await syncLocalFileToGitHub(relativePath, reason);
-      console.log(`[github] sync OK ${relativePath}`);
-    } catch (err) {
-      console.warn('[github] sync falhou:', err.message);
-    } finally {
-      syncTimers.delete(relativePath);
-    }
-  }, Math.max(5000, delayMs));
-  syncTimers.set(relativePath, t);
-}
-
 app.set('trust proxy', 'loopback');
 
 // ----- Lojas (stores) -----
@@ -155,10 +39,10 @@ const posicoesStore = new PosicoesStore();
 const requireAuth = authMiddleware(equipesStore);
 
 // ----- Paths estaticos -----
-const pwaRoot = path.join(__dirname);
-const nocRoot = path.join(__dirname, 'rastreamento_noc', 'public');
-const producaoDir = path.join(__dirname, 'data', 'producao');
-const producaoEquipesDir = path.join(__dirname, 'data', 'producao_equipes');
+const pwaRoot = path.join(__dirname, '..');
+const nocRoot = path.join(__dirname, '..', 'rastreamento_noc', 'public');
+const producaoDir = path.join(__dirname, '..', 'data', 'producao');
+const producaoEquipesDir = path.join(__dirname, '..', 'data', 'producao_equipes');
 fs.mkdirSync(producaoDir, { recursive: true });
 fs.mkdirSync(producaoEquipesDir, { recursive: true });
 
@@ -260,7 +144,6 @@ app.use('/api', (req, res, next) => {
   }
   res.setHeader('Access-Control-Allow-Origin', allow);
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Equipe-Token');
   res.setHeader('Access-Control-Max-Age', '86400');
@@ -314,41 +197,7 @@ app.post('/api/posicao', requireAuth, (req, res) => {
   };
 
   posicoesStore.append(registro);
-  if (GITHUB_SYNC_HISTORY) {
-    const d = todayStr(new Date(registro.ts || Date.now()));
-    scheduleGitHubFileSync(`data/posicoes/${d}.jsonl`, `sync posicoes ${d}`, 45000);
-  }
   broadcast({ type: 'position', data: registro });
-  res.json({ ok: true });
-});
-
-/** Heartbeat: app online mesmo sem nova coordenada. */
-app.post('/api/heartbeat', requireAuth, (req, res) => {
-  const body = req.body || {};
-  const reg = {
-    equipeId: req.equipe.equipeId,
-    equipeNome: req.equipe.nome,
-    lat: typeof body.lat === 'number' ? body.lat : null,
-    lng: typeof body.lng === 'number' ? body.lng : null,
-    ts: Number(body.ts) || Date.now(),
-    status: 'alive'
-  };
-  broadcast({ type: 'heartbeat', data: reg });
-  res.json({ ok: true });
-});
-
-/** Atividade operacional da equipe (coletando/concluido). */
-app.post('/api/atividade', requireAuth, (req, res) => {
-  const body = req.body || {};
-  const reg = {
-    equipeId: req.equipe.equipeId,
-    equipeNome: req.equipe.nome,
-    tipo: String(body.tipo || '').trim() || 'info',
-    pontoNumero: body.pontoNumero ? String(body.pontoNumero).trim() : null,
-    mensagem: body.mensagem ? String(body.mensagem).trim() : null,
-    ts: Number(body.ts) || Date.now()
-  };
-  broadcast({ type: 'activity', data: reg });
   res.json({ ok: true });
 });
 
@@ -370,13 +219,6 @@ app.post('/api/producao', requireAuth, (req, res) => {
   if (!reg.pontoNumero) return res.status(400).json({ ok: false, error: 'pontoNumero obrigatorio' });
   appendProducao(reg);
   writeEquipeDiaArquivos(reg);
-  if (GITHUB_SYNC_HISTORY) {
-    const d = todayStr(new Date(reg.ts || Date.now()));
-    const equipeSafe = safeName(reg.equipeId);
-    scheduleGitHubFileSync(`data/producao/${d}.jsonl`, `sync producao ${d}`, 45000);
-    scheduleGitHubFileSync(`data/producao_equipes/${equipeSafe}/${d}.txt`, `sync producao txt ${equipeSafe} ${d}`, 60000);
-    scheduleGitHubFileSync(`data/producao_equipes/${equipeSafe}/${d}.xml`, `sync producao xml ${equipeSafe} ${d}`, 60000);
-  }
   broadcast({ type: 'production', data: reg });
   res.json({ ok: true });
 });
@@ -418,7 +260,7 @@ app.post('/api/equipes', (req, res) => {
   const { equipeId, nome, ativo = true } = req.body || {};
   try {
     const criada = equipesStore.createEquipe({ equipeId, nome, ativo });
-    const out = {
+    res.status(201).json({
       ok: true,
       equipe: {
         equipeId: criada.equipeId,
@@ -426,11 +268,7 @@ app.post('/api/equipes', (req, res) => {
         ativo: criada.ativo,
         token: criada.token
       }
-    };
-    syncEquipesJsonToGitHub(`add equipe ${criada.equipeId} via NOC`)
-      .then(r => { if (r.ok) console.log(`[github] equipes.json sync OK (${criada.equipeId})`); })
-      .catch(err => console.warn('[github] sync falhou:', err.message));
-    res.status(201).json(out);
+    });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
   }
@@ -441,9 +279,6 @@ app.post('/api/equipes/:equipeId/regenerar-token', (req, res) => {
   if (!checkAdminKey(req, res)) return;
   try {
     const equipe = equipesStore.regenerateToken(req.params.equipeId);
-    syncEquipesJsonToGitHub(`regenerate token ${equipe.equipeId} via NOC`)
-      .then(r => { if (r.ok) console.log(`[github] equipes.json sync OK (${equipe.equipeId})`); })
-      .catch(err => console.warn('[github] sync falhou:', err.message));
     res.json({ ok: true, equipe });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -456,9 +291,6 @@ app.patch('/api/equipes/:equipeId/ativo', (req, res) => {
   const ativo = !!(req.body && req.body.ativo);
   try {
     const equipe = equipesStore.setEquipeAtiva(req.params.equipeId, ativo);
-    syncEquipesJsonToGitHub(`set ativo=${equipe.ativo} ${equipe.equipeId} via NOC`)
-      .then(r => { if (r.ok) console.log(`[github] equipes.json sync OK (${equipe.equipeId})`); })
-      .catch(err => console.warn('[github] sync falhou:', err.message));
     res.json({ ok: true, equipe });
   } catch (err) {
     res.status(400).json({ ok: false, error: err.message });
@@ -491,24 +323,31 @@ app.get('/api/playback/datas', (_req, res) => {
 // ============================================================================
 // Paginas
 // ============================================================================
-app.get('/', (_req, res) => {
-  res.type('text/html').send(
-    '<!doctype html><html><head><meta charset="utf-8"><title>Preventiva API</title></head><body style="font-family:Arial,sans-serif;padding:24px">' +
-    '<h2>CAMCONTROL PREVENTIVA-CE API online</h2>' +
-    '<p>Endpoints principais:</p>' +
-    '<ul>' +
-    '<li><a href="/api/status">/api/status</a></li>' +
-    '<li><a href="/noc">/noc</a></li>' +
-    '</ul>' +
-    '</body></html>'
-  );
-});
 app.get('/noc',     (_req, res) => res.sendFile(path.join(nocRoot, 'noc.html')));
 app.get('/tracker', (_req, res) => res.sendFile(path.join(nocRoot, 'tracker.html')));
-app.get('/fortaleza_roads.geojson.gz', (_req, res) => {
+
+// Ruas de Fortaleza — GeoJSON comprimido (gzip)
+app.get('/fortaleza_roads.geojson.gz', (req, res) => {
+  const filePath = path.join(nocRoot, 'fortaleza_roads.geojson.gz');
   res.setHeader('Content-Encoding', 'gzip');
-  res.setHeader('Content-Type', 'application/json');
-  res.sendFile(path.join(nocRoot, 'fortaleza_roads.geojson.gz'));
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400'); // cache 1 dia
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      console.warn('[roads] Arquivo nao encontrado:', filePath);
+      res.status(404).json({ error: 'fortaleza_roads.geojson.gz nao encontrado' });
+    }
+  });
+});
+
+// Fallback — GeoJSON sem compressao
+app.get('/fortaleza_roads.geojson', (req, res) => {
+  const filePath = path.join(nocRoot, 'fortaleza_roads.geojson');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(filePath, (err) => {
+    if (err) res.status(404).json({ error: 'fortaleza_roads.geojson nao encontrado' });
+  });
 });
 
 // ============================================================================

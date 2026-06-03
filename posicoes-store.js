@@ -1,18 +1,21 @@
-// Persistencia append-only de posicoes GPS em arquivos JSONL diarios.
-// - 1 arquivo por dia: data/posicoes/YYYY-MM-DD.jsonl
-// - WriteStream com flag 'a' (append) — sobrevive a queda do processo
-// - Rotacao automatica a meia-noite
-// - Leitura streaming para playback (nunca carrega tudo na memoria)
-// - Mantem ultimo snapshot por equipe (estado atual em memoria) para bootstrap rapido do NOC
+// Persistencia de posicoes GPS no Supabase (PostgreSQL)
+// - Armazenamento na nuvem (persistente)
+// - Sem problemas com disco efêmero do Render
+// - Consultas via SQL otimizadas com índices
 
-const fs   = require('fs');
-const path = require('path');
-const readline = require('readline');
+const { createClient } = require('@supabase/supabase-js');
 
-const POSICOES_DIR = path.join(__dirname, 'data', 'posicoes');
+// Inicializa cliente Supabase com variáveis de ambiente
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('[Supabase] ERRO: SUPABASE_URL e SUPABASE_ANON_KEY não configuradas!');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 function todayStr(d = new Date()) {
-  // YYYY-MM-DD em horario local
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
@@ -20,138 +23,173 @@ function todayStr(d = new Date()) {
 }
 
 class PosicoesStore {
-  constructor(dir = POSICOES_DIR) {
-    this.dir = dir;
-    this.currentDate = todayStr();
-    this.stream = null;
-    this.snapshot = new Map();   // equipeId -> ultima posicao (estado atual)
-    fs.mkdirSync(dir, { recursive: true });
-    this._openStream();
-    this._scheduleRotate();
-    this._loadTodaySnapshot();
-  }
-
-  _filePath(dateStr = this.currentDate) {
-    return path.join(this.dir, `${dateStr}.jsonl`);
-  }
-
-  _openStream() {
-    if (this.stream) {
-      try { this.stream.end(); } catch (_) {}
-    }
-    this.stream = fs.createWriteStream(this._filePath(), { flags: 'a', encoding: 'utf8' });
-    this.stream.on('error', err => console.error('[posicoes] erro no stream:', err));
-  }
-
-  _scheduleRotate() {
-    // Calcula ms ate a proxima meia-noite local + 1s de margem
-    const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
-    const ms = next.getTime() - now.getTime();
-    setTimeout(() => {
-      const novaData = todayStr();
-      if (novaData !== this.currentDate) {
-        console.log(`[posicoes] rotacionando ${this.currentDate} -> ${novaData}`);
-        this.currentDate = novaData;
-        this._openStream();
-      }
-      this._scheduleRotate();
-    }, Math.max(ms, 1000));
+  constructor() {
+    this.snapshot = new Map(); // equipeId -> ultima posicao (estado atual em memoria)
+    this.cache = new Map();    // cache para evitar consultas repetidas
+    this._loadSnapshot();
   }
 
   /**
-   * Carrega ultima posicao de cada equipe a partir do arquivo de hoje.
-   * Usado no boot para que o NOC ja receba o snapshot atual.
+   * Carrega a ultima posicao de cada equipe do banco
+   * Executado no boot para bootstrap rápido do NOC
    */
-  _loadTodaySnapshot() {
-    const file = this._filePath();
-    if (!fs.existsSync(file)) return;
+  async _loadSnapshot() {
     try {
-      const raw = fs.readFileSync(file, 'utf8');
-      const linhas = raw.split('\n').filter(l => l.trim());
-      for (const linha of linhas) {
-        try {
-          const reg = JSON.parse(linha);
-          if (reg && reg.equipeId) this.snapshot.set(reg.equipeId, reg);
-        } catch (_) {}
+      const { data, error } = await supabase
+        .from('posicoes')
+        .select('*')
+        .order('ts', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Pega a ultima posicao de cada equipe
+      const ultimasPorEquipe = new Map();
+      for (const reg of (data || [])) {
+        if (!ultimasPorEquipe.has(reg.equipe_id)) {
+          // Converte de snake_case para camelCase para compatibilidade
+          ultimasPorEquipe.set(reg.equipe_id, {
+            equipeId: reg.equipe_id,
+            equipeNome: reg.equipe_nome,
+            lat: reg.lat,
+            lng: reg.lng,
+            speed: reg.speed,
+            heading: reg.heading,
+            accuracy: reg.accuracy,
+            ts: new Date(reg.ts).getTime()
+          });
+        }
       }
-      console.log(`[posicoes] snapshot inicial: ${this.snapshot.size} equipe(s)`);
+      
+      this.snapshot = ultimasPorEquipe;
+      console.log(`[Supabase] snapshot inicial: ${this.snapshot.size} equipe(s)`);
     } catch (err) {
-      console.warn('[posicoes] erro ao carregar snapshot:', err.message);
+      console.warn('[Supabase] erro ao carregar snapshot:', err.message);
     }
   }
 
   /**
-   * Grava uma posicao no JSONL do dia e atualiza o snapshot em memoria.
+   * Grava uma posicao no Supabase e atualiza o snapshot em memoria
    * @param {object} reg  {equipeId, equipeNome, lat, lng, speed, heading, accuracy, ts}
    */
-  append(reg) {
-    // Rotacao defensiva: se o dia mudou desde a ultima checagem (timer falhou?)
-    const hoje = todayStr();
-    if (hoje !== this.currentDate) {
-      this.currentDate = hoje;
-      this._openStream();
+  async append(reg) {
+    try {
+      // Converte de camelCase para snake_case (padrao do Supabase)
+      const registro = {
+        equipe_id: reg.equipeId,
+        equipe_nome: reg.equipeNome,
+        ponto_numero: reg.pontoNumero || null,
+        lat: reg.lat,
+        lng: reg.lng,
+        speed: reg.speed || null,
+        heading: reg.heading || null,
+        accuracy: reg.accuracy || null,
+        ts: new Date(reg.ts || Date.now())
+      };
+
+      const { error } = await supabase
+        .from('posicoes')
+        .insert([registro]);
+
+      if (error) {
+        console.error('[Supabase] erro ao inserir:', error.message);
+        return false;
+      }
+
+      // Atualiza snapshot em memoria
+      this.snapshot.set(reg.equipeId, reg);
+      return true;
+    } catch (err) {
+      console.error('[Supabase] erro ao salvar posicao:', err.message);
+      return false;
     }
-    const linha = JSON.stringify(reg) + '\n';
-    this.stream.write(linha);
-    this.snapshot.set(reg.equipeId, reg);
   }
 
-  /** Retorna o estado atual de todas as equipes (para bootstrap WS). */
+  /** Retorna o estado atual de todas as equipes (para bootstrap WS) */
   current() {
     return Array.from(this.snapshot.values());
   }
 
   /**
-   * Le todas as posicoes de um dia em ordem cronologica.
-   * Streaming linha-a-linha — funciona com arquivos grandes.
+   * Le todas as posicoes de um dia em ordem cronologica
    * @param {string} dateStr YYYY-MM-DD
    * @param {string} [equipeId] filtro opcional
    * @returns {Promise<Array>}
    */
   async readDay(dateStr, equipeId = null) {
-    const file = this._filePath(dateStr);
-    if (!fs.existsSync(file)) return [];
-    const equipeFiltro = equipeId ? String(equipeId).toUpperCase() : null;
-
-    const rl = readline.createInterface({
-      input: fs.createReadStream(file, { encoding: 'utf8' }),
-      crlfDelay: Infinity
-    });
-
-    const out = [];
-    for await (const linha of rl) {
-      if (!linha.trim()) continue;
-      try {
-        const reg = JSON.parse(linha);
-        if (equipeFiltro && String(reg.equipeId).toUpperCase() !== equipeFiltro) continue;
-        out.push(reg);
-      } catch (_) {
-        // linha corrompida — ignora
-      }
-    }
-    // Garante ordem cronologica (deveria ja estar)
-    out.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-    return out;
-  }
-
-  /** Lista de datas com arquivo gravado, mais recentes primeiro. */
-  listDates() {
     try {
-      return fs.readdirSync(this.dir)
-        .filter(f => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f))
-        .map(f => f.replace('.jsonl', ''))
-        .sort()
-        .reverse();
-    } catch (_) {
+      // Converte a data para timestamp do dia
+      const startDate = new Date(`${dateStr}T00:00:00-03:00`);
+      const endDate = new Date(`${dateStr}T23:59:59-03:00`);
+      
+      let query = supabase
+        .from('posicoes')
+        .select('*')
+        .gte('ts', startDate.toISOString())
+        .lte('ts', endDate.toISOString())
+        .order('ts', { ascending: true });
+      
+      if (equipeId) {
+        query = query.eq('equipe_id', equipeId);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error('[Supabase] erro ao ler posicoes:', error.message);
+        return [];
+      }
+      
+      // Converte de snake_case para camelCase (compatibilidade)
+      const out = (data || []).map(reg => ({
+        equipeId: reg.equipe_id,
+        equipeNome: reg.equipe_nome,
+        pontoNumero: reg.ponto_numero,
+        lat: reg.lat,
+        lng: reg.lng,
+        speed: reg.speed,
+        heading: reg.heading,
+        accuracy: reg.accuracy,
+        ts: new Date(reg.ts).getTime()
+      }));
+      
+      return out;
+    } catch (err) {
+      console.error('[Supabase] erro ao ler posicoes do dia:', err.message);
       return [];
     }
   }
 
-  close() {
-    if (this.stream) {
-      try { this.stream.end(); } catch (_) {}
+  /**
+   * Lista de datas com registros disponiveis
+   * @returns {Promise<Array<string>>}
+   */
+  async listDates() {
+    try {
+      const { data, error } = await supabase
+        .from('posicoes')
+        .select('ts')
+        .order('ts', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Extrai datas unicas
+      const datas = new Set();
+      for (const reg of (data || [])) {
+        const date = new Date(reg.ts).toISOString().split('T')[0];
+        datas.add(date);
+      }
+      
+      return Array.from(datas).sort().reverse();
+    } catch (err) {
+      console.error('[Supabase] erro ao listar datas:', err.message);
+      return [];
     }
+  }
+
+  // Métodos mantidos para compatibilidade (não fazem nada no Supabase)
+  close() {
+    // Nada a fechar - conexão é gerenciada pelo Supabase
+    console.log('[Supabase] conexão encerrada');
   }
 }
 

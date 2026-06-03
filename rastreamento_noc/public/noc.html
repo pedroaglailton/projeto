@@ -808,100 +808,46 @@
     function corPorEquipe(id) { return getEquipeColor(id); }
 
     // =========================================================================
-    // SNAP-TO-ROAD (OSRM)
+    // Trilha GPS pura (sem snap-to-road)
     // =========================================================================
-    const snapCache = new Map();
-
-    function decodePolyline(str, precision = 5) {
-      const factor = Math.pow(10, precision);
-      const coords = [];
-      let index = 0, lat = 0, lng = 0;
-      while (index < str.length) {
-        let shift = 0, result = 0, byte;
-        do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
-        lat += (result & 1) ? ~(result >> 1) : (result >> 1);
-        shift = 0; result = 0;
-        do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
-        lng += (result & 1) ? ~(result >> 1) : (result >> 1);
-        coords.push([lat / factor, lng / factor]);
-      }
-      return coords;
-    }
-
-    async function snapToRoadOSRM(pontos) {
-      if (!pontos || pontos.length < 2) return null;
-      const key = pontos.map(p => p.lat.toFixed(5) + ',' + p.lng.toFixed(5)).join(';');
-      if (snapCache.has(key)) return snapCache.get(key);
-      const coords = pontos.map(p => p.lng + ',' + p.lat).join(';');
-      const url = 'https://router.project-osrm.org/match/v1/driving/' + coords + '?geometries=polyline&overview=full&gps_precision=15';
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const r = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (!r.ok) return null;
-        const j = await r.json();
-        if (!j.matchings || !j.matchings[0] || !j.matchings[0].geometry) return null;
-        const decoded = decodePolyline(j.matchings[0].geometry);
-        if (decoded.length < 2) return null;
-        if (snapCache.size > 50) snapCache.delete(snapCache.keys().next().value);
-        snapCache.set(key, decoded);
-        return decoded;
-      } catch (e) { return null; }
-    }
-
     let trilhaAtivaPorEquipe = new Map();
-    const snapBuffers = new Map();
-    const SNAP_BATCH = 5;
 
     function adicionarPontoTrilhaHoje(reg) {
       const id = reg.equipeId;
       const pt = [reg.lat, reg.lng];
       const ponto = { lat: reg.lat, lng: reg.lng, ts: Number(reg.ts) || Date.now() };
-      const tAtual = trilhaAtivaPorEquipe.get(id) ? trilhasHoje.get(trilhaAtivaPorEquipe.get(id)) : null;
+      const trilhaIdAtual = trilhaAtivaPorEquipe.get(id);
+      const tAtual = trilhaIdAtual ? trilhasHoje.get(trilhaIdAtual) : null;
       const SALTO_GPS_M = 80;
       const VELOCIDADE_MAX_KMH = 110;
+
       if (!tAtual) {
         const trilhaId = id + '#' + Date.now();
-        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.7 }).addTo(trilhasLayer);
+        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.8 }).addTo(trilhasLayer);
         trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
         recalcularParadasEquipe(id);
         return;
       }
+
       const ultimo = tAtual.pontos[tAtual.pontos.length - 1];
       const d = distMetros(ultimo, ponto);
       const dt = (ponto.ts - ultimo.ts) / 1000;
       const velocidade = dt > 0 ? (d / dt) * 3.6 : 0;
+
       if (d > SALTO_GPS_M || velocidade > VELOCIDADE_MAX_KMH) {
+        // GPS jump — inicia nova trilha
         const trilhaId = id + '#' + Date.now();
-        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.7, dashArray: '4,6' }).addTo(trilhasLayer);
+        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.8, dashArray: '4,6' }).addTo(trilhasLayer);
         trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
-        snapBuffers.delete(id);
         return;
       }
+
       tAtual.latlngs.push(pt);
       tAtual.pontos.push(ponto);
       tAtual.polyline.setLatLngs(tAtual.latlngs);
       recalcularParadasEquipe(id);
-      if (!snapBuffers.has(id)) snapBuffers.set(id, []);
-      const buf = snapBuffers.get(id);
-      buf.push(ponto);
-      if (buf.length >= SNAP_BATCH) {
-        const paraSnapar = buf.slice();
-        snapBuffers.set(id, []);
-        const trilhaAtual = trilhasHoje.get(trilhaAtivaPorEquipe.get(id));
-        snapToRoadOSRM(paraSnapar).then(snapped => {
-          if (!snapped || snapped.length < 2) return;
-          if (!trilhaAtual || !trilhasHoje.has(trilhaAtivaPorEquipe.get(id))) return;
-          const n = paraSnapar.length;
-          const iniIdx = Math.max(0, trilhaAtual.latlngs.length - n);
-          trilhaAtual.latlngs.length = iniIdx;
-          for (const s of snapped) trilhaAtual.latlngs.push(s);
-          trilhaAtual.polyline.setLatLngs(trilhaAtual.latlngs);
-        });
-      }
     }
 
     function limparParadasEquipe(id) {

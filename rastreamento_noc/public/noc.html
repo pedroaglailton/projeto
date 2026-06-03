@@ -1118,8 +1118,8 @@
         if (!porEquipe.has(p.equipeId)) porEquipe.set(p.equipeId, []);
         porEquipe.get(p.equipeId).push(p);
       }
-      const SALTO_GPS_M = 0.08;
-      const VELOCIDADE_MAX_KMH = 110;
+      const SALTO_GPS_M = 0.5; 
+      const VELOCIDADE_MAX_KMH = 300;
       const bounds = [];
       let i = 0;
       for (const [id, pontos] of porEquipe) {

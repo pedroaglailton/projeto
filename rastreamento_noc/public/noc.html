@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>NOC - Rastreamento Equipes</title>
+  <title>NOC — Rastreamento em Tempo Real</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
     * { box-sizing: border-box; }
@@ -17,6 +17,8 @@
       align-items: center;
       gap: 14px;
       border-bottom: 1px solid #334155;
+      position: relative;
+      z-index: 1000;
     }
     .top .title { font-size: 15px; letter-spacing: 0.5px; }
     .top .live-dot {
@@ -41,6 +43,7 @@
       overflow-y: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
+      z-index: 500;
     }
     body.sidebar-collapsed #sidebar {
       padding: 0;
@@ -78,6 +81,12 @@
     #sidebar button:hover { background: #0284c7; }
     #sidebar button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
     #sidebar button.ghost:hover { background: #1e293b; color: #e2e8f0; }
+    #sidebar .muted { font-size: 11px; color: #4b5563; margin-top: 6px; }
+
+    /* Roads toggle button */
+    #sidebar button.roads-btn { background: #1e3a5f; border: 1px solid #0ea5e9; color: #7dd3fc; }
+    #sidebar button.roads-btn:hover { background: #1e40af; }
+    #sidebar button.roads-btn.active { background: #0369a1; color: #fff; }
 
     #equipesList { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow-y: auto; }
     #equipesList li {
@@ -102,6 +111,16 @@
     }
     #proximosList .dist { color: #fbbf24; font-size: 11px; }
 
+    /* Roads status badge */
+    #roadsStatus {
+      font-size: 11px; color: #94a3b8; margin-top: 4px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #334155; display: inline-block; }
+    #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    #roadsStatusDot.loaded { background: #22c55e; }
+    #roadsStatusDot.error { background: #ef4444; }
+
     .toggle-sidebar {
       display: inline-flex; align-items: center; justify-content: center;
       width: 32px; height: 32px; border-radius: 6px;
@@ -110,123 +129,111 @@
     }
 
     #map { width: 100%; height: 100%; }
+
+    /* Car marker - Uber style */
     .car-marker {
       width: 22px; height: 45px;
       background: transparent !important;
       display: flex; align-items: center; justify-content: center;
       will-change: transform;
       transform-origin: center center;
-      filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.55));
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.8));
+      transition: filter 0.3s ease;
     }
-    .car-marker, .car-marker * {
-      background: transparent !important;
-    }
+    .car-marker:hover { filter: drop-shadow(0 3px 10px rgba(14,165,233,0.8)); }
+    .car-marker, .car-marker * { background: transparent !important; }
     .car-marker img {
       background: transparent !important;
       mix-blend-mode: normal;
-      filter: hue-rotate(190deg) saturate(2.5) brightness(0.7) contrast(1.3) !important;
     }
-    .car-marker.car-stale img {
-      filter: hue-rotate(190deg) saturate(2.5) brightness(0.7) contrast(1.3) grayscale(0.6) opacity(0.7) !important;
-    }
-    .car-marker svg { width: 40px; height: 40px; display: block; }
-    .car-marker.stale { opacity: 0.5; }
-    .car-marker.stale .car-body { fill: #cbd5e1; }
-    .car-marker.stale .car-cabin { fill: #94a3b8; }
-    .car-marker.stale .car-arrow { fill: #475569; }
+    .car-marker .car-svg { width: 36px; height: 36px; display: block; }
+    .car-marker.stale { opacity: 0.45; }
     .car-marker.flash {
-      animation: carPulse 1.4s ease-out;
+      animation: carFlash 1.2s ease-out;
     }
-    @keyframes carPulse {
-      0%   { filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0)) drop-shadow(0 2px 3px rgba(0,0,0,0.5)) drop-shadow(0 0 14px rgba(255, 255, 255, 0.95)); }
-      100% { filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 0 rgba(255, 255, 255, 0)); }
+    @keyframes carFlash {
+      0%   { filter: drop-shadow(0 0 12px rgba(14,165,233,1)) drop-shadow(0 0 24px rgba(255,255,255,0.8)); }
+      100% { filter: drop-shadow(0 3px 6px rgba(0,0,0,0.8)); }
     }
-    .car-marker .car-body { fill: #ffffff; stroke: #1e293b; stroke-width: 1.5; stroke-linejoin: round; }
-    .car-marker .car-cabin { fill: #e2e8f0; stroke: #1e293b; stroke-width: 1; stroke-linejoin: round; }
-    .car-marker .car-arrow { fill: #0f172a; }
+
+    /* Uber-style pulse ring when car updates */
+    .car-pulse {
+      position: absolute;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      border: 2px solid rgba(14,165,233,0.6);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: carRipple 1s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes carRipple {
+      0%   { width: 20px; height: 20px; opacity: 1; border-width: 2px; }
+      100% { width: 60px; height: 60px; opacity: 0; border-width: 1px; }
+    }
+
     .endpoint-marker {
       width: 22px; height: 22px; border-radius: 50%;
       border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
       transform: translate(-11px, -11px);
     }
-    .endpoint-marker.start { background: #22c55e; }
-    .endpoint-marker.end   { background: #ef4444; }
 
+    /* Playback info */
     .playback-info {
-      position: absolute; top: 60px; right: 12px;
-      background: rgba(17,24,39,0.95); padding: 10px 14px;
-      border-radius: 8px; border: 1px solid #334155;
-      font-size: 12px; z-index: 999; display: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      position: absolute;
+      bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,0.9); backdrop-filter: blur(8px);
+      border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px;
+      display: none; gap: 12px; z-index: 800;
+      white-space: nowrap;
     }
-    .playback-info.visible { display: block; }
+    .playback-info.visible { display: flex; }
     .playback-info .label { color: #94a3b8; }
-    .playback-info .val { color: #38bdf8; font-weight: 600; }
+    .playback-info .val { color: #e2e8f0; font-weight: 600; }
 
+    /* Alert modal */
     .alert-modal {
-      position: fixed;
-      inset: 0;
+      position: fixed; top: 60px; right: 12px; z-index: 9000;
+      background: rgba(15,23,42,0.95); backdrop-filter: blur(10px);
+      border: 1px solid #0ea5e9; border-radius: 12px;
+      padding: 14px 18px; min-width: 220px;
+      box-shadow: 0 8px 32px rgba(14,165,233,0.25);
       display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 3000;
-      pointer-events: none;
+      animation: slideIn 0.3s ease;
     }
-    .alert-modal.visible { display: flex; }
-    .alert-modal .card {
-      min-width: 320px;
-      max-width: 92vw;
-      background: rgba(15, 23, 42, 0.96);
-      border: 1px solid #334155;
-      border-radius: 14px;
-      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-      padding: 16px 18px;
-      text-align: center;
-      animation: alertIn .2s ease-out;
-    }
-    .alert-modal .title {
-      font-size: 13px;
-      letter-spacing: .8px;
-      color: #fbbf24;
-      text-transform: uppercase;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-    .alert-modal .main {
-      color: #e2e8f0;
-      font-size: 17px;
-      font-weight: 700;
-      line-height: 1.35;
-    }
-    .alert-modal .sub {
-      margin-top: 8px;
-      font-size: 12px;
-      color: #93c5fd;
-    }
-    @keyframes alertIn {
-      from { transform: translateY(10px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
+    @keyframes slideIn { from { opacity:0; transform: translateY(-10px); } to { opacity:1; transform: translateY(0); } }
+    .alert-modal.visible { display: block; }
+    .alert-modal .title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #38bdf8; margin-bottom: 6px; }
+    .alert-modal .main { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+    .alert-modal .sub { font-size: 12px; color: #94a3b8; margin-top: 3px; }
 
+    /* Token box */
     .token-box {
-      margin-top: 8px;
-      font-size: 11px;
-      color: #93c5fd;
-      word-break: break-all;
-      background: #0b1220;
-      border: 1px dashed #334155;
-      border-radius: 6px;
-      padding: 8px;
-      display: none;
+      background: #0f172a; border: 1px solid #0ea5e9; border-radius: 6px;
+      padding: 8px; font-size: 11px; color: #7dd3fc; margin-top: 8px;
+      word-break: break-all; display: none;
     }
     .token-box.visible { display: block; }
 
-    .muted { color: #94a3b8; font-size: 11px; margin-top: 6px; }
+    /* Roads layer legend */
+    .roads-legend {
+      position: absolute; bottom: 16px; right: 16px; z-index: 800;
+      background: rgba(15,23,42,0.85); backdrop-filter: blur(6px);
+      border: 1px solid #1e3a5f; border-radius: 8px;
+      padding: 10px 14px; font-size: 11px;
+      display: none;
+    }
+    .roads-legend.visible { display: block; }
+    .roads-legend h4 { margin: 0 0 8px; font-size: 11px; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; }
+    .roads-legend .item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .roads-legend .line { width: 24px; height: 3px; border-radius: 2px; }
   </style>
 </head>
 <body>
+
   <div class="top">
-    <button class="toggle-sidebar" id="toggleSidebar" title="Menu">≡</button>
+    <button class="toggle-sidebar" id="toggleSidebar" title="Menu" style="display:none">≡</button>
     <span class="live-dot" id="liveDot" title="Conexão WebSocket"></span>
     <span class="title">NOC — Equipes em Campo</span>
     <span class="spacer"></span>
@@ -236,41 +243,52 @@
 
   <div class="layout">
     <aside id="sidebar">
+
       <div class="section">
-        <h3>Equipes ativas</h3>
-        <ul id="equipesList"><li style="opacity:0.5;cursor:default">Aguardando...</li></ul>
+        <h3>Equipes Ativas</h3>
+        <ul id="equipesList"><li style="opacity:0.5;cursor:default">Aguardando…</li></ul>
       </div>
 
       <div class="section">
-        <h3>Proximos do ponto</h3>
-        <ul id="proximosList"><li style="opacity:0.5;cursor:default">Sem equipe proxima</li></ul>
+        <h3>Próximas a Pontos</h3>
+        <ul id="proximosList"><li style="opacity:0.5;cursor:default">—</li></ul>
       </div>
 
       <div class="section">
-        <h3>Playback de rota</h3>
-        <label for="pbDate">Data</label>
+        <h3>Mapa de Ruas (KML)</h3>
+        <button id="btnRoads" class="roads-btn active">🗺️ Ruas Fortaleza: Ligado</button>
+        <div id="roadsStatus">
+          <span id="roadsStatusDot" class="loading"></span>
+          <span id="roadsStatusTxt">Carregando ruas…</span>
+        </div>
+        <label>Opacidade das ruas</label>
+        <input type="range" id="roadsOpacity" min="10" max="100" value="70" style="width:100%;accent-color:#0ea5e9">
+      </div>
+
+      <div class="section">
+        <h3>Playback</h3>
+        <label>Data</label>
         <input type="date" id="pbDate">
-        <label for="pbEquipe">Equipe</label>
+        <label>Equipe</label>
         <select id="pbEquipe"><option value="">— Todas —</option></select>
         <button id="btnPlayback">Mostrar rota</button>
         <button id="btnLimparPlayback" class="ghost">Limpar rota</button>
       </div>
 
       <div class="section">
-        <h3>Filtro de pontos</h3>
-        <label for="filtroCidade">Regiao</label>
+        <h3>Filtro de Pontos</h3>
         <select id="filtroCidade">
-          <option value="TODAS">Todas</option>
+          <option value="TODAS">Todas as cidades</option>
         </select>
       </div>
 
       <div class="section">
-        <h3>Gerar key equipe</h3>
-        <label for="newEquipeId">Equipe ID</label>
+        <h3>Gestão de Equipes</h3>
+        <label>Equipe ID</label>
         <input type="text" id="newEquipeId" placeholder="EQUIPE-03">
-        <label for="newEquipeNome">Nome exibicao</label>
+        <label>Nome</label>
         <input type="text" id="newEquipeNome" placeholder="Joao + Pedro">
-        <label for="nocAdminKey">Admin key (opcional)</label>
+        <label>Admin Key</label>
         <input type="text" id="nocAdminKey" placeholder="Se configurada no servidor">
         <button id="btnGerarKey">Gerar key</button>
         <button id="btnRegenerarKey" class="ghost">Regenerar key</button>
@@ -280,49 +298,146 @@
         <div id="tokenGerado" class="token-box"></div>
       </div>
 
-      <div class="section" style="border-bottom:0">
-        <h3>Status</h3>
-        <div style="font-size:12px;color:#94a3b8;line-height:1.6">
+      <div class="section">
+        <h3>Debug</h3>
+        <div style="font-size:11px;color:#4b5563">
           WebSocket: <span id="wsStatus">conectando…</span><br>
           Última msg: <span id="lastMsg">—</span>
         </div>
       </div>
+
     </aside>
 
-    <div style="position:relative">
+    <div style="position:relative;overflow:hidden">
       <div id="map"></div>
       <div class="playback-info" id="playbackInfo"></div>
+      <!-- Roads legend -->
+      <div class="roads-legend" id="roadsLegend">
+        <h4>Ruas — KML Fortaleza</h4>
+        <div class="item"><div class="line" style="background:#ff4040;height:4px"></div> Rodovia / Motorway</div>
+        <div class="item"><div class="line" style="background:#ffaa00;height:3px"></div> Avenida Principal / Trunk</div>
+        <div class="item"><div class="line" style="background:#66cc00;height:3px"></div> Rua Principal / Primary</div>
+      </div>
     </div>
   </div>
 
   <div class="alert-modal" id="proximidadeModal" aria-live="polite" aria-atomic="true">
-    <div class="card">
-      <div class="title">Equipe proxima ao ponto</div>
-      <div class="main" id="proximidadeMain">—</div>
-      <div class="sub" id="proximidadeSub">—</div>
-    </div>
+    <div class="title">Equipe próxima ao ponto</div>
+    <div class="main" id="proximidadeMain">—</div>
+    <div class="sub" id="proximidadeSub">—</div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // =========================================================================
-    // Setup do mapa
+    // Setup do mapa — Dark tile (CartoDB Dark Matter) + OpenStreetMap fallback
     // =========================================================================
-    const map = L.map('map').setView([-3.7319, -38.5267], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
+    const map = L.map('map', {
+      zoomControl: true,
+      attributionControl: true,
+    }).setView([-3.7319, -38.5267], 12);
+
+    // Dark tile layer (Uber-style dark map)
+    const darkTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CartoDB',
+      subdomains: 'abcd',
+      maxZoom: 20,
     }).addTo(map);
+
+    // =========================================================================
+    // Layer de ruas do KML de Fortaleza (fortaleza_roads.geojson)
+    // =========================================================================
+    let roadsLayer = null;
+    let roadsVisible = true;
+    let roadsOpacity = 0.7;
+
+    const ROAD_STYLES = {
+      '2': { color: '#ff4040', weight: 3.5, dashArray: null },     // motorway/rodovia
+      '4': { color: '#ffaa00', weight: 2.5, dashArray: null },     // trunk/avenida
+      '6': { color: '#66cc00', weight: 2.0, dashArray: null },     // primary
+    };
+
+    function getRoadStyle(sid) {
+      const base = ROAD_STYLES[sid] || { color: '#4a9eff', weight: 1.5 };
+      return {
+        color: base.color,
+        weight: base.weight,
+        opacity: roadsOpacity,
+        dashArray: base.dashArray,
+        interactive: false,
+      };
+    }
+
+    async function carregarRoads() {
+      const dot = document.getElementById('roadsStatusDot');
+      const txt = document.getElementById('roadsStatusTxt');
+      dot.className = 'loading';
+      txt.textContent = 'Carregando ruas…';
+
+      try {
+        // Tenta carregar fortaleza_roads.geojson do mesmo servidor
+        const r = await fetch('/fortaleza_roads.geojson');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const geojson = await r.json();
+
+        roadsLayer = L.geoJSON(geojson, {
+          style: (feature) => getRoadStyle(feature.properties.s),
+          interactive: false,
+        });
+
+        if (roadsVisible) roadsLayer.addTo(map);
+        // Garante que o layer de ruas fica abaixo dos markers
+        roadsLayer.bringToBack();
+
+        dot.className = 'loaded';
+        txt.textContent = `${geojson.features.length} segmentos carregados`;
+        document.getElementById('roadsLegend').classList.add('visible');
+      } catch (e) {
+        dot.className = 'error';
+        txt.textContent = 'Erro ao carregar ruas: ' + e.message;
+        console.warn('Ruas KML nao carregadas:', e);
+      }
+    }
+
+    // Toggle visibilidade das ruas
+    document.getElementById('btnRoads').addEventListener('click', () => {
+      const btn = document.getElementById('btnRoads');
+      roadsVisible = !roadsVisible;
+      if (roadsLayer) {
+        if (roadsVisible) {
+          roadsLayer.addTo(map);
+          roadsLayer.bringToBack();
+          btn.textContent = '🗺️ Ruas Fortaleza: Ligado';
+          btn.classList.add('active');
+          document.getElementById('roadsLegend').classList.add('visible');
+        } else {
+          map.removeLayer(roadsLayer);
+          btn.textContent = '🗺️ Ruas Fortaleza: Desligado';
+          btn.classList.remove('active');
+          document.getElementById('roadsLegend').classList.remove('visible');
+        }
+      }
+    });
+
+    // Controle de opacidade
+    document.getElementById('roadsOpacity').addEventListener('input', (e) => {
+      roadsOpacity = parseInt(e.target.value) / 100;
+      if (roadsLayer) {
+        roadsLayer.setStyle((feature) => getRoadStyle(feature.properties.s));
+      }
+    });
+
+    carregarRoads();
 
     // =========================================================================
     // Estado
     // =========================================================================
-    const markers = new Map();   // equipeId -> Leaflet marker (posicao atual)
-    const ultimoTs = new Map();  // equipeId -> timestamp da ultima posicao
-    const posicoesAnimadas = new Map(); // equipeId -> { lat, lng, ts, heading } (posicao que o marker esta exibindo)
-    const headingsAnimados = new Map(); // equipeId -> heading atual (graus)
-    const trilhasHoje = new Map(); // trilhaId -> { polyline, latlngs, pontos, equipeId }
-    const paradasHoje = new Map(); // equipeId -> [Leaflet marker]
+    const markers = new Map();
+    const ultimoTs = new Map();
+    const posicoesAnimadas = new Map();
+    const headingsAnimados = new Map();
+    const trilhasHoje = new Map();
+    const paradasHoje = new Map();
     let trilhasLayer = L.layerGroup().addTo(map);
     let paradasLayer = L.layerGroup().addTo(map);
     let pontosLayer = L.layerGroup().addTo(map);
@@ -330,23 +445,66 @@
     const pontosVisitados = new Set();
     const pontosMarkers = new Map();
     const alertaAproximacao = new Map();
-    const equipesProximas = new Map(); // equipeId -> { equipeNome, pontoNome, dist, ts }
-    const equipeValidacao = new Map(); // equipeId -> { ok, pontoNome, dist, ts }
+    const equipesProximas = new Map();
+    const equipeValidacao = new Map();
     let modalTimer = null;
     let audioAlertEnabled = false;
-    let playbackLayer = null;    // L.LayerGroup do playback atual
+    let playbackLayer = null;
     let equipeSelecionada = null;
-    const STALE_MS = 90 * 1000;  // se >90s sem update, equipe vira "stale"
+    const STALE_MS = 90 * 1000;
 
-    function carIcon(stale = false) {
-      const svg = `<img src="noc-static/car-topdown.svg" style="width:100%;height:100%;display:block;pointer-events:none;transform-origin:center;filter:hue-rotate(190deg) saturate(2.5) brightness(0.7) contrast(1.3);"/>`;
+    // =========================================================================
+    // Ícone do carro — SVG inline estilo Uber dark
+    // =========================================================================
+    function carSVG(color = '#ffffff') {
+      // Carro top-down elegante
+      return `<svg class="car-svg" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+        <!-- Sombra / glow base -->
+        <ellipse cx="18" cy="20" rx="9" ry="5" fill="rgba(0,0,0,0.4)"/>
+        <!-- Corpo do carro -->
+        <rect x="10" y="6" width="16" height="24" rx="4" fill="${color}" stroke="#1e293b" stroke-width="1.5"/>
+        <!-- Cabine/vidro dianteiro -->
+        <rect x="12" y="9" width="12" height="8" rx="2" fill="rgba(30,41,59,0.85)"/>
+        <!-- Vidro traseiro -->
+        <rect x="12" y="20" width="12" height="6" rx="1.5" fill="rgba(30,41,59,0.65)"/>
+        <!-- Faróis dianteiros -->
+        <rect x="10.5" y="7" width="3" height="2" rx="1" fill="#fde68a" opacity="0.9"/>
+        <rect x="22.5" y="7" width="3" height="2" rx="1" fill="#fde68a" opacity="0.9"/>
+        <!-- Rodas -->
+        <rect x="7" y="9" width="4" height="6" rx="2" fill="#334155"/>
+        <rect x="25" y="9" width="4" height="6" rx="2" fill="#334155"/>
+        <rect x="7" y="21" width="4" height="6" rx="2" fill="#334155"/>
+        <rect x="25" y="21" width="4" height="6" rx="2" fill="#334155"/>
+        <!-- Seta de direção no teto -->
+        <polygon points="18,3 21,8 18,6.5 15,8" fill="${color}" opacity="0.7"/>
+      </svg>`;
+    }
+
+    const EQUIPE_COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
+    const equipeColorMap = new Map();
+
+    function getEquipeColor(equipeId) {
+      if (!equipeColorMap.has(equipeId)) {
+        let hash = 0;
+        for (let i = 0; i < equipeId.length; i++) hash = ((hash << 5) - hash + equipeId.charCodeAt(i)) | 0;
+        equipeColorMap.set(equipeId, EQUIPE_COLORS[Math.abs(hash) % EQUIPE_COLORS.length]);
+      }
+      return equipeColorMap.get(equipeId);
+    }
+
+    function carIcon(equipeId, stale = false) {
+      const color = stale ? '#64748b' : getEquipeColor(equipeId);
       return L.divIcon({
         className: '',
-        html: `<div class="car-marker${stale ? ' stale' : ''}">${svg}</div>`,
-        iconSize: [22, 44], iconAnchor: [11, 22]
+        html: `<div class="car-marker${stale ? ' stale' : ''}" id="car-${equipeId.replace(/[^a-z0-9]/gi,'-')}">${carSVG(color)}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
       });
     }
 
+    // =========================================================================
+    // Funções de heading e animação (estilo Uber)
+    // =========================================================================
     function bearing(a, b) {
       const toRad = x => x * Math.PI / 180;
       const toDeg = x => x * 180 / Math.PI;
@@ -362,29 +520,48 @@
       let diff = newHeading - prevHeading;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
-      return (prevHeading + diff + 360) % 360;
+      // Suavização com easing — mais lento quando pequena diferença
+      const step = Math.abs(diff) > 30 ? diff : diff * 0.6;
+      return (prevHeading + step + 360) % 360;
     }
 
     const animacoes = new Map();
 
-    function animarMarker(m, de, para, heading, durMs) {
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutQuad(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+
+    function animarMarker(m, de, para, heading, durMs, equipeId) {
       if (animacoes.has(m)) cancelAnimationFrame(animacoes.get(m));
       const inicio = performance.now();
       const dLat = para.lat - de.lat;
       const dLng = para.lng - de.lng;
       let headingAtual = heading;
+      const targetHeading = heading;
+
       function passo(t) {
         const elapsed = t - inicio;
         const k = Math.min(1, elapsed / durMs);
-        const ease = 1 - Math.pow(1 - k, 3);
+        const ease = easeOutCubic(k);
+
         const lat = de.lat + dLat * ease;
         const lng = de.lng + dLng * ease;
         m.setLatLng([lat, lng]);
+
         const el = m.getElement();
         if (el && headingAtual != null) {
           const inner = el.querySelector('.car-marker');
-          if (inner) inner.style.transform = `rotate(${headingAtual}deg)`;
+          if (inner) {
+            // Rotação suave interpolando heading
+            const hEase = easeInOutQuad(k);
+            let prevH = headingsAnimados.get(equipeId) || 0;
+            let diff = targetHeading - prevH;
+            if (diff > 180) diff -= 360;
+            if (diff < -180) diff += 360;
+            const hInterp = prevH + diff * hEase;
+            inner.style.transform = `rotate(${hInterp}deg)`;
+          }
         }
+
         if (k < 1) {
           animacoes.set(m, requestAnimationFrame(passo));
         } else {
@@ -394,61 +571,75 @@
       animacoes.set(m, requestAnimationFrame(passo));
     }
 
+    function addPulseRing(marker) {
+      const el = marker.getElement();
+      if (!el) return;
+      const old = el.querySelector('.car-pulse');
+      if (old) old.remove();
+      const ring = document.createElement('div');
+      ring.className = 'car-pulse';
+      el.appendChild(ring);
+      setTimeout(() => ring.remove(), 1200);
+    }
+
     function upsert(reg) {
       const valid = validarProximidadePonto(reg);
       const pontoTxt = reg.pontoNumero ? `<br>Ponto app: ${reg.pontoNumero}` : '';
       const validTxt = valid
-        ? `<br>Validacao: <b style="color:#22c55e">OK</b> (${Math.round(valid.dist)}m de ${valid.pontoNome})`
-        : `<br>Validacao: <b style="color:#ef4444">PENDENTE</b>`;
-      const txt = `<b>${reg.equipeNome}</b>${pontoTxt}${validTxt}<br>Lat: ${reg.lat.toFixed(6)}<br>Lng: ${reg.lng.toFixed(6)}<br>Precisao: ${reg.accuracy ?? '-'} m<br>${new Date(reg.ts).toLocaleTimeString('pt-BR')}`;
+        ? `<br>Validação: <b style="color:#22c55e">OK</b> (${Math.round(valid.dist)}m de ${valid.pontoNome})`
+        : `<br>Validação: <b style="color:#ef4444">PENDENTE</b>`;
+      const txt = `<b>${reg.equipeNome}</b>${pontoTxt}${validTxt}<br>Lat: ${reg.lat.toFixed(6)}<br>Lng: ${reg.lng.toFixed(6)}<br>Precisão: ${reg.accuracy ?? '-'} m<br>${new Date(reg.ts).toLocaleTimeString('pt-BR')}`;
       ultimoTs.set(reg.equipeId, reg.ts || Date.now());
+
       if (!markers.has(reg.equipeId)) {
-        const m = L.marker([reg.lat, reg.lng], { icon: carIcon() })
+        const m = L.marker([reg.lat, reg.lng], { icon: carIcon(reg.equipeId, false) })
           .addTo(map)
           .bindPopup(txt)
-          .bindTooltip(reg.equipeNome, { direction: 'top', offset: [0, -18] });
+          .bindTooltip(reg.equipeNome, { direction: 'top', offset: [0, -20] });
         m.on('click', () => focusEquipe(reg.equipeId));
         markers.set(reg.equipeId, m);
         posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: reg.heading });
-        headingsAnimados.set(reg.equipeId, reg.heading != null ? reg.heading : null);
+        headingsAnimados.set(reg.equipeId, reg.heading != null ? reg.heading : 0);
       } else {
         const m = markers.get(reg.equipeId);
         const ant = posicoesAnimadas.get(reg.equipeId) || { lat: reg.lat, lng: reg.lng };
         let novoHeading = reg.heading;
+
         if (novoHeading == null) {
           const dist = distMetros(ant, { lat: reg.lat, lng: reg.lng });
-          if (dist > 5) {
+          if (dist > 3) {
             novoHeading = bearing(ant, { lat: reg.lat, lng: reg.lng });
             const hAnt = headingsAnimados.get(reg.equipeId);
             if (hAnt != null) novoHeading = smoothHeading(hAnt, novoHeading);
           } else {
-            novoHeading = headingsAnimados.get(reg.equipeId);
+            novoHeading = headingsAnimados.get(reg.equipeId) || 0;
           }
         }
-        const dt = reg.ts && ant.ts ? Math.max(0.5, Math.min(8, (reg.ts - ant.ts) / 1000)) : 1.5;
-        const durMs = Math.max(400, Math.min(8000, dt * 900));
+
+        const dt = reg.ts && ant.ts ? Math.max(0.4, Math.min(8, (reg.ts - ant.ts) / 1000)) : 1.5;
+        const durMs = Math.max(300, Math.min(7000, dt * 850));
+
         m.setPopupContent(txt);
         m.setTooltipContent(reg.equipeNome);
-        m.setIcon(carIcon(false));
-        const el = m.getElement();
-        if (el) {
-          const inner = el.querySelector('.car-marker');
-          if (inner) {
-            inner.classList.remove('flash');
-            void inner.offsetWidth;
-            inner.classList.add('flash');
-          }
-        }
-        animarMarker(m, ant, { lat: reg.lat, lng: reg.lng }, novoHeading, durMs);
+        m.setIcon(carIcon(reg.equipeId, false));
+
+        // Pulse ring (efeito Uber)
+        addPulseRing(m);
+
+        animarMarker(m, ant, { lat: reg.lat, lng: reg.lng }, novoHeading, durMs, reg.equipeId);
         posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: novoHeading });
         headingsAnimados.set(reg.equipeId, novoHeading);
       }
+
       adicionarPontoTrilhaHoje(reg);
       marcarVisitaPorPosicao(reg);
       verificarAproximacaoPonto(reg);
       renderEquipesList();
     }
 
+    // =========================================================================
+    // Validação de proximidade de ponto
+    // =========================================================================
     function validarProximidadePonto(reg) {
       if (!pontosPlanejados.length) {
         equipeValidacao.set(reg.equipeId, { ok: false, pontoNome: '-', dist: Infinity, ts: reg.ts || Date.now() });
@@ -457,7 +648,7 @@
       let melhor = null;
       for (const p of pontosPlanejados) {
         const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
-        if (!melhor || d < melhor.dist) melhor = { pontoNome: p.nome || (`PONTO ${p.id}`), dist: d };
+        if (!melhor || d < melhor.dist) melhor = { pontoNome: p.nome || ('PONTO ' + p.id), dist: d };
       }
       const ok = !!(melhor && melhor.dist <= 50);
       equipeValidacao.set(reg.equipeId, { ok, pontoNome: melhor ? melhor.pontoNome : '-', dist: melhor ? melhor.dist : Infinity, ts: reg.ts || Date.now() });
@@ -554,10 +745,9 @@
       const lista = Array.from(equipesProximas.entries())
         .map(([equipeId, v]) => ({ equipeId, ...v }))
         .sort((a, b) => a.dist - b.dist);
-
       ul.innerHTML = '';
       if (!lista.length) {
-        ul.innerHTML = '<li style="opacity:0.5;cursor:default">Sem equipe proxima</li>';
+        ul.innerHTML = '<li style="opacity:0.5;cursor:default">Sem equipe próxima</li>';
         return;
       }
       for (const item of lista) {
@@ -575,22 +765,19 @@
       for (const p of pontosPlanejados) {
         const d = distMetros({ lat: reg.lat, lng: reg.lng }, p);
         if (!melhor || d < melhor.dist) {
-          melhor = { pontoId: p.id, pontoNome: p.nome || (`PONTO ${p.id}`), dist: d };
+          melhor = { pontoId: p.id, pontoNome: p.nome || ('PONTO ' + p.id), dist: d };
         }
         if (d > RAIO_ALERTA_M) continue;
-
         const chave = `${reg.equipeId}:${p.id}`;
         const ultimo = alertaAproximacao.get(chave) || 0;
         if (agora - ultimo < REARME_MS) continue;
         alertaAproximacao.set(chave, agora);
-
         tocarAlarmeProximidade();
-        const nomePonto = p.nome || (`PONTO ${p.id}`);
+        const nomePonto = p.nome || ('PONTO ' + p.id);
         const distancia = Math.round(d);
         document.getElementById('lastMsg').textContent = `${reg.equipeNome || reg.equipeId} a ${distancia}m de ${nomePonto}`;
         mostrarModalProximidade(reg.equipeNome || reg.equipeId, nomePonto, distancia);
       }
-
       if (melhor && melhor.dist <= RAIO_ALERTA_M) {
         equipesProximas.set(reg.equipeId, {
           equipeNome: reg.equipeNome || reg.equipeId,
@@ -606,18 +793,12 @@
 
     function mostrarModalProximidade(equipeNome, pontoNome, distancia) {
       const modal = document.getElementById('proximidadeModal');
-      const main = document.getElementById('proximidadeMain');
-      const sub = document.getElementById('proximidadeSub');
-      if (!modal || !main || !sub) return;
-
-      main.textContent = `${equipeNome}`;
-      sub.textContent = `${pontoNome} - ${distancia}m`;
+      if (!modal) return;
+      document.getElementById('proximidadeMain').textContent = equipeNome;
+      document.getElementById('proximidadeSub').textContent = `${pontoNome} — ${distancia}m`;
       modal.classList.add('visible');
-
       if (modalTimer) clearTimeout(modalTimer);
-      modalTimer = setTimeout(() => {
-        modal.classList.remove('visible');
-      }, 20000);
+      modalTimer = setTimeout(() => modal.classList.remove('visible'), 20000);
     }
 
     function atualizarStatsPontos() {
@@ -625,8 +806,7 @@
       const visitados = pontosVisitados.size;
       const pendentes = Math.max(0, total - visitados);
       const el = document.getElementById('statsPontos');
-      if (!el) return;
-      el.textContent = `Planejados: ${total} | Visitados: ${visitados} | Pendentes: ${pendentes}`;
+      if (el) el.textContent = `Planejados: ${total} | Visitados: ${visitados} | Pendentes: ${pendentes}`;
     }
 
     async function carregarPontosPlanejados() {
@@ -649,59 +829,35 @@
       } catch (_) {}
     }
 
-    function corPorEquipe(id) {
-      const cores = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
-      let hash = 0;
-      for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-      return cores[Math.abs(hash) % cores.length];
-    }
+    function corPorEquipe(id) { return getEquipeColor(id); }
 
     // =========================================================================
-    // SNAP-TO-ROAD (OSRM) - ajusta pontos GPS às ruas mais próximas
+    // SNAP-TO-ROAD (OSRM)
     // =========================================================================
-    // Cache local: chave = "equipeId:hashPontos" -> polyline decodificada
     const snapCache = new Map();
 
-    // Decodifica polyline do Google (precision 5 = 1e-5, padrão OSRM)
     function decodePolyline(str, precision = 5) {
       const factor = Math.pow(10, precision);
       const coords = [];
       let index = 0, lat = 0, lng = 0;
       while (index < str.length) {
         let shift = 0, result = 0, byte;
-        do {
-          byte = str.charCodeAt(index++) - 63;
-          result |= (byte & 0x1f) << shift;
-          shift += 5;
-        } while (byte >= 0x20);
-        const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
-        lat += dlat;
+        do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+        lat += (result & 1) ? ~(result >> 1) : (result >> 1);
         shift = 0; result = 0;
-        do {
-          byte = str.charCodeAt(index++) - 63;
-          result |= (byte & 0x1f) << shift;
-          shift += 5;
-        } while (byte >= 0x20);
-        const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
-        lng += dlng;
+        do { byte = str.charCodeAt(index++) - 63; result |= (byte & 0x1f) << shift; shift += 5; } while (byte >= 0x20);
+        lng += (result & 1) ? ~(result >> 1) : (result >> 1);
         coords.push([lat / factor, lng / factor]);
       }
       return coords;
     }
 
-    // Chama OSRM /match para snap-to-road de uma sequência de pontos
-    // Retorna array de [lat, lng] corrigidos, ou null se falhar
     async function snapToRoadOSRM(pontos) {
       if (!pontos || pontos.length < 2) return null;
-      // Cache: hash simples dos pontos
       const key = pontos.map(p => p.lat.toFixed(5) + ',' + p.lng.toFixed(5)).join(';');
       if (snapCache.has(key)) return snapCache.get(key);
-
-      // OSRM match: aceita até 100 coords por request
       const coords = pontos.map(p => p.lng + ',' + p.lat).join(';');
-      const url = 'https://router.project-osrm.org/match/v1/driving/' + coords +
-        '?geometries=polyline&overview=full&gps_precision=15';
-
+      const url = 'https://router.project-osrm.org/match/v1/driving/' + coords + '?geometries=polyline&overview=full&gps_precision=15';
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
@@ -712,21 +868,14 @@
         if (!j.matchings || !j.matchings[0] || !j.matchings[0].geometry) return null;
         const decoded = decodePolyline(j.matchings[0].geometry);
         if (decoded.length < 2) return null;
-        // Limita cache a 50 entradas
-        if (snapCache.size > 50) {
-          const firstKey = snapCache.keys().next().value;
-          snapCache.delete(firstKey);
-        }
+        if (snapCache.size > 50) snapCache.delete(snapCache.keys().next().value);
         snapCache.set(key, decoded);
         return decoded;
-      } catch (e) {
-        return null;
-      }
+      } catch (e) { return null; }
     }
 
     let trilhaAtivaPorEquipe = new Map();
-    // Buffer para snap-to-road em batch (5 pontos por chamada OSRM)
-    const snapBuffers = new Map(); // equipeId -> array de pontos pendentes
+    const snapBuffers = new Map();
     const SNAP_BATCH = 5;
 
     function adicionarPontoTrilhaHoje(reg) {
@@ -738,9 +887,8 @@
       const VELOCIDADE_MAX_KMH = 110;
       if (!tAtual) {
         const trilhaId = id + '#' + Date.now();
-        const latlngs = [pt];
-        const polyline = L.polyline(latlngs, { color: corPorEquipe(id), weight: 3, opacity: 0.7 }).addTo(trilhasLayer);
-        trilhasHoje.set(trilhaId, { polyline, latlngs, pontos: [ponto], equipeId: id });
+        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.7 }).addTo(trilhasLayer);
+        trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
         recalcularParadasEquipe(id);
         return;
@@ -750,23 +898,17 @@
       const dt = (ponto.ts - ultimo.ts) / 1000;
       const velocidade = dt > 0 ? (d / dt) * 3.6 : 0;
       if (d > SALTO_GPS_M || velocidade > VELOCIDADE_MAX_KMH) {
-        // Salto GPS: nova trilha tracejada
         const trilhaId = id + '#' + Date.now();
-        const latlngs = [pt];
-        const polyline = L.polyline(latlngs, { color: corPorEquipe(id), weight: 3, opacity: 0.7, dashArray: '4,6' }).addTo(trilhasLayer);
-        trilhasHoje.set(trilhaId, { polyline, latlngs, pontos: [ponto], equipeId: id });
+        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.7, dashArray: '4,6' }).addTo(trilhasLayer);
+        trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
-        // Limpa buffer de snap
         snapBuffers.delete(id);
         return;
       }
-      // Adiciona ponto à trilha (raw GPS por enquanto, será snapado depois)
       tAtual.latlngs.push(pt);
       tAtual.pontos.push(ponto);
       tAtual.polyline.setLatLngs(tAtual.latlngs);
       recalcularParadasEquipe(id);
-
-      // Snap-to-road em batch
       if (!snapBuffers.has(id)) snapBuffers.set(id, []);
       const buf = snapBuffers.get(id);
       buf.push(ponto);
@@ -776,11 +918,9 @@
         const trilhaAtual = trilhasHoje.get(trilhaAtivaPorEquipe.get(id));
         snapToRoadOSRM(paraSnapar).then(snapped => {
           if (!snapped || snapped.length < 2) return;
-          if (!trilhaAtual || !trilhasHoje.has(trilhaAtual)) return;
-          // Substitui últimos N pontos do polyline pelo resultado snapado
+          if (!trilhaAtual || !trilhasHoje.has(trilhaAtivaPorEquipe.get(id))) return;
           const n = paraSnapar.length;
           const iniIdx = Math.max(0, trilhaAtual.latlngs.length - n);
-          // Mantém primeiro ponto raw (transição), depois aplica snapped
           trilhaAtual.latlngs.length = iniIdx;
           for (const s of snapped) trilhaAtual.latlngs.push(s);
           trilhaAtual.polyline.setLatLngs(trilhaAtual.latlngs);
@@ -797,15 +937,9 @@
     function recalcularParadasEquipe(id) {
       limparParadasEquipe(id);
       let todosPontos = [];
-      for (const [tid, t] of trilhasHoje) {
-        if (t.equipeId !== id) continue;
-        if (!t.pontos || t.pontos.length < 2) continue;
-        const iniTs = t.pontos[0].ts;
-        if (todosPontos.length && iniTs - todosPontos[todosPontos.length - 1].ts > 5 * 60 * 1000) {
-          todosPontos = todosPontos.concat(t.pontos);
-        } else {
-          todosPontos = todosPontos.concat(t.pontos);
-        }
+      for (const [, t] of trilhasHoje) {
+        if (t.equipeId !== id || !t.pontos || t.pontos.length < 2) continue;
+        todosPontos = todosPontos.concat(t.pontos);
       }
       if (todosPontos.length < 2) return;
       todosPontos.sort((a, b) => a.ts - b.ts);
@@ -816,28 +950,18 @@
         const d = distMetros(todosPontos[ini], todosPontos[i]);
         if (d > DIST_STOP_M) {
           const dur = todosPontos[i - 1].ts - todosPontos[ini].ts;
-          if (dur >= STOP_MIN_MS) {
-            criarMarcadorParada(id, todosPontos[ini], dur);
-          }
+          if (dur >= STOP_MIN_MS) criarMarcadorParada(id, todosPontos[ini], dur);
           ini = i;
         }
       }
       const durFinal = todosPontos[todosPontos.length - 1].ts - todosPontos[ini].ts;
-      if (durFinal >= STOP_MIN_MS) {
-        criarMarcadorParada(id, todosPontos[ini], durFinal);
-      }
+      if (durFinal >= STOP_MIN_MS) criarMarcadorParada(id, todosPontos[ini], durFinal);
     }
 
     function criarMarcadorParada(equipeId, p, durMs) {
       const min = Math.round(durMs / 60000);
-      const mk = L.circleMarker([p.lat, p.lng], {
-        radius: 8,
-        color: '#b91c1c',
-        weight: 2,
-        fillColor: '#ef4444',
-        fillOpacity: 0.85
-      }).bindPopup(`<b>${equipeId}</b><br>Parada > 20 min<br>Tempo: ${min} min<br>${new Date(p.ts).toLocaleTimeString('pt-BR')}`);
-
+      const mk = L.circleMarker([p.lat, p.lng], { radius: 8, color: '#b91c1c', weight: 2, fillColor: '#ef4444', fillOpacity: 0.85 })
+        .bindPopup(`<b>${equipeId}</b><br>Parada > 20 min<br>Tempo: ${min} min<br>${new Date(p.ts).toLocaleTimeString('pt-BR')}`);
       mk.addTo(paradasLayer);
       const arr = paradasHoje.get(equipeId) || [];
       arr.push(mk);
@@ -847,10 +971,7 @@
     function focusEquipe(equipeId) {
       equipeSelecionada = equipeId;
       const m = markers.get(equipeId);
-      if (m) {
-        map.setView(m.getLatLng(), 16, { animate: true });
-        m.openPopup();
-      }
+      if (m) { map.setView(m.getLatLng(), 16, { animate: true }); m.openPopup(); }
       renderEquipesList();
     }
 
@@ -871,17 +992,18 @@
         const li = document.createElement('li');
         const val = equipeValidacao.get(id);
         const badge = val ? (val.ok ? '✅' : '⚠️') : '•';
+        const color = getEquipeColor(id);
         if (equipeSelecionada === id) li.classList.add('active');
         if (stale) li.classList.add('stale');
+        li.style.borderLeftColor = color;
         li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${ago}</span>`;
         li.onclick = () => focusEquipe(id);
         ul.appendChild(li);
-        if (stale) m.setIcon(carIcon(true));
+        if (stale) m.setIcon(carIcon(id, true));
       }
       document.getElementById('stats').textContent = `${lista.length} equipe(s)`;
       atualizarStatsPontos();
     }
-    // Atualiza idade a cada 10s
     setInterval(renderEquipesList, 10000);
 
     // =========================================================================
@@ -896,7 +1018,6 @@
       ws = new WebSocket(wsUrl);
       document.getElementById('liveDot').classList.add('off');
       document.getElementById('wsStatus').textContent = 'conectando…';
-
       ws.onopen = () => {
         document.getElementById('liveDot').classList.remove('off');
         document.getElementById('wsStatus').textContent = 'conectado';
@@ -920,7 +1041,7 @@
     connectWs();
 
     // =========================================================================
-    // Carrega lista de equipes (cadastro) e datas disponiveis
+    // Carrega equipes e datas
     // =========================================================================
     async function carregarEquipesCadastro() {
       try {
@@ -936,6 +1057,7 @@
         }
       } catch (_) {}
     }
+
     async function carregarDatas() {
       const inp = document.getElementById('pbDate');
       const hoje = new Date().toISOString().slice(0, 10);
@@ -947,6 +1069,7 @@
         if (j.datas && j.datas.length) inp.min = j.datas[j.datas.length - 1];
       } catch (_) {}
     }
+
     carregarEquipesCadastro();
     carregarDatas();
     carregarPontosPlanejados();
@@ -967,86 +1090,52 @@
     carregarTrilhasHoje();
 
     // =========================================================================
-    // Criacao de equipe/token
+    // Criação de equipe/token
     // =========================================================================
     document.getElementById('btnGerarKey').addEventListener('click', async () => {
       const equipeId = (document.getElementById('newEquipeId').value || '').trim().toUpperCase();
       const nome = (document.getElementById('newEquipeNome').value || '').trim();
       const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
       const tokenBox = document.getElementById('tokenGerado');
-
-      if (!equipeId) {
-        alert('Informe o Equipe ID');
-        return;
-      }
-
+      if (!equipeId) { alert('Informe o Equipe ID'); return; }
       const btn = document.getElementById('btnGerarKey');
-      btn.disabled = true;
-      btn.textContent = 'Gerando...';
-      tokenBox.classList.remove('visible');
-      tokenBox.textContent = '';
-
+      btn.disabled = true; btn.textContent = 'Gerando...';
+      tokenBox.classList.remove('visible'); tokenBox.textContent = '';
       try {
         const resp = await fetch('/api/equipes', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {})
-          },
+          headers: { 'Content-Type': 'application/json', ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {}) },
           body: JSON.stringify({ equipeId, nome: nome || equipeId, ativo: true })
         });
         const json = await resp.json();
-        if (!json.ok) {
-          alert('Erro: ' + (json.error || 'falha ao gerar key'));
-          return;
-        }
-
+        if (!json.ok) { alert('Erro: ' + (json.error || 'falha ao gerar key')); return; }
         const tok = json.equipe && json.equipe.token ? json.equipe.token : '';
         tokenBox.textContent = `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | KEY: ${tok}`;
         tokenBox.classList.add('visible');
-
-        try {
-          await navigator.clipboard.writeText(tok);
-          alert('KEY gerada e copiada para a area de transferencia.');
-        } catch (_) {
-          alert('KEY gerada. Copie manualmente no painel.');
-        }
-
+        try { await navigator.clipboard.writeText(tok); alert('KEY gerada e copiada para a área de transferência.'); }
+        catch (_) { alert('KEY gerada. Copie manualmente no painel.'); }
         document.getElementById('newEquipeId').value = '';
         document.getElementById('newEquipeNome').value = '';
         await carregarEquipesCadastro();
-      } catch (e) {
-        alert('Falha ao criar equipe: ' + e.message);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Gerar key';
-      }
+      } catch (e) { alert('Falha ao criar equipe: ' + e.message); }
+      finally { btn.disabled = false; btn.textContent = 'Gerar key'; }
     });
 
     async function acaoEquipe(path, method = 'POST', body = null) {
       const equipeId = (document.getElementById('newEquipeId').value || '').trim().toUpperCase();
       const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
       const tokenBox = document.getElementById('tokenGerado');
-      if (!equipeId) {
-        alert('Informe o Equipe ID');
-        return;
-      }
+      if (!equipeId) { alert('Informe o Equipe ID'); return; }
       const resp = await fetch(path.replace(':id', encodeURIComponent(equipeId)), {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {})
-        },
+        headers: { 'Content-Type': 'application/json', ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {}) },
         body: body ? JSON.stringify(body) : undefined
       });
       const json = await resp.json();
-      if (!json.ok) {
-        alert('Erro: ' + (json.error || 'falha na operacao'));
-        return null;
-      }
+      if (!json.ok) { alert('Erro: ' + (json.error || 'falha na operação')); return null; }
       tokenBox.textContent = json.equipe.token
         ? `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | KEY: ${json.equipe.token}`
-        : `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | Ativo: ${json.equipe.ativo ? 'SIM' : 'NAO'}`;
+        : `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | Ativo: ${json.equipe.ativo ? 'SIM' : 'NÃO'}`;
       tokenBox.classList.add('visible');
       await carregarEquipesCadastro();
       return json;
@@ -1054,18 +1143,10 @@
 
     document.getElementById('btnRegenerarKey').addEventListener('click', async () => {
       const out = await acaoEquipe('/api/equipes/:id/regenerar-token', 'POST');
-      if (out && out.equipe && out.equipe.token) {
-        try { await navigator.clipboard.writeText(out.equipe.token); } catch (_) {}
-      }
+      if (out && out.equipe && out.equipe.token) { try { await navigator.clipboard.writeText(out.equipe.token); } catch (_) {} }
     });
-
-    document.getElementById('btnDesativarEquipe').addEventListener('click', async () => {
-      await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: false });
-    });
-
-    document.getElementById('btnAtivarEquipe').addEventListener('click', async () => {
-      await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: true });
-    });
+    document.getElementById('btnDesativarEquipe').addEventListener('click', async () => { await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: false }); });
+    document.getElementById('btnAtivarEquipe').addEventListener('click', async () => { await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: true }); });
 
     // =========================================================================
     // Playback
@@ -1074,9 +1155,7 @@
       const data = document.getElementById('pbDate').value;
       const equipeId = document.getElementById('pbEquipe').value;
       if (!data) { alert('Selecione uma data'); return; }
-
       limparPlayback();
-
       const url = `/api/playback?data=${encodeURIComponent(data)}` + (equipeId ? `&equipeId=${encodeURIComponent(equipeId)}` : '');
       const btn = document.getElementById('btnPlayback');
       btn.textContent = 'Carregando…'; btn.disabled = true;
@@ -1085,11 +1164,8 @@
         const j = await r.json();
         if (!j.ok) { alert('Erro: ' + j.error); return; }
         desenharPlayback(j.posicoes, data, equipeId);
-      } catch (e) {
-        alert('Falha no fetch: ' + e.message);
-      } finally {
-        btn.textContent = 'Mostrar rota'; btn.disabled = false;
-      }
+      } catch (e) { alert('Falha: ' + e.message); }
+      finally { btn.textContent = 'Mostrar rota'; btn.disabled = false; }
     });
 
     document.getElementById('btnLimparPlayback').addEventListener('click', limparPlayback);
@@ -1100,94 +1176,8 @@
       document.getElementById('playbackInfo').innerHTML = '';
     }
 
-    function desenharPlayback(posicoes, data, equipeId) {
-      if (!posicoes || !posicoes.length) {
-        document.getElementById('playbackInfo').classList.add('visible');
-        document.getElementById('playbackInfo').innerHTML = `<span class="label">Nenhuma posicao em</span> <span class="val">${data}</span>`;
-        return;
-      }
-
-      const grupo = L.layerGroup().addTo(map);
-
-      // Agrupa por equipe quando equipeId == ''
-      const porEquipe = new Map();
-      for (const p of posicoes) {
-        if (!porEquipe.has(p.equipeId)) porEquipe.set(p.equipeId, []);
-        porEquipe.get(p.equipeId).push(p);
-      }
-
-      const cores = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
-      let i = 0;
-      const bounds = [];
-
-      for (const [id, pontos] of porEquipe) {
-        const cor = cores[i++ % cores.length];
-        const SALTO_GPS_M = 0.08;
-        const VELOCIDADE_MAX_KMH = 110;
-        const segmentos = [];
-        let segAtual = [pontos[0]];
-        for (let k = 1; k < pontos.length; k++) {
-          const ant = pontos[k - 1];
-          const atu = pontos[k];
-          const dkm = haversine(ant, atu);
-          const dt = ((atu.ts || 0) - (ant.ts || 0)) / 1000;
-          const vel = dt > 0 ? (dkm / dt) * 3.6 : 0;
-          if (dkm > SALTO_GPS_M || vel > VELOCIDADE_MAX_KMH) {
-            if (segAtual.length > 1) segmentos.push(segAtual);
-            segAtual = [atu];
-          } else {
-            segAtual.push(atu);
-          }
-        }
-        if (segAtual.length > 1) segmentos.push(segAtual);
-        segmentos.forEach((seg, idx) => {
-          const latlngs = seg.map(p => [p.lat, p.lng]);
-          const isTraco = idx > 0;
-          L.polyline(latlngs, {
-            color: cor,
-            weight: 4,
-            opacity: 0.75,
-            dashArray: isTraco ? '4,6' : null
-          }).addTo(grupo);
-        });
-
-        const inicio = pontos[0];
-        const fim    = pontos[pontos.length - 1];
-
-        L.circleMarker([inicio.lat, inicio.lng], { radius: 7, color: '#22c55e', weight: 2, fillColor: '#22c55e', fillOpacity: 0.9 })
-          .bindPopup(`<b>${id}</b><br>Inicio: ${new Date(inicio.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
-
-        L.circleMarker([fim.lat, fim.lng], { radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.9 })
-          .bindPopup(`<b>${id}</b><br>Fim: ${new Date(fim.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
-
-        bounds.push(...pontos.map(p => [p.lat, p.lng]));
-      }
-
-      if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
-
-      playbackLayer = grupo;
-
-      // Calcula distancia aproximada (Haversine) so para a equipe filtrada
-      const filtro = equipeId ? porEquipe.get(equipeId) : null;
-      let dist = 0;
-      if (filtro) {
-        for (let k = 1; k < filtro.length; k++) {
-          dist += haversine(filtro[k-1], filtro[k]);
-        }
-      }
-
-      const info = document.getElementById('playbackInfo');
-      info.classList.add('visible');
-      info.innerHTML = `
-        <div><span class="label">Data:</span> <span class="val">${data}</span></div>
-        <div><span class="label">Equipes:</span> <span class="val">${porEquipe.size}</span></div>
-        <div><span class="label">Pontos:</span> <span class="val">${posicoes.length}</span></div>
-        ${filtro ? `<div><span class="label">Distancia (${equipeId}):</span> <span class="val">${dist.toFixed(2)} km</span></div>` : ''}
-      `;
-    }
-
     function haversine(a, b) {
-      const R = 6371; // km
+      const R = 6371;
       const toRad = x => x * Math.PI / 180;
       const dLat = toRad(b.lat - a.lat);
       const dLng = toRad(b.lng - a.lng);
@@ -1196,18 +1186,71 @@
       return 2 * R * Math.asin(Math.sqrt(h));
     }
 
+    function desenharPlayback(posicoes, data, equipeId) {
+      if (!posicoes || !posicoes.length) {
+        const info = document.getElementById('playbackInfo');
+        info.classList.add('visible');
+        info.innerHTML = `<span class="label">Nenhuma posição em</span> <span class="val">${data}</span>`;
+        return;
+      }
+      const grupo = L.layerGroup().addTo(map);
+      const porEquipe = new Map();
+      for (const p of posicoes) {
+        if (!porEquipe.has(p.equipeId)) porEquipe.set(p.equipeId, []);
+        porEquipe.get(p.equipeId).push(p);
+      }
+      const SALTO_GPS_M = 0.08;
+      const VELOCIDADE_MAX_KMH = 110;
+      const bounds = [];
+      let i = 0;
+      for (const [id, pontos] of porEquipe) {
+        const cor = getEquipeColor(id);
+        const segmentos = [];
+        let segAtual = [pontos[0]];
+        for (let k = 1; k < pontos.length; k++) {
+          const ant = pontos[k-1], atu = pontos[k];
+          const dkm = haversine(ant, atu);
+          const dt = ((atu.ts||0) - (ant.ts||0)) / 1000;
+          const vel = dt > 0 ? (dkm/dt)*3.6 : 0;
+          if (dkm > SALTO_GPS_M || vel > VELOCIDADE_MAX_KMH) { if (segAtual.length>1) segmentos.push(segAtual); segAtual = [atu]; }
+          else segAtual.push(atu);
+        }
+        if (segAtual.length > 1) segmentos.push(segAtual);
+        segmentos.forEach((seg, idx) => {
+          L.polyline(seg.map(p => [p.lat, p.lng]), { color: cor, weight: 4, opacity: 0.75, dashArray: idx > 0 ? '4,6' : null }).addTo(grupo);
+        });
+        const inicio = pontos[0], fim = pontos[pontos.length - 1];
+        L.circleMarker([inicio.lat, inicio.lng], { radius: 7, color: '#22c55e', weight: 2, fillColor: '#22c55e', fillOpacity: 0.9 })
+          .bindPopup(`<b>${id}</b><br>Início: ${new Date(inicio.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
+        L.circleMarker([fim.lat, fim.lng], { radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.9 })
+          .bindPopup(`<b>${id}</b><br>Fim: ${new Date(fim.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
+        bounds.push(...pontos.map(p => [p.lat, p.lng]));
+        i++;
+      }
+      if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+      playbackLayer = grupo;
+      const filtro = equipeId ? porEquipe.get(equipeId) : null;
+      let dist = 0;
+      if (filtro) for (let k = 1; k < filtro.length; k++) dist += haversine(filtro[k-1], filtro[k]);
+      const info = document.getElementById('playbackInfo');
+      info.classList.add('visible');
+      info.innerHTML = `
+        <div><span class="label">Data:</span> <span class="val">${data}</span></div>
+        <div><span class="label">Equipes:</span> <span class="val">${porEquipe.size}</span></div>
+        <div><span class="label">Pontos:</span> <span class="val">${posicoes.length}</span></div>
+        ${filtro ? `<div><span class="label">Distância (${equipeId}):</span> <span class="val">${dist.toFixed(2)} km</span></div>` : ''}
+      `;
+    }
+
     // =========================================================================
-    // Sidebar toggle mobile
+    // Sidebar toggle
     // =========================================================================
     document.body.classList.add('sidebar-collapsed');
     const unlockAudio = () => { audioAlertEnabled = true; document.removeEventListener('click', unlockAudio, true); document.removeEventListener('touchend', unlockAudio, true); };
     document.addEventListener('click', unlockAudio, true);
     document.addEventListener('touchend', unlockAudio, true);
     document.getElementById('toggleSidebar').addEventListener('click', () => {
-      if (window.innerWidth <= 720) {
-        document.getElementById('sidebar').classList.toggle('open');
-        return;
-      }
+      if (window.innerWidth <= 720) { document.getElementById('sidebar').classList.toggle('open'); return; }
       document.body.classList.toggle('sidebar-collapsed');
     });
   </script>

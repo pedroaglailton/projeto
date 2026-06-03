@@ -256,7 +256,7 @@
 
       <div class="section">
         <h3>Mapa de Ruas (KML)</h3>
-        <button id="btnRoads" class="roads-btn active">🗺️ Ruas Fortaleza: Ligado</button>
+        <button id="btnRoads" class="roads-btn active">🗺️ Todas as ruas: Ligado</button>
         <div id="roadsStatus">
           <span id="roadsStatusDot" class="loading"></span>
           <span id="roadsStatusTxt">Carregando ruas…</span>
@@ -314,9 +314,12 @@
       <!-- Roads legend -->
       <div class="roads-legend" id="roadsLegend">
         <h4>Ruas — KML Fortaleza</h4>
-        <div class="item"><div class="line" style="background:#ff4040;height:4px"></div> Rodovia / Motorway</div>
-        <div class="item"><div class="line" style="background:#ffaa00;height:3px"></div> Avenida Principal / Trunk</div>
-        <div class="item"><div class="line" style="background:#66cc00;height:3px"></div> Rua Principal / Primary</div>
+        <div class="item"><div class="line" style="background:#e05c00;height:4px"></div> Rodovia / Trunk</div>
+        <div class="item"><div class="line" style="background:#c8a200;height:3px"></div> Avenida Principal</div>
+        <div class="item"><div class="line" style="background:#5a8a5a;height:2px"></div> Rua Secundária</div>
+        <div class="item"><div class="line" style="background:#3a6a7a;height:1.5px"></div> Rua Terciária</div>
+        <div class="item"><div class="line" style="background:#2a4a5a;height:1px"></div> Rua Residencial</div>
+        <div class="item"><div class="line" style="background:#006fa0;height:2px"></div> Corredor de Ônibus</div>
       </div>
     </div>
   </div>
@@ -351,46 +354,78 @@
     let roadsVisible = true;
     let roadsOpacity = 0.7;
 
+    // Tipos de via: 1=trunk/rodovia, 2=primary/avenida, 3=secondary, 4=tertiary, 5=residential, 6=service, 7=busway
     const ROAD_STYLES = {
-      '2': { color: '#ff4040', weight: 3.5, dashArray: null },     // motorway/rodovia
-      '4': { color: '#ffaa00', weight: 2.5, dashArray: null },     // trunk/avenida
-      '6': { color: '#66cc00', weight: 2.0, dashArray: null },     // primary
+      1: { color: '#e05c00', weight: 3.5 },   // Rodovia / trunk
+      2: { color: '#c8a200', weight: 2.5 },   // Avenida principal / primary
+      3: { color: '#5a8a5a', weight: 1.8 },   // Secundária
+      4: { color: '#3a6a7a', weight: 1.4 },   // Terciária
+      5: { color: '#2a4a5a', weight: 1.0 },   // Residencial
+      6: { color: '#1e3545', weight: 0.8 },   // Serviço/acesso
+      7: { color: '#006fa0', weight: 2.0 },   // Corredor de ônibus
     };
 
-    function getRoadStyle(sid) {
-      const base = ROAD_STYLES[sid] || { color: '#4a9eff', weight: 1.5 };
+    function getRoadStyle(feature) {
+      const code = feature.properties.t || 5;
+      const base = ROAD_STYLES[code] || ROAD_STYLES[5];
       return {
         color: base.color,
         weight: base.weight,
         opacity: roadsOpacity,
-        dashArray: base.dashArray,
         interactive: false,
       };
+    }
+
+    // Descomprime gzip via DecompressionStream (suportado em browsers modernos)
+    async function fetchGzip(url) {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const blob = await resp.blob();
+      const ds = new DecompressionStream('gzip');
+      const decompressed = blob.stream().pipeThrough(ds);
+      const reader = decompressed.getReader();
+      const chunks = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      const total = chunks.reduce((n, c) => n + c.length, 0);
+      const merged = new Uint8Array(total);
+      let off = 0;
+      for (const c of chunks) { merged.set(c, off); off += c.length; }
+      return JSON.parse(new TextDecoder().decode(merged));
     }
 
     async function carregarRoads() {
       const dot = document.getElementById('roadsStatusDot');
       const txt = document.getElementById('roadsStatusTxt');
       dot.className = 'loading';
-      txt.textContent = 'Carregando ruas…';
+      txt.textContent = 'Carregando ruas de Fortaleza…';
 
       try {
-        // Tenta carregar fortaleza_roads.geojson do mesmo servidor
-        const r = await fetch('/fortaleza_roads.geojson');
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const geojson = await r.json();
+        // Tenta gzip primeiro (todas as ruas, 865KB), fallback para geojson simples
+        let geojson;
+        try {
+          geojson = await fetchGzip('/fortaleza_roads.geojson.gz');
+          txt.textContent = 'Processando ' + geojson.features.length + ' segmentos…';
+        } catch (_) {
+          // Fallback: geojson sem compressão
+          const r = await fetch('/fortaleza_roads.geojson');
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          geojson = await r.json();
+        }
 
         roadsLayer = L.geoJSON(geojson, {
-          style: (feature) => getRoadStyle(feature.properties.s),
+          style: getRoadStyle,
           interactive: false,
         });
 
         if (roadsVisible) roadsLayer.addTo(map);
-        // Garante que o layer de ruas fica abaixo dos markers
         roadsLayer.bringToBack();
 
         dot.className = 'loaded';
-        txt.textContent = `${geojson.features.length} segmentos carregados`;
+        txt.textContent = geojson.features.length.toLocaleString('pt-BR') + ' segmentos carregados';
         document.getElementById('roadsLegend').classList.add('visible');
       } catch (e) {
         dot.className = 'error';
@@ -423,7 +458,7 @@
     document.getElementById('roadsOpacity').addEventListener('input', (e) => {
       roadsOpacity = parseInt(e.target.value) / 100;
       if (roadsLayer) {
-        roadsLayer.setStyle((feature) => getRoadStyle(feature.properties.s));
+        roadsLayer.setStyle(getRoadStyle);
       }
     });
 

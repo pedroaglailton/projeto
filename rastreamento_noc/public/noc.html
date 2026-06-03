@@ -81,12 +81,15 @@
     #sidebar button:hover { background: #0284c7; }
     #sidebar button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
     #sidebar button.ghost:hover { background: #1e293b; color: #e2e8f0; }
+    #sidebar button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }
+    #sidebar button.roads-btn:hover { background: #d2e3fc; }
+    #sidebar button.roads-btn.active { background: #4285f4; color: #fff; }
+    #roadsStatus { font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+    #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; display: inline-block; flex-shrink: 0; }
+    #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    #roadsStatusDot.loaded  { background: #22c55e; }
+    #roadsStatusDot.error   { background: #ef4444; }
     #sidebar .muted { font-size: 11px; color: #4b5563; margin-top: 6px; }
-
-    /* Roads toggle button */
-    #sidebar button.roads-btn { background: #1e3a5f; border: 1px solid #0ea5e9; color: #7dd3fc; }
-    #sidebar button.roads-btn:hover { background: #1e40af; }
-    #sidebar button.roads-btn.active { background: #0369a1; color: #fff; }
 
     #equipesList { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow-y: auto; }
     #equipesList li {
@@ -111,15 +114,6 @@
     }
     #proximosList .dist { color: #fbbf24; font-size: 11px; }
 
-    /* Roads status badge */
-    #roadsStatus {
-      font-size: 11px; color: #94a3b8; margin-top: 4px;
-      display: flex; align-items: center; gap: 5px;
-    }
-    #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #334155; display: inline-block; }
-    #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
-    #roadsStatusDot.loaded { background: #22c55e; }
-    #roadsStatusDot.error { background: #ef4444; }
 
     .toggle-sidebar {
       display: inline-flex; align-items: center; justify-content: center;
@@ -132,7 +126,7 @@
 
     /* Car marker - Uber style */
     .car-marker {
-      width: 22px; height: 45px;
+      width: 56px; height: 56px;
       background: transparent !important;
       display: flex; align-items: center; justify-content: center;
       will-change: transform;
@@ -146,7 +140,7 @@
       background: transparent !important;
       mix-blend-mode: normal;
     }
-    .car-marker .car-svg { width: 36px; height: 36px; display: block; }
+    .car-marker .car-svg { width: 56px; height: 56px; display: block; }
     .car-marker.stale { opacity: 0.45; }
     .car-marker.flash {
       animation: carFlash 1.2s ease-out;
@@ -159,7 +153,7 @@
     /* Uber-style pulse ring when car updates */
     .car-pulse {
       position: absolute;
-      width: 40px; height: 40px;
+      width: 56px; height: 56px;
       border-radius: 50%;
       border: 2px solid rgba(14,165,233,0.6);
       top: 50%; left: 50%;
@@ -168,8 +162,8 @@
       pointer-events: none;
     }
     @keyframes carRipple {
-      0%   { width: 20px; height: 20px; opacity: 1; border-width: 2px; }
-      100% { width: 60px; height: 60px; opacity: 0; border-width: 1px; }
+      0%   { width: 30px; height: 30px; opacity: 1; border-width: 2px; }
+      100% { width: 80px; height: 80px; opacity: 0; border-width: 1px; }
     }
 
     .endpoint-marker {
@@ -216,24 +210,21 @@
     }
     .token-box.visible { display: block; }
 
-    /* Roads layer legend */
-    .roads-legend {
-      position: absolute; bottom: 16px; right: 16px; z-index: 800;
-      background: rgba(15,23,42,0.85); backdrop-filter: blur(6px);
-      border: 1px solid #1e3a5f; border-radius: 8px;
-      padding: 10px 14px; font-size: 11px;
-      display: none;
-    }
-    .roads-legend.visible { display: block; }
-    .roads-legend h4 { margin: 0 0 8px; font-size: 11px; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; }
-    .roads-legend .item { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .roads-legend .line { width: 24px; height: 3px; border-radius: 2px; }
+    /* Ruas KML */
+    #sidebar button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }
+    #sidebar button.roads-btn:hover { background: #d2e3fc; }
+    #sidebar button.roads-btn.active { background: #4285f4; color: #fff; }
+    #roadsStatus { font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+    #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; display: inline-block; flex-shrink: 0; }
+    #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    #roadsStatusDot.loaded  { background: #22c55e; }
+    #roadsStatusDot.error   { background: #ef4444; }
   </style>
 </head>
 <body>
 
   <div class="top">
-    <button class="toggle-sidebar" id="toggleSidebar" title="Menu" style="display:none">≡</button>
+    <button class="toggle-sidebar" id="toggleSidebar" title="Abrir/fechar menu">≡</button>
     <span class="live-dot" id="liveDot" title="Conexão WebSocket"></span>
     <span class="title">NOC — Equipes em Campo</span>
     <span class="spacer"></span>
@@ -255,14 +246,14 @@
       </div>
 
       <div class="section">
-        <h3>Mapa de Ruas (KML)</h3>
-        <button id="btnRoads" class="roads-btn active">🗺️ Todas as ruas: Ligado</button>
+        <h3>Overlay de Ruas (KML)</h3>
+        <button id="btnRoads" class="roads-btn active">🗺️ Ruas Fortaleza: Ligado</button>
         <div id="roadsStatus">
           <span id="roadsStatusDot" class="loading"></span>
           <span id="roadsStatusTxt">Carregando ruas…</span>
         </div>
-        <label>Opacidade das ruas</label>
-        <input type="range" id="roadsOpacity" min="10" max="100" value="70" style="width:100%;accent-color:#0ea5e9">
+        <label>Opacidade</label>
+        <input type="range" id="roadsOpacity" min="10" max="100" value="60" style="width:100%;accent-color:#4285f4">
       </div>
 
       <div class="section">
@@ -311,15 +302,6 @@
     <div style="position:relative;overflow:hidden">
       <div id="map"></div>
       <div class="playback-info" id="playbackInfo"></div>
-      <!-- Roads legend -->
-      <div class="roads-legend" id="roadsLegend">
-        <h4>Ruas — KML Fortaleza</h4>
-        <div class="item"><div class="line" style="background:#e05c00;height:4px"></div> Rodovia / Trunk</div>
-        <div class="item"><div class="line" style="background:#c8a200;height:3px"></div> Avenida Principal</div>
-        <div class="item"><div class="line" style="background:#5a8a5a;height:2px"></div> Rua Secundária</div>
-        <div class="item"><div class="line" style="background:#3a6a7a;height:1.5px"></div> Rua Terciária</div>
-        <div class="item"><div class="line" style="background:#2a4a5a;height:1px"></div> Rua Residencial</div>
-        <div class="item"><div class="line" style="background:#006fa0;height:2px"></div> Corredor de Ônibus</div>
       </div>
     </div>
   </div>
@@ -333,50 +315,29 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     // =========================================================================
-    // Setup do mapa — Dark tile (CartoDB Dark Matter) + OpenStreetMap fallback
+    // Setup do mapa — OpenStreetMap padrão (claro)
     // =========================================================================
     const map = L.map('map', {
       zoomControl: true,
       attributionControl: true,
     }).setView([-3.7319, -38.5267], 12);
 
-    // Dark tile layer (Uber-style dark map)
-    const darkTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CartoDB',
-      subdomains: 'abcd',
+    const darkTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
       maxZoom: 20,
     }).addTo(map);
 
     // =========================================================================
-    // Layer de ruas do KML de Fortaleza (fortaleza_roads.geojson)
+    // Overlay de ruas do KML de Fortaleza — cor neutra única
     // =========================================================================
     let roadsLayer = null;
     let roadsVisible = true;
-    let roadsOpacity = 0.7;
+    let roadsOpacity = 0.6;
 
-    // Tipos de via: 1=trunk/rodovia, 2=primary/avenida, 3=secondary, 4=tertiary, 5=residential, 6=service, 7=busway
-    const ROAD_STYLES = {
-      1: { color: '#e05c00', weight: 3.5 },   // Rodovia / trunk
-      2: { color: '#c8a200', weight: 2.5 },   // Avenida principal / primary
-      3: { color: '#5a8a5a', weight: 1.8 },   // Secundária
-      4: { color: '#3a6a7a', weight: 1.4 },   // Terciária
-      5: { color: '#2a4a5a', weight: 1.0 },   // Residencial
-      6: { color: '#1e3545', weight: 0.8 },   // Serviço/acesso
-      7: { color: '#006fa0', weight: 2.0 },   // Corredor de ônibus
-    };
-
-    function getRoadStyle(feature) {
-      const code = feature.properties.t || 5;
-      const base = ROAD_STYLES[code] || ROAD_STYLES[5];
-      return {
-        color: base.color,
-        weight: base.weight,
-        opacity: roadsOpacity,
-        interactive: false,
-      };
+    function getRoadStyle() {
+      return { color: '#bbbbbb', weight: 0.8, opacity: roadsOpacity, interactive: false };
     }
 
-    // Descomprime gzip via DecompressionStream (suportado em browsers modernos)
     async function fetchGzip(url) {
       const resp = await fetch(url);
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -402,64 +363,44 @@
       const txt = document.getElementById('roadsStatusTxt');
       dot.className = 'loading';
       txt.textContent = 'Carregando ruas de Fortaleza…';
-
       try {
-        // Tenta gzip primeiro (todas as ruas, 865KB), fallback para geojson simples
         let geojson;
         try {
           geojson = await fetchGzip('/fortaleza_roads.geojson.gz');
-          txt.textContent = 'Processando ' + geojson.features.length + ' segmentos…';
         } catch (_) {
-          // Fallback: geojson sem compressão
           const r = await fetch('/fortaleza_roads.geojson');
           if (!r.ok) throw new Error('HTTP ' + r.status);
           geojson = await r.json();
         }
-
-        roadsLayer = L.geoJSON(geojson, {
-          style: getRoadStyle,
-          interactive: false,
-        });
-
-        if (roadsVisible) roadsLayer.addTo(map);
-        roadsLayer.bringToBack();
-
+        txt.textContent = 'Processando…';
+        roadsLayer = L.geoJSON(geojson, { style: getRoadStyle, interactive: false });
+        if (roadsVisible) { roadsLayer.addTo(map); roadsLayer.bringToBack(); }
         dot.className = 'loaded';
         txt.textContent = geojson.features.length.toLocaleString('pt-BR') + ' segmentos carregados';
-        document.getElementById('roadsLegend').classList.add('visible');
       } catch (e) {
         dot.className = 'error';
-        txt.textContent = 'Erro ao carregar ruas: ' + e.message;
-        console.warn('Ruas KML nao carregadas:', e);
+        txt.textContent = 'Erro: ' + e.message;
+        console.warn('Ruas KML não carregadas:', e);
       }
     }
 
-    // Toggle visibilidade das ruas
     document.getElementById('btnRoads').addEventListener('click', () => {
       const btn = document.getElementById('btnRoads');
       roadsVisible = !roadsVisible;
       if (roadsLayer) {
         if (roadsVisible) {
-          roadsLayer.addTo(map);
-          roadsLayer.bringToBack();
-          btn.textContent = '🗺️ Ruas Fortaleza: Ligado';
-          btn.classList.add('active');
-          document.getElementById('roadsLegend').classList.add('visible');
+          roadsLayer.addTo(map); roadsLayer.bringToBack();
+          btn.textContent = '🗺️ Ruas Fortaleza: Ligado'; btn.classList.add('active');
         } else {
           map.removeLayer(roadsLayer);
-          btn.textContent = '🗺️ Ruas Fortaleza: Desligado';
-          btn.classList.remove('active');
-          document.getElementById('roadsLegend').classList.remove('visible');
+          btn.textContent = '🗺️ Ruas Fortaleza: Desligado'; btn.classList.remove('active');
         }
       }
     });
 
-    // Controle de opacidade
     document.getElementById('roadsOpacity').addEventListener('input', (e) => {
       roadsOpacity = parseInt(e.target.value) / 100;
-      if (roadsLayer) {
-        roadsLayer.setStyle(getRoadStyle);
-      }
+      if (roadsLayer) roadsLayer.setStyle(getRoadStyle);
     });
 
     carregarRoads();
@@ -532,8 +473,8 @@
       return L.divIcon({
         className: '',
         html: `<div class="car-marker${stale ? ' stale' : ''}" id="car-${equipeId.replace(/[^a-z0-9]/gi,'-')}">${carSVG(color)}</div>`,
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
+        iconSize: [56, 56],
+        iconAnchor: [28, 28],
       });
     }
 
@@ -1280,7 +1221,7 @@
     // =========================================================================
     // Sidebar toggle
     // =========================================================================
-    document.body.classList.add('sidebar-collapsed');
+    // Sidebar visível por padrão
     const unlockAudio = () => { audioAlertEnabled = true; document.removeEventListener('click', unlockAudio, true); document.removeEventListener('touchend', unlockAudio, true); };
     document.addEventListener('click', unlockAudio, true);
     document.addEventListener('touchend', unlockAudio, true);

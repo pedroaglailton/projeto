@@ -505,6 +505,7 @@ app.get('/', (_req, res) => {
 });
 app.get('/noc',     (_req, res) => res.sendFile(path.join(nocRoot, 'noc.html')));
 app.get('/tracker', (_req, res) => res.sendFile(path.join(nocRoot, 'tracker.html')));
+app.get('/fortaleza_roads.geojson', (_req, res) => res.sendFile(path.join(nocRoot, 'fortaleza_roads.geojson')));
 
 // ============================================================================
 // WebSocket

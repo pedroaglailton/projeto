@@ -45,8 +45,8 @@ const pwaRoot = fs.existsSync(path.join(__dirname, 'rastreamento_noc'))
   ? __dirname
   : path.join(__dirname, '..');
 const nocRoot = path.join(pwaRoot, 'rastreamento_noc', 'public');
-const producaoDir = path.join(__dirname, '..', 'data', 'producao');
-const producaoEquipesDir = path.join(__dirname, '..', 'data', 'producao_equipes');
+const producaoDir = path.join(pwaRoot, 'data', 'producao');
+const producaoEquipesDir = path.join(pwaRoot, 'data', 'producao_equipes');
 fs.mkdirSync(producaoDir, { recursive: true });
 fs.mkdirSync(producaoEquipesDir, { recursive: true });
 

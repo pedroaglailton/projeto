@@ -326,11 +326,12 @@
     const map = L.map('map', {
       zoomControl: true,
       attributionControl: true,
+      maxZoom: 19
     }).setView([-3.7319, -38.5267], 12);
 
     const darkTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
-      maxZoom: 20,
+      maxZoom: 19,
     }).addTo(map);
 
     // =========================================================================
@@ -439,25 +440,17 @@
     // Ícone do carro — SVG inline estilo Uber dark
     // =========================================================================
     function carSVG(color = '#ffffff') {
-      // Carro top-down elegante
       return `<svg class="car-svg" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
-        <!-- Sombra / glow base -->
         <ellipse cx="18" cy="20" rx="9" ry="5" fill="rgba(0,0,0,0.4)"/>
-        <!-- Corpo do carro -->
         <rect x="10" y="6" width="16" height="24" rx="4" fill="${color}" stroke="#1e293b" stroke-width="1.5"/>
-        <!-- Cabine/vidro dianteiro -->
         <rect x="12" y="9" width="12" height="8" rx="2" fill="rgba(30,41,59,0.85)"/>
-        <!-- Vidro traseiro -->
         <rect x="12" y="20" width="12" height="6" rx="1.5" fill="rgba(30,41,59,0.65)"/>
-        <!-- Faróis dianteiros -->
         <rect x="10.5" y="7" width="3" height="2" rx="1" fill="#fde68a" opacity="0.9"/>
         <rect x="22.5" y="7" width="3" height="2" rx="1" fill="#fde68a" opacity="0.9"/>
-        <!-- Rodas -->
         <rect x="7" y="9" width="4" height="6" rx="2" fill="#334155"/>
         <rect x="25" y="9" width="4" height="6" rx="2" fill="#334155"/>
         <rect x="7" y="21" width="4" height="6" rx="2" fill="#334155"/>
         <rect x="25" y="21" width="4" height="6" rx="2" fill="#334155"/>
-        <!-- Seta de direção no teto -->
         <polygon points="18,3 21,8 18,6.5 15,8" fill="${color}" opacity="0.7"/>
       </svg>`;
     }
@@ -484,9 +477,6 @@
       });
     }
 
-    // =========================================================================
-    // Funções de heading e animação (estilo Uber)
-    // =========================================================================
     function bearing(a, b) {
       const toRad = x => x * Math.PI / 180;
       const toDeg = x => x * 180 / Math.PI;
@@ -502,7 +492,6 @@
       let diff = newHeading - prevHeading;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
-      // Suavização com easing — mais lento quando pequena diferença
       const step = Math.abs(diff) > 30 ? diff : diff * 0.6;
       return (prevHeading + step + 360) % 360;
     }
@@ -524,16 +513,13 @@
         const elapsed = t - inicio;
         const k = Math.min(1, elapsed / durMs);
         const ease = easeOutCubic(k);
-
         const lat = de.lat + dLat * ease;
         const lng = de.lng + dLng * ease;
         m.setLatLng([lat, lng]);
-
         const el = m.getElement();
         if (el && headingAtual != null) {
           const inner = el.querySelector('.car-marker');
           if (inner) {
-            // Rotação suave interpolando heading
             const hEase = easeInOutQuad(k);
             let prevH = headingsAnimados.get(equipeId) || 0;
             let diff = targetHeading - prevH;
@@ -543,7 +529,6 @@
             inner.style.transform = `rotate(${hInterp}deg)`;
           }
         }
-
         if (k < 1) {
           animacoes.set(m, requestAnimationFrame(passo));
         } else {
@@ -604,10 +589,7 @@
         m.setPopupContent(txt);
         m.setTooltipContent(reg.equipeNome);
         m.setIcon(carIcon(reg.equipeId, false));
-
-        // Pulse ring (efeito Uber)
         addPulseRing(m);
-
         animarMarker(m, ant, { lat: reg.lat, lng: reg.lng }, novoHeading, durMs, reg.equipeId);
         posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: novoHeading });
         headingsAnimados.set(reg.equipeId, novoHeading);
@@ -619,9 +601,6 @@
       renderEquipesList();
     }
 
-    // =========================================================================
-    // Validação de proximidade de ponto
-    // =========================================================================
     function validarProximidadePonto(reg) {
       if (!pontosPlanejados.length) {
         equipeValidacao.set(reg.equipeId, { ok: false, pontoNome: '-', dist: Infinity, ts: reg.ts || Date.now() });
@@ -682,12 +661,9 @@
       return 2 * R * Math.asin(Math.sqrt(h));
     }
 
-    function marcarVisitaPorPosicao(reg) {
-      // Nao marca verde por proximidade — so marca verde quando dados forem coletados (msg production)
-    }
+    function marcarVisitaPorPosicao(reg) {}
 
     function marcarPontoColetado(pontoNumero) {
-      // Marca verde quando o app confirmar coleta de dados do ponto
       for (const p of pontosPlanejados) {
         if (pontosVisitados.has(p.id)) continue;
         const match = String(p.id) === String(pontoNumero) || String(p.numero || '') === String(pontoNumero);
@@ -820,9 +796,9 @@
 
     function corPorEquipe(id) { return getEquipeColor(id); }
 
-     // =========================================================================
-    // Trilha GPS pura (sem snap-to-road) - VERSÃO CORRIGIDA
-   // =========================================================================
+    // =========================================================================
+    // Trilha GPS - VERSÃO CORRIGIDA (SEM FILTROS AGRESSIVOS)
+    // =========================================================================
     let trilhaAtivaPorEquipe = new Map();
 
     function adicionarPontoTrilhaHoje(reg) {
@@ -831,12 +807,12 @@
       const ponto = { lat: reg.lat, lng: reg.lng, ts: Number(reg.ts) || Date.now() };
       const trilhaIdAtual = trilhaAtivaPorEquipe.get(id);
       const tAtual = trilhaIdAtual ? trilhasHoje.get(trilhaIdAtual) : null;
-      const SALTO_GPS_M = 500;        // CORRIGIDO: 80 -> 500
-      const VELOCIDADE_MAX_KMH = 200;  // CORRIGIDO: 110 -> 200
+      const SALTO_GPS_M = 2000;
+      const VELOCIDADE_MAX_KMH = 300;
 
       if (!tAtual) {
         const trilhaId = id + '#' + Date.now();
-        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 4, opacity: 0.9 }).addTo(trilhasLayer);  // CORRIGIDO: weight 4, opacity 0.9
+        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 4, opacity: 0.9 }).addTo(trilhasLayer);
         trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
         recalcularParadasEquipe(id);
@@ -849,7 +825,6 @@
       const velocidade = dt > 0 ? (d / dt) * 3.6 : 0;
 
       if (d > SALTO_GPS_M || velocidade > VELOCIDADE_MAX_KMH) {
-        // GPS jump — inicia nova trilha
         const trilhaId = id + '#' + Date.now();
         const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.8, dashArray: '4,6' }).addTo(trilhasLayer);
         trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
@@ -860,7 +835,7 @@
       tAtual.latlngs.push(pt);
       tAtual.pontos.push(ponto);
       tAtual.polyline.setLatLngs(tAtual.latlngs);
-      tAtual.polyline.bringToFront();  // CORRIGIDO: ADICIONADO - garante visibilidade
+      tAtual.polyline.bringToFront();
       recalcularParadasEquipe(id);
     }
 
@@ -1189,7 +1164,6 @@
     // =========================================================================
     // Sidebar toggle
     // =========================================================================
-    // Sidebar visível por padrão
     const unlockAudio = () => { audioAlertEnabled = true; document.removeEventListener('click', unlockAudio, true); document.removeEventListener('touchend', unlockAudio, true); };
     document.addEventListener('click', unlockAudio, true);
     document.addEventListener('touchend', unlockAudio, true);

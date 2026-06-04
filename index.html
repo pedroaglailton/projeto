@@ -5104,7 +5104,7 @@
                 const r = await fetch(apiUrl('/api/mensagens'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Equipe-Token': token },
-                    body: JSON.stringify({ texto: file.name, tipo: file.type.startsWith('video/') ? 'video' : 'imagem', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
+                    body: JSON.stringify({ texto: file.name, tipo: 'alerta', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
                 });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);

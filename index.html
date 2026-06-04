@@ -1068,23 +1068,26 @@
 <body>
 
     <!-- ===== LOCK SCREEN (PIN / Biometria) ===== -->
-    <div id="lockScreen" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--bg-primary,#0f172a);flex-direction:column;align-items:center;justify-content:center;padding:40px 30px;gap:16px;">
-        <div style="font-size:48px;color:var(--accent,#0057b8);margin-bottom:4px;">🔒</div>
-        <div style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--text-primary,#fff);letter-spacing:1.5px;text-transform:uppercase;">Sistema Bloqueado</div>
-        <div style="font-size:13px;color:var(--text-muted,#6b7280);margin-bottom:8px;">Desbloqueie para acessar o app</div>
-        <div id="lockBioRow" style="display:none;width:100%;max-width:280px;text-align:center;">
-            <button onclick="desbloquearBiometria()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:12px;padding:14px 24px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-bottom:8px;">
-                <span id="lockBioLabel">🔓 Desbloquear com Biometria</span>
+    <div id="lockScreen" style="display:none;position:fixed;inset:0;z-index:99999;background:var(--bg-primary,#0f172a);flex-direction:column;align-items:center;padding:40px 20px 20px;gap:12px;overflow-y:auto;">
+        <div style="font-size:40px;color:var(--accent,#0057b8);margin-bottom:2px;">🔐</div>
+        <div style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary,#fff);letter-spacing:1.5px;text-transform:uppercase;">Login</div>
+        <div style="font-size:12px;color:var(--text-muted,#6b7280);margin-bottom:6px;">Selecione a equipe e digite o PIN</div>
+        <div id="lockBioRow" style="display:none;width:100%;max-width:300px;text-align:center;">
+            <button onclick="desbloquearBiometria()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:12px;padding:12px 20px;font-size:14px;font-weight:700;cursor:pointer;width:100%;margin-bottom:6px;">
+                <span id="lockBioLabel">🔓 Entrar com Biometria</span>
             </button>
-            <div style="font-size:12px;color:var(--text-muted,#6b7280);margin-bottom:8px;">ou digite o PIN</div>
+            <div style="font-size:11px;color:var(--text-muted,#6b7280);margin-bottom:6px;">ou selecione a equipe abaixo</div>
         </div>
-        <div style="width:100%;max-width:280px;">
+        <div id="lockAccountList" style="width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+        <div style="width:100%;max-width:260px;">
+            <div id="lockPinLabel" style="font-size:11px;color:var(--text-muted,#6b7280);margin-bottom:4px;text-align:center;">PIN da equipe</div>
             <input type="password" id="lockPinInput" placeholder="●●●●" inputmode="numeric" maxlength="6"
-                   style="width:100%;padding:14px;border:2px solid var(--accent,#0057b8);border-radius:12px;text-align:center;font-size:24px;font-weight:700;letter-spacing:10px;caret-color:var(--accent,#0057b8);background:var(--bg-input,#1c2128);color:var(--text-primary,#fff);outline:none;"
+                   style="width:100%;padding:12px;border:2px solid var(--accent,#0057b8);border-radius:12px;text-align:center;font-size:22px;font-weight:700;letter-spacing:8px;caret-color:var(--accent,#0057b8);background:var(--bg-input,#1c2128);color:var(--text-primary,#fff);outline:none;box-sizing:border-box;"
                    onkeydown="if(event.key==='Enter')verificarPin()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
         </div>
-        <button onclick="verificarPin()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:12px;padding:12px 48px;font-size:14px;font-weight:700;cursor:pointer;opacity:0.9;letter-spacing:1px;text-transform:uppercase;">Desbloquear</button>
-        <div id="lockError" style="color:#ef4444;font-size:13px;font-weight:600;display:none;">PIN incorreto. Tente novamente.</div>
+        <button onclick="verificarPin()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:12px;padding:10px 40px;font-size:13px;font-weight:700;cursor:pointer;opacity:0.9;letter-spacing:1px;text-transform:uppercase;">Desbloquear</button>
+        <button onclick="abrirConfigModal()" style="background:transparent;color:var(--text-muted,#6b7280);border:2px solid var(--border,#2a3040);border-radius:12px;padding:10px 24px;font-size:12px;font-weight:600;cursor:pointer;margin-top:4px;">⚙️ Configurar nova equipe</button>
+        <div id="lockError" style="color:#ef4444;font-size:12px;font-weight:600;display:none;">PIN incorreto. Tente novamente.</div>
     </div>
 
     <!-- ===== NAVBAR ===== -->
@@ -1096,6 +1099,7 @@
             <div class="brand-text brand-title">SISTEMA PREVENTIVA-CE <span>IPQ</span></div>
         </div>
         <div style="display:flex;align-items:center;gap:12px;">
+            <span id="navbarEquipe" style="font-size:11px;color:rgba(255,255,255,0.7);font-weight:600;display:none;"></span>
             <div id="gpsStatus" style="display:flex;align-items:center;gap:6px;">
                 <span id="gpsDot" style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.3);flex-shrink:0;transition:background 0.4s;"></span>
                 <span id="gpsLabel" style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.5px;color:rgba(255,255,255,0.45);transition:color 0.4s;text-transform:uppercase;"></span>
@@ -1103,6 +1107,9 @@
             <button class="theme-toggle" onclick="abrirChat()" title="Mensagens" id="btnChat" style="position:relative;">
                 <i class="material-icons">chat</i>
                 <span id="chatBadge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 4px #ef4444;"></span>
+            </button>
+            <button class="theme-toggle" onclick="logoutConta()" title="Sair da conta" id="btnSair" style="position:relative;padding:6px 10px;background:#dc2626;">
+                <span style="font-size:11px;font-weight:700;color:#fff;line-height:1;letter-spacing:.5px;">SAIR</span>
             </button>
             <button class="theme-toggle" onclick="abrirConfigModal()" title="Configurações" id="btnConfig" style="position:relative;">
                 <i class="material-icons">settings</i>
@@ -2590,6 +2597,8 @@
         const dateEl = document.getElementById('dateDisplay');
         const dateStr = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase();
         dateEl.innerHTML = `<span class="offline-dot" id="onlineDot"></span>${dateStr}`;
+
+        function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
         function showToast(msg, tipo = '') {
             const t = document.getElementById('toast');
@@ -4176,10 +4185,9 @@
 
         // Trava o app ao minimizar (se PIN configurado)
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden' && temPin()) {
+            if (document.visibilityState === 'hidden' && contaAtiva()?.pinHash) {
                 setTimeout(() => {
-                    document.getElementById('lockScreen').style.display = 'flex';
-                    document.getElementById('lockPinInput').value = '';
+                    showLoginScreen();
                     document.getElementById('lockPinInput').focus();
                 }, 500);
             }
@@ -4572,6 +4580,8 @@
 
         /* ===== LOCK SCREEN ===== */
         #lockScreen { backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
+        .login-account-btn:hover { border-color:var(--accent,#0057b8) !important; background:rgba(0,87,184,0.08) !important; }
+        .login-account-btn:active { transform:scale(0.97); }
         #lockPinInput::-webkit-outer-spin-button,
         #lockPinInput::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
     </style>
@@ -4608,7 +4618,7 @@
 
                 <div class="cfg-section-divider">Segurança</div>
                 <div class="cfg-row">
-                    <label for="cfgPin">PIN de bloqueio <span style="color:var(--text-muted);font-weight:400;text-transform:none;">(4-6 dígitos)</span></label>
+                    <label for="cfgPin">PIN da equipe <span style="color:var(--text-muted);font-weight:400;text-transform:none;">(4-6 dígitos)</span></label>
                     <div style="display:flex;gap:10px;">
                         <input type="password" id="cfgPin" placeholder="●●●●" inputmode="numeric" maxlength="6" style="flex:1;font-size:18px;letter-spacing:6px;text-align:center;"
                                autocomplete="off" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
@@ -4671,14 +4681,16 @@
     <script>
         // ===== MODAL DE CONFIGURACOES =====
         function abrirConfigModal() {
+            document.getElementById('lockScreen').style.display = 'none';
             document.getElementById('cfgToken').value  = getEquipeToken() || '';
             document.getElementById('cfgApiUrl').value = getApiBaseUrl();
             document.getElementById('cfgPin').value    = '';
             document.getElementById('cfgOrigin').textContent  = location.origin;
             document.getElementById('cfgSecure').textContent  = window.isSecureContext ? 'sim (HTTPS)' : 'NAO (HTTP)';
-            // Mostra se tem PIN configurado
+            // Mostra se tem PIN configurado na conta ativa
             const pinHint = document.querySelector('.cfg-row:nth-of-type(3) .hint');
-            if (pinHint) pinHint.textContent = temPin() ? 'PIN já configurado. Digite novo PIN para alterar, ou limpe para remover.' : 'Defina um PIN para travar o app ao minimizar. Deixe vazio para desativar.';
+            const ativa = contaAtiva();
+            if (pinHint) pinHint.textContent = (ativa && ativa.pinHash) ? 'PIN já configurado para esta equipe. Digite novo PIN para alterar.' : 'Defina um PIN para identificar esta equipe no login. Deixe vazio se não quiser PIN.';
             atualizarSwStatus();
             atualizarCfgStatus();
             restaurarPushState();
@@ -4686,6 +4698,8 @@
         }
         function fecharConfigModal() {
             document.getElementById('configModal').classList.remove('open');
+            // Se não está logado, volta para tela de login
+            if (!getEquipeToken() && temContas()) showLoginScreen();
         }
 
         async function atualizarSwStatus() {
@@ -4726,6 +4740,7 @@
             }
             statusEl.className = 'cfg-status ok';
             textEl.innerHTML = '<b>Conectado:</b> ' + equipeNome;
+            atualizarNavbarEquipe();
         }
 
         // Valida o token contra /api/whoami (endpoint que nao grava nada).
@@ -4760,28 +4775,52 @@
             const novaApi    = document.getElementById('cfgApiUrl').value.trim();
             const novoPin    = document.getElementById('cfgPin').value.trim();
 
+            if (novoPin && novoPin.length < 4) {
+                showToast('PIN deve ter no mínimo 4 dígitos', 'error');
+                btn.disabled = false; btn.innerHTML = '<i class="material-icons">save</i> Salvar';
+                return;
+            }
+
             setEquipeToken(novoToken);
             setApiBaseUrl(novaApi);
             ultimoAvisoToken = 0;
 
-            // Gerencia PIN
+            // Valida token primeiro para obter dados da equipe
+            await atualizarCfgStatus();
+
+            // Agora pega dados da equipe (setados por tentarIdentificarEquipe)
+            const eqId = localStorage.getItem('preventiva_equipeId') || 'eq_' + Date.now();
+            const eqNome = localStorage.getItem('preventiva_equipeNome') || 'Equipe';
+
+            // Gerencia contas
+            const contas = getContas();
             if (novoPin) {
-                if (novoPin.length < 4) {
-                    showToast('PIN deve ter no mínimo 4 dígitos', 'error');
+                const pinHash = await hashPin(novoPin);
+                if (contas.some(c => c.pinHash === pinHash && c.token !== novoToken)) {
+                    showToast('Este PIN já está em uso por outra equipe', 'error');
                     btn.disabled = false; btn.innerHTML = '<i class="material-icons">save</i> Salvar';
                     return;
                 }
-                await setPin(novoPin);
-                // Mostra lock screen
-                document.getElementById('lockScreen').style.display = 'flex';
-                if (window.PublicKeyCredential) document.getElementById('lockBioRow').style.display = 'block';
+                const idx = contas.findIndex(c => c.token === novoToken || c.id === eqId);
+                const conta = { id: eqId, pinHash, token: novoToken, equipeId: eqId, equipeNome: eqNome };
+                if (idx >= 0) contas[idx] = { ...contas[idx], ...conta };
+                else contas.push(conta);
+                salvarContas(contas);
+                localStorage.setItem('preventiva_contaAtiva', eqId);
+                document.getElementById('lockScreen').style.display = 'none';
             } else {
-                await setPin('');
+                const idx = contas.findIndex(c => c.token === novoToken || c.id === eqId);
+                if (idx >= 0) {
+                    contas[idx].pinHash = '';
+                    contas[idx].token = novoToken;
+                    contas[idx].equipeNome = eqNome;
+                    salvarContas(contas);
+                    localStorage.setItem('preventiva_contaAtiva', contas[idx].id);
+                }
                 document.getElementById('lockScreen').style.display = 'none';
             }
 
-            await atualizarCfgStatus();
-            // Reinicia auto-tracking para usar novos valores
+            // Reinicia auto-tracking
             try { if (typeof watchIdAutoTracking !== 'undefined' && watchIdAutoTracking !== null) navigator.geolocation.clearWatch(watchIdAutoTracking); } catch (_) {}
             watchIdAutoTracking = null;
             autoTrackingArmado = false;
@@ -4789,6 +4828,7 @@
 
             atualizarConfigBadge();
             autoPreencherEquipe();
+            fecharConfigModal();
             showToast('Configurações salvas', 'success');
 
             btn.disabled = false; btn.innerHTML = '<i class="material-icons">save</i> Salvar';
@@ -4800,17 +4840,38 @@
             badge.style.display = getEquipeToken() ? 'none' : 'block';
         }
 
-        // Atualiza badge no boot e quando localStorage mudar (caso outra aba mexa)
-        window.addEventListener('storage', atualizarConfigBadge);
-        document.addEventListener('DOMContentLoaded', atualizarConfigBadge);
+        function atualizarNavbarEquipe() {
+            const el = document.getElementById('navbarEquipe');
+            if (!el) return;
+            const nome = localStorage.getItem('preventiva_equipeNome') || localStorage.getItem('preventiva_equipeId') || '';
+            if (nome && getEquipeToken()) {
+                el.textContent = '👤 ' + nome;
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        }
+
+
+        // Atualiza badge e nome no boot
+        window.addEventListener('storage', () => { atualizarConfigBadge(); atualizarNavbarEquipe(); });
+        document.addEventListener('DOMContentLoaded', () => { atualizarConfigBadge(); atualizarNavbarEquipe(); });
 
         // Substitui o pedirTokenEquipe() antigo (prompt feio) pelo modal
         window.pedirTokenEquipe = abrirConfigModal;
 
         // =====================================================================
-        // LOCK SCREEN — PIN
+        // MULTI-ACCOUNT LOGIN — PIN / BIOMETRIA
         // =====================================================================
-        const PIN_STORAGE_KEY = 'preventiva_pin_hash';
+        const CONTAS_KEY = 'preventiva_contas';
+
+        function getContas() {
+            try { return JSON.parse(localStorage.getItem(CONTAS_KEY)) || []; } catch (_) { return []; }
+        }
+
+        function salvarContas(contas) {
+            localStorage.setItem(CONTAS_KEY, JSON.stringify(contas));
+        }
 
         async function hashPin(pin) {
             const enc = new TextEncoder().encode(pin);
@@ -4818,21 +4879,107 @@
             return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-        function getPinHash() { return localStorage.getItem(PIN_STORAGE_KEY) || ''; }
+        function temContas() { return getContas().length > 0; }
 
-        function temPin() { return getPinHash().length > 0; }
+        function contaAtiva() {
+            const id = localStorage.getItem('preventiva_contaAtiva');
+            if (!id) return null;
+            return getContas().find(c => c.id === id) || null;
+        }
 
-        async function setPin(pin) { localStorage.setItem(PIN_STORAGE_KEY, pin ? await hashPin(pin) : ''); }
+        function loginConta(conta) {
+            localStorage.setItem('preventiva_contaAtiva', conta.id);
+            localStorage.setItem('preventiva_equipeId', conta.equipeId || '');
+            localStorage.setItem('preventiva_equipeNome', conta.equipeNome || '');
+            setEquipeToken(conta.token);
+            document.getElementById('lockScreen').style.display = 'none';
+            document.getElementById('lockPinInput').value = '';
+            document.getElementById('lockError').style.display = 'none';
+            if (navigator.vibrate) navigator.vibrate(30);
+            atualizarConfigBadge();
+            atualizarNavbarEquipe();
+            autoPreencherEquipe();
+            // Reinicia auto-tracking
+            try { if (typeof watchIdAutoTracking !== 'undefined' && watchIdAutoTracking !== null) navigator.geolocation.clearWatch(watchIdAutoTracking); } catch (_) {}
+            watchIdAutoTracking = null;
+            autoTrackingArmado = false;
+            iniciarAutoTracking();
+        }
 
-        async function verificarPinNoApp() {
+        function logoutConta() {
+            const ativa = contaAtiva();
+            if (!ativa && !getEquipeToken()) return;
+            if (!confirm('Sair da conta ' + (ativa?.equipeNome || 'atual') + '? Os dados não enviados serão perdidos.')) return;
+            try { if (typeof watchIdAutoTracking !== 'undefined' && watchIdAutoTracking !== null) navigator.geolocation.clearWatch(watchIdAutoTracking); } catch (_) {}
+            watchIdAutoTracking = null;
+            autoTrackingArmado = false;
+            localStorage.removeItem('preventiva_contaAtiva');
+            localStorage.removeItem('preventiva_equipeId');
+            localStorage.removeItem('preventiva_equipeNome');
+            setEquipeToken('');
+            atualizarConfigBadge();
+            atualizarNavbarEquipe();
+            showLoginScreen();
+            showToast('Desconectado. Escolha uma equipe.', 'info');
+        }
+
+        function showLoginScreen() {
+            const tela = document.getElementById('lockScreen');
+            tela.style.display = 'flex';
+            // Renderiza lista de contas
+            const lista = document.getElementById('lockAccountList');
+            if (!lista) return;
+            const contas = getContas();
+            if (contas.length === 0) {
+                lista.innerHTML = '<div style="font-size:13px;color:var(--text-muted,#6b7280);padding:12px 0;">Nenhuma equipe cadastrada. Toque em "Configurar" para adicionar.</div>';
+            } else {
+                lista.innerHTML = contas.map(c =>
+                    '<button class="login-account-btn" data-id="' + c.id + '" onclick="selecionarConta(\'' + c.id + '\')" style="background:var(--bg-input,#1c2128);border:2px solid var(--border,#2a3040);border-radius:12px;padding:14px 18px;width:100%;cursor:pointer;text-align:left;display:flex;align-items:center;gap:12px;transition:all .15s;">' +
+                        '<span style="font-size:20px;">👤</span>' +
+                        '<div style="flex:1;min-width:0;">' +
+                            '<div style="font-size:15px;font-weight:700;color:var(--text-primary,#fff);">' + escHtml(c.equipeNome || c.equipeId || 'Equipe') + '</div>' +
+                            '<div style="font-size:11px;color:var(--text-muted,#6b7280);margin-top:2px;">Toque para desbloquear</div>' +
+                        '</div>' +
+                        '<span style="font-size:16px;color:var(--text-muted,#6b7280);">🔓</span>' +
+                    '</button>'
+                ).join('');
+            }
+            document.getElementById('lockBioRow').style.display = 'none';
+            document.getElementById('lockPinInput').value = '';
+            delete document.getElementById('lockPinInput').dataset.contaId;
+            document.getElementById('lockError').style.display = 'none';
+        }
+
+        window.selecionarConta = function selecionarConta(id) {
+            const contas = getContas();
+            const conta = contas.find(c => c.id === id);
+            if (!conta) return;
+            // Se tem PIN, mostra input de PIN
+            if (conta.pinHash) {
+                document.getElementById('lockPinInput').focus();
+                document.getElementById('lockPinInput').dataset.contaId = id;
+                document.getElementById('lockPinLabel').textContent = 'PIN da equipe ' + (conta.equipeNome || '');
+                // Destacar visualmente
+                document.querySelectorAll('.login-account-btn').forEach(b => b.style.borderColor = 'var(--border,#2a3040)');
+                const btn = document.querySelector('.login-account-btn[data-id="' + id + '"]');
+                if (btn) btn.style.borderColor = 'var(--accent,#0057b8)';
+            } else {
+                // Sem PIN, loga direto
+                loginConta(conta);
+            }
+        };
+
+        async function verificarPinLogin() {
             const input = document.getElementById('lockPinInput').value.trim();
             if (!input) return;
+            const contaId = document.getElementById('lockPinInput').dataset.contaId;
+            if (!contaId) { showToast('Selecione uma equipe primeiro', 'error'); return; }
+            const contas = getContas();
+            const conta = contas.find(c => c.id === contaId);
+            if (!conta) return;
             const hash = await hashPin(input);
-            if (hash === getPinHash()) {
-                document.getElementById('lockScreen').style.display = 'none';
-                document.getElementById('lockPinInput').value = '';
-                document.getElementById('lockError').style.display = 'none';
-                if (navigator.vibrate) navigator.vibrate(30);
+            if (conta.pinHash === hash) {
+                loginConta(conta);
             } else {
                 document.getElementById('lockError').style.display = 'block';
                 document.getElementById('lockPinInput').value = '';
@@ -4840,7 +4987,7 @@
                 setTimeout(() => document.getElementById('lockError').style.display = 'none', 2000);
             }
         }
-        window.verificarPin = verificarPinNoApp;
+        window.verificarPin = verificarPinLogin;
 
         async function desbloquearBiometria() {
             if (!window.PublicKeyCredential) {
@@ -4860,8 +5007,11 @@
                     }
                 });
                 if (credential) {
-                    document.getElementById('lockScreen').style.display = 'none';
-                    if (navigator.vibrate) navigator.vibrate(30);
+                    // Biometria — loga na primeira conta disponível ou na última ativa
+                    const contas = getContas();
+                    const ultimaId = localStorage.getItem('preventiva_contaAtiva');
+                    let conta = contas.find(c => c.id === ultimaId) || contas[0];
+                    if (conta) loginConta(conta);
                 }
             } catch (_) {
                 showToast('Falha na autenticação biométrica', 'error');
@@ -4869,13 +5019,41 @@
         }
         window.desbloquearBiometria = desbloquearBiometria;
 
-        // Atualiza lock screen no load se tiver PIN
-        if (temPin()) document.getElementById('lockScreen').style.display = 'flex';
-
-        // Verifica suporte a WebAuthn para mostrar botão de biometria
-        if (window.PublicKeyCredential && temPin()) {
-            document.getElementById('lockBioRow').style.display = 'block';
-        }
+        // No boot: decide se mostra tela de login ou entra direto
+        (function initAuth() {
+            const ativa = contaAtiva();
+            if (ativa) {
+                if (ativa.pinHash) {
+                    // Conta ativa tem PIN → mostra login
+                    document.addEventListener('DOMContentLoaded', () => {
+                        showLoginScreen();
+                        if (window.PublicKeyCredential) document.getElementById('lockBioRow').style.display = 'block';
+                    });
+                } else {
+                    // Conta ativa sem PIN → loga automático
+                    document.addEventListener('DOMContentLoaded', () => loginConta(ativa));
+                }
+            } else if (temContas()) {
+                // Tem contas mas nenhuma ativa → mostra login
+                document.addEventListener('DOMContentLoaded', () => {
+                    showLoginScreen();
+                    if (window.PublicKeyCredential) document.getElementById('lockBioRow').style.display = 'block';
+                });
+            } else if (localStorage.getItem('preventiva_equipeToken')) {
+                // Migração: conta existente sem multi-account
+                const token = localStorage.getItem('preventiva_equipeToken');
+                const nome = localStorage.getItem('preventiva_equipeNome') || 'Equipe';
+                const eid = localStorage.getItem('preventiva_equipeId') || 'auto_' + Date.now();
+                const oldPinHash = localStorage.getItem('preventiva_pin_hash') || '';
+                const contas = [{ id: eid, pinHash: oldPinHash, token, equipeId: eid, equipeNome: nome }];
+                salvarContas(contas);
+                localStorage.setItem('preventiva_contaAtiva', eid);
+                localStorage.removeItem('preventiva_pin_hash');
+                if (oldPinHash) {
+                    document.addEventListener('DOMContentLoaded', () => showLoginScreen());
+                }
+            }
+        })();
 
         // =====================================================================
         // PUSH NOTIFICATIONS
@@ -5054,8 +5232,6 @@
             container.innerHTML = html;
             container.scrollTop = container.scrollHeight;
         }
-
-        function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
         async function enviarResposta() {
             const input = document.getElementById('chatInput');

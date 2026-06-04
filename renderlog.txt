@@ -1,0 +1,37 @@
+==> Downloading cache...
+==> Cloning from https://github.com/pedroaglailton/projeto
+==> Checking out commit d0b1415af1c199c81920c5d82cd3378d4a4292af in branch main
+==> Downloaded 3.6MB in 1s. Extraction took 1s.
+==> Using Node.js version 24.14.1 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm install'...
+added 92 packages, and audited 93 packages in 747ms
+16 packages are looking for funding
+  run `npm fund` for details
+found 0 vulnerabilities
+==> Uploading build...
+==> Uploaded in 1.8s. Compression took 0.2s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'node server.js'
+[usuarios] Arquivo criado com usuarios padrao
+[auth] 12 equipe(s) carregada(s) de /opt/render/project/src/data/equipes.json
+[push] Gerando novas chaves VAPID...
+[pontos] 1434 ponto(s) carregado(s)
+==========================================================
+CAMCONTROL PREVENTIVA-CE — servidor online
+==========================================================
+Endereco:  http://0.0.0.0:10000
+PWA:       http://localhost:10000/index.html
+NOC:       http://localhost:10000/noc
+Equipes:   12 cadastrada(s)
+==========================================================
+[Supabase] snapshot inicial: 1 equipe(s)
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://projeto-ujbr.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////

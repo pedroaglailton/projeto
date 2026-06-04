@@ -1425,6 +1425,7 @@
         const r = await fetch('/api/equipes');
         const j = await r.json();
         const equipes = j.equipes || [];
+        window.equipesCadastro = equipes;
         // Playback dropdown
         const sel = document.getElementById('pbEquipe');
         sel.innerHTML = '<option value="">— Todas —</option>';
@@ -1441,6 +1442,8 @@
           op2.textContent = `${e.equipeId} — ${e.nome}`;
           pushSel.appendChild(op2);
         }
+        // Atualiza lista do chat se estiver aberto
+        renderizarListaEquipes();
       } catch (_) {}
     }
 
@@ -1651,17 +1654,25 @@
         if (m.createdAt > (grupo.ultima.createdAt || 0)) grupo.ultima = m;
         if (!m.lida && m.direcao === 'tecnico') grupo.naoLidas++;
       }
-      const sorted = Object.entries(porEquipe).sort((a, b) => (b[1].ultima.createdAt || 0) - (a[1].ultima.createdAt || 0));
+      // Adiciona equipes cadastradas que ainda nao enviaram mensagem
+      if (window.equipesCadastro) {
+        for (const eq of window.equipesCadastro) {
+          if (!porEquipe[eq.equipeId]) {
+            porEquipe[eq.equipeId] = { nome: eq.nome || eq.equipeId, ultima: null, naoLidas: 0 };
+          }
+        }
+      }
+      const sorted = Object.entries(porEquipe).sort((a, b) => (b[1].ultima?.createdAt || 0) - (a[1].ultima?.createdAt || 0));
       let html = '';
       for (const [id, grupo] of sorted) {
         const ativa = id === msgEquipeAtual ? 'active' : '';
-        const preview = grupo.ultima.texto ? grupo.ultima.texto.slice(0, 40) : '';
-        const time = grupo.ultima.createdAt ? new Date(grupo.ultima.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+        const preview = grupo.ultima?.texto ? grupo.ultima.texto.slice(0, 40) : '';
+        const time = grupo.ultima?.createdAt ? new Date(grupo.ultima.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
         const badge = grupo.naoLidas > 0 ? `<span class="badge">${grupo.naoLidas}</span>` : '';
         html += `<div class="chat-team-item ${ativa}" onclick="selecionarEquipe('${id}')">
           <div style="flex:1;min-width:0;">
             <div style="font-weight:700;font-size:13px;">${escHtml(grupo.nome)}</div>
-            <div class="last-msg">${escHtml(preview)}</div>
+            <div class="last-msg">${preview || '—'}</div>
           </div>
           <div style="text-align:right;">
             <div class="time">${time}</div>
@@ -1669,7 +1680,7 @@
           </div>
         </div>`;
       }
-      if (!sorted.length) html = '<div style="padding:20px;text-align:center;color:#475569;font-size:12px;">Nenhuma mensagem</div>';
+      if (!sorted.length) html = '<div style="padding:20px;text-align:center;color:#475569;font-size:12px;">Nenhuma equipe cadastrada</div>';
       chatTeamList.innerHTML = html;
     }
 
@@ -1689,10 +1700,11 @@
 
     function renderizarConversa(equipeId) {
       const msgs = todasMensagens.filter(m => m.equipeId === equipeId);
-      const nome = msgs.length ? (msgs[0].equipeNome || equipeId) : equipeId;
+      const equipe = window.equipesCadastro?.find(e => e.equipeId === equipeId);
+      const nome = equipe?.nome || (msgs.length ? msgs[0].equipeNome : equipeId);
       chatConvHeader.textContent = '💬 ' + nome;
       if (!msgs.length) {
-        chatMsgs.innerHTML = '<div class="empty">Nenhuma mensagem ainda</div>';
+        chatMsgs.innerHTML = '<div class="empty">Nenhuma mensagem ainda. Envie a primeira!</div>';
         return;
       }
       let html = '';

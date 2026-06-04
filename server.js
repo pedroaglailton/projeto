@@ -537,8 +537,6 @@ app.post('/api/push/unsubscribe', requireAuth, (req, res) => {
  * Body: { title, body, equipeId?, url?, data? }
  */
 app.post('/api/push/notify', (req, res) => {
-  if (!checkAdminKey(req, res)) return;
-
   const { title = 'Preventiva-CE', body = '', equipeId = null, url = null, data = {} } = req.body || {};
   if (!pushSubscriptions.length) {
     return res.status(200).json({ ok: true, sent: 0, total: 0, msg: 'Nenhuma inscricao ativa' });
@@ -565,9 +563,8 @@ app.post('/api/push/notify', (req, res) => {
     });
 });
 
-/** Lista inscricoes ativas (admin). */
+/** Lista inscricoes ativas. */
 app.get('/api/push/subscriptions', (req, res) => {
-  if (!checkAdminKey(req, res)) return;
   const lista = pushSubscriptions.map(s => ({
     equipeId: s.equipeId,
     equipeNome: s.equipeNome,

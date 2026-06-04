@@ -103,6 +103,8 @@
     #equipesList li.active { border-left-color: #0ea5e9; background: #1e293b; }
     #equipesList li .ago { font-size: 10px; color: #64748b; }
     #equipesList li.stale .ago { color: #f59e0b; }
+    #equipesList li.logged-out { opacity:0.7; }
+    #equipesList li.logged-out .ago { color:#dc2626; font-weight:700; }
 
     #proximosList { list-style: none; padding: 0; margin: 0; max-height: 160px; overflow-y: auto; }
     #proximosList li {
@@ -796,6 +798,7 @@
     const ultimoTs = new Map();
     const posicoesAnimadas = new Map();
     const headingsAnimados = new Map();
+    const loggedOutEquipes = new Set();
     // Trilha e paradas desativadas — movimento puro do carro
     const trilhasHoje = new Map();
     const paradasHoje = new Map();
@@ -992,6 +995,16 @@
     }
 
     function upsert(regOriginal) {
+      // Se a equipe estava deslogada e voltou, limpa flag
+      if (loggedOutEquipes.has(regOriginal.equipeId)) {
+        loggedOutEquipes.delete(regOriginal.equipeId);
+        const m = markers.get(regOriginal.equipeId);
+        if (m) {
+          m.setIcon(carIcon(regOriginal.equipeId, false));
+          m.unbindTooltip();
+          m.bindTooltip(regOriginal.equipeNome, { direction: 'top', offset: [0, -20] });
+        }
+      }
       // Aplica snap-to-road antes de tudo
       const snappedPos = snapToRoad(regOriginal.lat, regOriginal.lng);
       let reg = snappedPos
@@ -1375,7 +1388,8 @@
         const m = markers.get(id);
         const ts = ultimoTs.get(id) || 0;
         const ageMs = agora - ts;
-        const stale = ageMs > STALE_MS;
+        const logoff = loggedOutEquipes.has(id);
+        const stale = !logoff && ageMs > STALE_MS;
         const ago = ageMs < 60000 ? `${Math.round(ageMs/1000)}s` : `${Math.round(ageMs/60000)}min`;
         const li = document.createElement('li');
         const val = equipeValidacao.get(id);
@@ -1383,8 +1397,9 @@
         const color = getEquipeColor(id);
         if (equipeSelecionada === id) li.classList.add('active');
         if (stale) li.classList.add('stale');
-        li.style.borderLeftColor = color;
-        li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${ago}</span>`;
+        if (logoff) li.classList.add('logged-out');
+        li.style.borderLeftColor = logoff ? '#dc2626' : color;
+        li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${logoff ? '🔴 deslogada' : ago}</span>`;
         li.onclick = () => focusEquipe(id);
         ul.appendChild(li);
         if (stale) m.setIcon(carIcon(id, true));
@@ -1444,6 +1459,7 @@
             }
           }
           if (msg.type === 'team-logout' && msg.data) {
+            loggedOutEquipes.add(msg.data.equipeId);
             const m = markers.get(msg.data.equipeId);
             if (m) {
               m.setIcon(carIcon(msg.data.equipeId, false, '#dc2626'));

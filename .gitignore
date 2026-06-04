@@ -6,6 +6,7 @@ data/vapid-keys.json
 data/push-subscriptions.json
 data/mensagens.json
 data/usuarios.json
+data/sessoes.json
 erros.txt
 server_*.txt
 *.log

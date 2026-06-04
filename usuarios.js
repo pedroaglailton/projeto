@@ -3,7 +3,38 @@ const path = require('path');
 const crypto = require('crypto');
 
 const USUARIOS_FILE = path.join(__dirname, 'data', 'usuarios.json');
-const sessoes = new Map(); // token -> { usuario, perfil, nome }
+const SESSOES_FILE = path.join(__dirname, 'data', 'sessoes.json');
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias
+let sessoes = new Map(); // token -> { usuario, perfil, nome, criadoEm }
+
+function carregarSessoes() {
+  try {
+    if (fs.existsSync(SESSOES_FILE)) {
+      const raw = fs.readFileSync(SESSOES_FILE, 'utf8');
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        const agora = Date.now();
+        for (const s of arr) {
+          if (agora - s.criadoEm < SESSION_TTL_MS) {
+            sessoes.set(s.token, { usuario: s.usuario, perfil: s.perfil, nome: s.nome, criadoEm: s.criadoEm });
+          }
+        }
+        console.log(`[usuarios] ${sessoes.size} sessao(oes) carregada(s)`);
+      }
+    }
+  } catch (_) {}
+}
+
+function salvarSessoes() {
+  try {
+    const arr = [];
+    for (const [token, dados] of sessoes) {
+      arr.push({ token, usuario: dados.usuario, perfil: dados.perfil, nome: dados.nome, criadoEm: dados.criadoEm });
+    }
+    fs.mkdirSync(path.dirname(SESSOES_FILE), { recursive: true });
+    fs.writeFileSync(SESSOES_FILE, JSON.stringify(arr), 'utf8');
+  } catch (_) {}
+}
 
 function carregarUsuarios() {
   // Tenta carregar de variavel de ambiente primeiro (Render)
@@ -96,7 +127,8 @@ function login(usuario, senha) {
   const u = usuarios.find(u => u.usuario === usuario && u.senha === senha);
   if (!u) return null;
   const token = crypto.randomBytes(24).toString('hex');
-  sessoes.set(token, { usuario: u.usuario, perfil: u.perfil, nome: u.nome });
+  sessoes.set(token, { usuario: u.usuario, perfil: u.perfil, nome: u.nome, criadoEm: Date.now() });
+  salvarSessoes();
   return token;
 }
 
@@ -107,7 +139,11 @@ function validaToken(token) {
 
 function logout(token) {
   sessoes.delete(token);
+  salvarSessoes();
 }
+
+// Carregar sessoes persistentes no startup
+carregarSessoes();
 
 function authMiddlewareNoc(req, res, next) {
   const token = req.get('X-Noc-Token') || req.query.token;

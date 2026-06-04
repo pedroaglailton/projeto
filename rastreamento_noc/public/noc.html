@@ -1766,27 +1766,28 @@
 
     async function enviarArquivoModal(input) {
       const file = input.files?.[0];
-      if (!file || !msgEquipeAtual) return;
-      const isVideo = file.type.startsWith('video/');
       input.value = '';
+      if (!file) return;
+      if (!msgEquipeAtual) { alert('Selecione uma equipe no chat primeiro'); return; }
+      const isVideo = file.type.startsWith('video/');
       try {
         const fd = new FormData();
         fd.append('arquivo', file);
         const up = await fetch('/api/upload', { method: 'POST', body: fd });
         const upData = await up.json();
-        if (!upData.ok) return;
+        if (!upData.ok) { alert('Upload falhou: ' + (upData.error || 'erro')); return; }
         const r = await fetch('/api/mensagens/noc', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ equipeId: msgEquipeAtual, texto: file.name, tipo: isVideo ? 'video' : 'imagem', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
+          body: JSON.stringify({ equipeId: msgEquipeAtual, texto: file.name, tipo: 'alerta', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
         });
         const j = await r.json();
         if (j.ok && j.mensagem) {
           todasMensagens.push(j.mensagem);
           renderizarListaEquipes();
           renderizarConversa(msgEquipeAtual);
-        }
-      } catch (_) {}
+        } else { alert('Erro ao enviar mensagem: ' + (j.error || 'erro')); }
+      } catch (e) { alert('Erro: ' + e.message); }
     }
 
     function atualizarBadge() {

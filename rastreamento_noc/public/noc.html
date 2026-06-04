@@ -492,8 +492,12 @@
     });
 
     document.getElementById('roadsOpacity').addEventListener('input', (e) => {
-      roadsOpacity = parseInt(e.target.value) / 100;
-      if (roadsLayer) roadsLayer.setStyle(getRoadStyle);
+      roadsOpacity = parseFloat(e.target.value) / 100;
+      if (roadsLayer) {
+        roadsLayer.eachLayer(l => {
+          if (l.setStyle) l.setStyle({ color: '#bbbbbb', weight: 0.8, opacity: roadsOpacity });
+        });
+      }
     });
 
     carregarRoads();

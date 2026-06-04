@@ -94,6 +94,12 @@ class EquipesStore {
     return match;
   }
 
+  get(equipeId) {
+    if (!equipeId) return null;
+    const id = String(equipeId).trim().toUpperCase();
+    return this.byId.get(id) || null;
+  }
+
   list() {
     return Array.from(this.byId.values()).map(e => ({
       equipeId: e.equipeId,

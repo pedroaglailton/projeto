@@ -1,0 +1,7 @@
+node_modules/
+data/posicoes/
+data/producao/
+data/producao_equipes/
+data/vapid-keys.json
+data/push-subscriptions.json
+*.log

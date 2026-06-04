@@ -1,4 +1,4 @@
-// CAMCONTROL PREVENTIVA-CE — Servidor unificado
+// CONTROL PREVENTIVA-CE — Servidor unificado
 // - Serve PWA (index.html) e NOC (noc.html)
 // - API REST: /api/posicao (autenticada), /api/status, /api/playback, /api/equipes
 // - WebSocket: bootstrap + position + replay
@@ -12,6 +12,63 @@ const WebSocket = require('ws');
 
 const { EquipesStore, authMiddleware } = require('./auth');
 const { PosicoesStore, todayStr }      = require('./posicoes-store');
+
+// ============================================================================
+// Pontos planejados — carrega para identificar ponto por GPS
+// ============================================================================
+let pontosPlanejados = [];
+
+function carregarPontosPlanejados() {
+  try {
+    const filePath = path.join(pwaRoot || __dirname, 'pontos_planejados.json');
+    if (!fs.existsSync(filePath)) {
+      console.warn('[pontos] pontos_planejados.json nao encontrado em', filePath);
+      return;
+    }
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    pontosPlanejados = Array.isArray(data.pontos) ? data.pontos : [];
+    console.log(`[pontos] ${pontosPlanejados.length} ponto(s) carregado(s)`);
+  } catch (err) {
+    console.warn('[pontos] erro ao carregar pontos_planejados.json:', err.message);
+  }
+}
+
+function distMetros(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const toRad = x => x * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function identificarPontoMaisProximo(lat, lng) {
+  if (!lat || !lng || !pontosPlanejados.length) return null;
+
+  // Encontra os 2 mais próximos
+  let melhor = null, segundo = null;
+  let distMelhor = Infinity, distSegundo = Infinity;
+
+  for (const p of pontosPlanejados) {
+    if (!p.lat || !p.lng) continue;
+    const d = distMetros(lat, lng, p.lat, p.lng);
+    if (d < distMelhor) {
+      segundo = melhor; distSegundo = distMelhor;
+      melhor = p;      distMelhor = d;
+    } else if (d < distSegundo) {
+      segundo = p; distSegundo = d;
+    }
+  }
+
+  if (!melhor) return null;
+
+  // Raio dinâmico: metade da distância para o vizinho mais próximo
+  // Mínimo 30m, máximo 80m
+  const raio = 25; // 15m fixo — mais seguro e preciso
+
+  if (distMelhor > raio) return null;
+  return { ...melhor, distancia: Math.round(distMelhor), raioUsado: Math.round(raio) };
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -221,10 +278,23 @@ app.post('/api/producao', requireAuth, (req, res) => {
     origem: body.origem === 'offline-queue' ? 'offline-queue' : 'live'
   };
   if (!reg.pontoNumero) return res.status(400).json({ ok: false, error: 'pontoNumero obrigatorio' });
+
+  // Identifica automaticamente o ponto planejado mais próximo pelo GPS
+  const pontoIdentificado = identificarPontoMaisProximo(reg.lat, reg.lng);
+  if (pontoIdentificado) {
+    reg.pontoId       = pontoIdentificado.id;
+    reg.pontoNome     = pontoIdentificado.nome;
+    reg.pontoCidade   = pontoIdentificado.cidade;
+    reg.pontoDistM    = pontoIdentificado.distancia;
+    console.log(`[producao] ${reg.equipeId} → ponto #${pontoIdentificado.id} "${pontoIdentificado.nome}" (${pontoIdentificado.distancia}m, raio=${pontoIdentificado.raioUsado}m)`);
+  } else {
+    console.log(`[producao] ${reg.equipeId} → nenhum ponto próximo (lat:${reg.lat}, lng:${reg.lng})`);
+  }
+
   appendProducao(reg);
   writeEquipeDiaArquivos(reg);
   broadcast({ type: 'production', data: reg });
-  res.json({ ok: true });
+  res.json({ ok: true, pontoIdentificado: pontoIdentificado || null });
 });
 
 /** Lista producao do dia para painel NOC. */
@@ -381,6 +451,9 @@ process.on('SIGTERM', shutdown);
 // ============================================================================
 // Start
 // ============================================================================
+// Carrega pontos planejados (precisa de pwaRoot definido)
+carregarPontosPlanejados();
+
 server.listen(PORT, HOST, () => {
   console.log(`==========================================================`);
   console.log(`CAMCONTROL PREVENTIVA-CE — servidor online`);

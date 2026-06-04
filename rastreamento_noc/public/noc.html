@@ -46,11 +46,12 @@
       -ms-overflow-style: none;
       z-index: 500;
     }
-    body.sidebar-collapsed #sidebarLeft {
-      padding: 0;
-
-      overflow: hidden;
+    #sidebarLeft h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 1px;
     }
+    body.sidebar-collapsed #sidebarLeft { padding: 0; border-right: 0; overflow: hidden; }
 
     #sidebarRight {
       background: #111827;
@@ -195,20 +196,31 @@
     }
     .token-box.visible { display: block; }
 
-    /* Form elements in sidebar */
-    #sidebarLeft select, #sidebarLeft input, #sidebarLeft button:not(.roads-btn) {
-      background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
-      border-radius: 6px; padding: 8px 10px; font-size: 12px;
-      outline: none; width: 100%; box-sizing: border-box;
+    /* Sidebar labels and form elements */
+    #sidebarLeft label { display: block; font-size: 11px; color: #94a3b8; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    #sidebarLeft .section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #1f2937; }
+    #sidebarLeft select, #sidebarLeft input[type="date"] {
+      width: 100%; padding: 8px 10px;
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 6px;
     }
-    #sidebarLeft select:hover, #sidebarLeft input:hover { border-color: #475569; }
-    #sidebarLeft select:focus, #sidebarLeft input:focus { border-color: #0ea5e9; }
-    #sidebarLeft button:not(.roads-btn) { background: #0ea5e9; border-color: #0ea5e9; color: #fff; font-weight: 600; cursor: pointer; }
-    #sidebarLeft button:not(.roads-btn):hover { background: #0284c7; }
-    #sidebarLeft label { font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 8px; margin-bottom: 3px; }
+    #sidebarLeft input[type="text"] {
+      width: 100%; padding: 8px 10px;
+      background: #0f172a; color: #e2e8f0;
+      border: 1px solid #334155; border-radius: 6px;
+    }
+    #sidebarLeft button {
+      width: 100%; padding: 9px; margin-top: 8px;
+      background: #0ea5e9; color: #fff; border: 0;
+      border-radius: 6px; font-weight: 600; cursor: pointer;
+    }
+    #sidebarLeft button:hover { background: #0284c7; }
+    #sidebarLeft button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+    #sidebarLeft button.ghost:hover { background: #1e293b; color: #e2e8f0; }
+    #sidebarLeft .muted { font-size: 11px; color: #4b5563; margin-top: 6px; }
 
     /* Ruas KML */
-    #sidebarLeft button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }
+    #sidebarLeft button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; margin-top: 0; }
     #sidebarLeft button.roads-btn:hover { background: #d2e3fc; }
     #sidebarLeft button.roads-btn.active { background: #4285f4; color: #fff; }
     #roadsStatus { font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 5px; }

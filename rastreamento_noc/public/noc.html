@@ -322,7 +322,7 @@
   </style>
 </head>
 <body>
-  <div id="nocApp" style="display:none;">
+  <div id="nocApp">
 
   <div class="top">
     <button class="toggle-sidebar" id="toggleSidebar" title="Abrir/fechar menu">≡</button>
@@ -550,8 +550,8 @@
       const ok = await verificarSessao();
       if (ok) {
         document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('nocApp').style.display = '';
         aplicarRestricoesPerfil();
+        map.invalidateSize();
         if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
       }
     })();
@@ -2029,7 +2029,7 @@
         usuarioSessao = { perfil: j.perfil, nome: j.nome };
         document.getElementById('loginOverlay').classList.add('hidden');
         aplicarRestricoesPerfil();
-        document.getElementById('nocApp').style.display = '';
+        map.invalidateSize();
         if (j.perfil === 'admin') carregarUsuariosLista();
       } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
       finally { btn.disabled = false; btn.textContent = 'Entrar'; }
@@ -2042,7 +2042,6 @@
       }
       sessionStorage.clear();
       usuarioSessao = null;
-      document.getElementById('nocApp').style.display = 'none';
       document.getElementById('loginOverlay').classList.remove('hidden');
       document.getElementById('loginUser').value = '';
       document.getElementById('loginPass').value = '';

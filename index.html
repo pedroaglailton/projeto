@@ -1632,7 +1632,7 @@
         let watchIdAutoTracking = null;
         let ultimoEnvioTracking = 0;
         let ultimoAvisoToken = 0;
-        const TRACKING_MIN_INTERVAL_MS = 15000;
+        const TRACKING_MIN_INTERVAL_MS = 400; // 0.4s — trilha máxima precisão
         let wakeLockRef = null;
         let fallbackTrackingTimer = null;
         let ultimoPayloadTracking = null;
@@ -1945,7 +1945,7 @@
                 navigator.geolocation.getCurrentPosition(
                     (pos) => enviarPosicaoAutoTracking(pos.coords),
                     () => {},
-                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+                    { enableHighAccuracy: true, timeout: 15000, maximumAge: 3000 }
                 );
             }, 30000);
         }
@@ -1993,7 +1993,7 @@
                         if (typeof showToast === 'function') showToast(explicaErroGeo(err), 'error');
                     }
                 },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
             );
 
             iniciarFallbackTracking();
@@ -2034,7 +2034,7 @@
                         watchIdAutoTracking = navigator.geolocation.watchPosition(
                             (p) => enviarPosicaoAutoTracking(p.coords),
                             (err) => console.warn('[auto-tracking] watch:', err),
-                            { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+                            { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
                         );
                     },
                     (err) => {
@@ -4176,7 +4176,7 @@
                     if (err.code === 1) statusEl.textContent = '🔴 Permissão negada';
                     else statusEl.textContent = '🔴 GPS indisponível';
                 },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+                { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
             );
         }
 

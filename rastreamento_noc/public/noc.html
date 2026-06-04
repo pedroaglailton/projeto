@@ -534,8 +534,6 @@
 
     function getNocToken() { return sessionStorage.getItem('nocToken') || ''; }
 
-    function getToken() { return sessionStorage.getItem('nocToken') || ''; }
-
     function aplicarRestricoesPerfil() {
       const perfil = usuarioSessao?.perfil || sessionStorage.getItem('nocPerfil') || 'operador';
       const nome = usuarioSessao?.nome || sessionStorage.getItem('nocNome') || 'NOC';
@@ -756,7 +754,7 @@
       renderRoadsLayer();
     });
 
-    carregarRoads();
+    setTimeout(carregarRoads, 3000);
 
     // =========================================================================
     // Estado
@@ -1997,39 +1995,32 @@
 
     document.getElementById('btnCriarUsuario').addEventListener('click', criarUsuarioAction);
 
-    // Carregar usuarios apos login
     async function fazerLogin() {
-      const u = document.getElementById('loginUser').value.trim();
-      const p = document.getElementById('loginPass').value;
-      document.getElementById('loginError').style.display = 'none';
-      document.getElementById('loginBtn').disabled = true;
-      document.getElementById('loginBtn').textContent = 'Entrando…';
+      const user = document.getElementById('loginUser').value.trim();
+      const pass = document.getElementById('loginPass').value;
+      const errEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      if (!user || !pass) { errEl.textContent = 'Preencha usuario e senha'; errEl.style.display = 'block'; return; }
+      errEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Entrando...';
       try {
         const r = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usuario: u, senha: p })
+          body: JSON.stringify({ usuario: user, senha: pass })
         });
-        const data = await r.json();
-        if (!data.ok) { document.getElementById('loginError').textContent = data.error || 'Falha no login'; document.getElementById('loginError').style.display = ''; return; }
-        sessionStorage.setItem('nocToken', data.token);
-        sessionStorage.setItem('nocPerfil', data.perfil);
-        sessionStorage.setItem('nocNome', data.nome);
-        usuarioSessao = { perfil: data.perfil, nome: data.nome };
+        const j = await r.json();
+        if (!j.ok) { errEl.textContent = j.error || 'Falha no login'; errEl.style.display = 'block'; return; }
+        sessionStorage.setItem('nocToken', j.token);
+        sessionStorage.setItem('nocPerfil', j.perfil);
+        sessionStorage.setItem('nocNome', j.nome);
+        usuarioSessao = { perfil: j.perfil, nome: j.nome };
         document.getElementById('loginOverlay').classList.add('hidden');
-        document.getElementById('nocApp').style.display = '';
         aplicarRestricoesPerfil();
-        if (data.perfil === 'admin') carregarUsuariosLista();
-        equipes = []; initWs();
-        if (data.perfil === 'admin') carregarEquipesCadastro();
-        abrirModalChat();
-      } catch (err) {
-        document.getElementById('loginError').textContent = 'Erro de conexão: ' + err.message;
-        document.getElementById('loginError').style.display = '';
-      } finally {
-        document.getElementById('loginBtn').disabled = false;
-        document.getElementById('loginBtn').textContent = 'Entrar';
-      }
+        document.getElementById('nocApp').style.display = '';
+        if (j.perfil === 'admin') carregarUsuariosLista();
+      } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
+      finally { btn.disabled = false; btn.textContent = 'Entrar'; }
     }
     
     document.getElementById('logoutBtn').addEventListener('click', async () => {

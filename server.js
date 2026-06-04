@@ -127,14 +127,54 @@ function saveSubscriptions() {
   catch (_) { /* best-effort */ }
 }
 
+// ============================================================================
+// Mensagens — chat bidirecional NOC <-> Tecnico
+// ============================================================================
+const MENSAGENS_FILE = path.join(__dirname, 'data', 'mensagens.json');
+let mensagens = [];
+try {
+  if (fs.existsSync(MENSAGENS_FILE))
+    mensagens = JSON.parse(fs.readFileSync(MENSAGENS_FILE, 'utf8'));
+} catch (_) { /* ignora */ }
+if (!Array.isArray(mensagens)) mensagens = [];
+
+function salvarMensagens() {
+  try { fs.writeFileSync(MENSAGENS_FILE, JSON.stringify(mensagens, null, 2), 'utf8'); }
+  catch (_) { /* best-effort */ }
+}
+
+function addMensagem(equipeId, equipeNome, direcao, texto, tipo = 'alerta') {
+  const msg = {
+    id: 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    equipeId,
+    equipeNome,
+    direcao, // 'noc' | 'tecnico'
+    texto: String(texto).trim(),
+    tipo, // 'alerta' | 'resposta' | 'predefinida'
+    createdAt: Date.now(),
+    lida: false
+  };
+  mensagens.push(msg);
+  salvarMensagens();
+  broadcast({ type: 'mensagem', data: msg });
+  return msg;
+}
+
 async function sendPushToSubscriptions(payload, equipeFilter = null) {
   const results = { sent: 0, failed: 0 };
   for (const sub of pushSubscriptions) {
     if (equipeFilter && sub.equipeId !== equipeFilter) continue;
+    // Adiciona token da equipe no payload para o SW poder responder
+    const equipe = equipesStore.get(sub.equipeId);
+    const token = equipe ? equipe.token : null;
+    const enrichedPayload = { ...payload };
+    if (token) {
+      enrichedPayload.data = { ...enrichedPayload.data, teamToken: token };
+    }
     try {
       await webPush.sendNotification(
         { endpoint: sub.endpoint, keys: sub.keys },
-        JSON.stringify(payload),
+        JSON.stringify(enrichedPayload),
         { TTL: 86400 }
       );
       results.sent++;
@@ -550,6 +590,16 @@ app.post('/api/push/notify', (req, res) => {
 
   sendPushToSubscriptions(payload, equipeId || null)
     .then(results => {
+      // Salva mensagem automaticamente
+      const msgBody = String(body).trim();
+      if (msgBody) {
+        const equipesAlvo = equipeId
+          ? [equipesStore.get(equipeId)].filter(Boolean)
+          : equipesStore.list();
+        for (const eq of equipesAlvo) {
+          addMensagem(eq.equipeId, eq.nome || eq.equipeId, 'noc', msgBody, 'alerta');
+        }
+      }
       res.json({
         ok: true,
         sent: results.sent,
@@ -572,6 +622,62 @@ app.get('/api/push/subscriptions', (req, res) => {
     createdAt: s.createdAt
   }));
   res.json({ ok: true, total: lista.length, subscriptions: lista });
+});
+
+// ============================================================================
+// Mensagens — chat bidirecional
+// ============================================================================
+
+/** Adiciona mensagem (NOC ou tecnico). */
+app.post('/api/mensagens', requireAuth, (req, res) => {
+  const { texto = '', tipo = 'resposta', equipeId: bodyEquipeId } = req.body || {};
+  const equipe = req.equipe; // de requireAuth
+  if (!texto.trim()) return res.status(400).json({ ok: false, error: 'Texto vazio' });
+  const msg = addMensagem(equipe.equipeId, equipe.equipeNome || equipe.equipeId, 'tecnico', texto, tipo);
+  res.status(201).json({ ok: true, mensagem: msg });
+});
+
+/** Adiciona mensagem do NOC (sem token de equipe). */
+app.post('/api/mensagens/noc', (req, res) => {
+  const { equipeId, texto = '', tipo = 'alerta' } = req.body || {};
+  if (!equipeId) return res.status(400).json({ ok: false, error: 'equipeId obrigatorio' });
+  if (!texto.trim()) return res.status(400).json({ ok: false, error: 'Texto vazio' });
+  const equipe = equipesStore.get(equipeId);
+  const nome = equipe ? (equipe.nome || equipeId) : equipeId;
+  const msg = addMensagem(equipeId, nome, 'noc', texto, tipo);
+  res.status(201).json({ ok: true, mensagem: msg });
+});
+
+/** Lista mensagens (NOC — todas). */
+app.get('/api/mensagens', (_req, res) => {
+  res.json({ ok: true, total: mensagens.length, mensagens });
+});
+
+/** Lista mensagens de uma equipe. */
+app.get('/api/mensagens/:equipeId', requireAuth, (req, res) => {
+  const equipe = req.equipe;
+  const reqEquipeId = req.params.equipeId;
+  if (equipe.equipeId !== reqEquipeId) return res.status(403).json({ ok: false, error: 'Acesso negado' });
+  const lista = mensagens.filter(m => m.equipeId === reqEquipeId);
+  res.json({ ok: true, total: lista.length, mensagens: lista });
+});
+
+/** Marca mensagem como lida. */
+app.patch('/api/mensagens/:id/lida', (_req, res) => {
+  const msg = mensagens.find(m => m.id === _req.params.id);
+  if (!msg) return res.status(404).json({ ok: false, error: 'Mensagem nao encontrada' });
+  msg.lida = true;
+  salvarMensagens();
+  res.json({ ok: true });
+});
+
+/** Contagem de nao lidas por equipe. */
+app.get('/api/mensagens/nao-lidas/contagem', (_req, res) => {
+  const naoLidas = {};
+  for (const m of mensagens) {
+    if (!m.lida) naoLidas[m.equipeId] = (naoLidas[m.equipeId] || 0) + 1;
+  }
+  res.json({ ok: true, naoLidas });
 });
 
 // ============================================================================

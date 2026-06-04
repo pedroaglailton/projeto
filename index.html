@@ -1095,6 +1095,10 @@
                 <span id="gpsDot" style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.3);flex-shrink:0;transition:background 0.4s;"></span>
                 <span id="gpsLabel" style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.5px;color:rgba(255,255,255,0.45);transition:color 0.4s;text-transform:uppercase;"></span>
             </div>
+            <button class="theme-toggle" onclick="abrirChat()" title="Mensagens" id="btnChat" style="position:relative;">
+                <i class="material-icons">chat</i>
+                <span id="chatBadge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 4px #ef4444;"></span>
+            </button>
             <button class="theme-toggle" onclick="abrirConfigModal()" title="Configurações" id="btnConfig" style="position:relative;">
                 <i class="material-icons">settings</i>
                 <span id="configBadge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 4px #f59e0b;"></span>
@@ -4547,6 +4551,23 @@
         </div>
     </div>
 
+    <!-- ===== CHAT PANEL ===== -->
+    <div id="chatPanel" style="display:none;position:fixed;inset:0;z-index:99998;background:var(--bg-primary,#0f172a);flex-direction:column;">
+        <div style="display:flex;align-items:center;padding:10px 16px;background:var(--accent,#0057b8);color:#fff;gap:12px;flex-shrink:0;">
+            <button onclick="fecharChat()" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:#fff;width:36px;height:36px;font-size:20px;cursor:pointer;">←</button>
+            <div style="font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;flex:1;">Mensagens</div>
+            <span id="chatEquipeNome" style="font-size:12px;opacity:0.8;font-weight:600;"></span>
+        </div>
+        <div id="chatMessages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;">
+            <div style="text-align:center;color:var(--text-muted,#6b7280);font-size:13px;padding:40px 0;" id="chatEmpty">Carregando mensagens...</div>
+        </div>
+        <div style="display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));background:var(--bg-card,#1c2128);border-top:1px solid var(--border,#30363d);flex-shrink:0;">
+            <input type="text" id="chatInput" placeholder="Digite sua resposta..." style="flex:1;padding:12px 14px;border:2px solid var(--border,#30363d);border-radius:10px;font-size:15px;background:var(--bg-primary,#0f172a);color:var(--text-primary,#fff);outline:none;"
+                   onkeydown="if(event.key==='Enter')enviarResposta()">
+            <button onclick="enviarResposta()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">Enviar</button>
+        </div>
+    </div>
+
     <script>
         // ===== MODAL DE CONFIGURACOES =====
         function abrirConfigModal() {
@@ -4621,6 +4642,10 @@
                 if (r.status === 401) return false;
                 if (!r.ok) return null;
                 const j = await r.json();
+                if (j.equipe) {
+                    if (j.equipe.equipeId) localStorage.setItem('preventiva_equipeId', j.equipe.equipeId);
+                    if (j.equipe.nome) localStorage.setItem('preventiva_equipeNome', j.equipe.nome);
+                }
                 return j.equipe?.nome || j.equipe?.equipeId || 'OK';
             } catch (_) {
                 return null;
@@ -4855,6 +4880,156 @@
         }
 
         // =====================================================================
+        // CHAT — mensagens bidirecionais
+        // =====================================================================
+        let chatPollTimer = null;
+        let chatAberto = false;
+        let ultimaMsgId = null;
+
+        function abrirChat() {
+            chatAberto = true;
+            document.getElementById('chatPanel').style.display = 'flex';
+            document.getElementById('chatBadge').style.display = 'none';
+            carregarMensagens();
+            iniciarPollChat();
+        }
+
+        function fecharChat() {
+            chatAberto = false;
+            document.getElementById('chatPanel').style.display = 'none';
+            clearInterval(chatPollTimer);
+        }
+
+        async function carregarMensagens() {
+            const token = getEquipeToken();
+            const equipeId = localStorage.getItem('preventiva_equipeId');
+            if (!token || !equipeId) {
+                document.getElementById('chatEmpty').textContent = 'Configure o token da equipe nas Configurações';
+                return;
+            }
+            document.getElementById('chatEquipeNome').textContent = localStorage.getItem('preventiva_equipeNome') || equipeId;
+            try {
+                const r = await fetch(apiUrl('/api/mensagens/' + encodeURIComponent(equipeId)), {
+                    headers: { 'X-Equipe-Token': token }
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                renderizarMensagens(j.mensagens || []);
+                if (j.mensagens && j.mensagens.length) {
+                    ultimaMsgId = j.mensagens[j.mensagens.length - 1].id;
+                }
+            } catch (e) {
+                document.getElementById('chatEmpty').textContent = 'Erro ao carregar: ' + e.message;
+            }
+        }
+
+        function renderizarMensagens(lista) {
+            const container = document.getElementById('chatMessages');
+            if (!lista.length) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-muted,#6b7280);font-size:13px;padding:40px 0;">Nenhuma mensagem ainda</div>';
+                return;
+            }
+            let html = '';
+            for (const m of lista) {
+                const isNoc = m.direcao === 'noc';
+                const time = new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const tipoLabel = m.tipo === 'predefinida' ? '⚡' : '';
+                html += '<div style="display:flex;flex-direction:column;align-items:' + (isNoc ? 'flex-start' : 'flex-end') + ';">';
+                html += '<div style="max-width:85%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.4;' +
+                    (isNoc
+                        ? 'background:var(--accent,#0057b8);color:#fff;border-bottom-left-radius:4px;'
+                        : 'background:var(--bg-card,#1c2128);color:var(--text-primary,#fff);border:1px solid var(--border,#30363d);border-bottom-right-radius:4px;'
+                    ) + '">';
+                html += tipoLabel + escHtml(m.texto);
+                html += '<div style="font-size:10px;opacity:0.6;margin-top:4px;text-align:' + (isNoc ? 'left' : 'right') + ';">' + time + '</div>';
+                html += '</div></div>';
+            }
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        async function enviarResposta() {
+            const input = document.getElementById('chatInput');
+            const texto = input.value.trim();
+            if (!texto) return;
+            input.value = '';
+            const token = getEquipeToken();
+            if (!token) { showToast('Configure o token primeiro', 'error'); return; }
+            try {
+                const r = await fetch(apiUrl('/api/mensagens'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Equipe-Token': token },
+                    body: JSON.stringify({ texto, tipo: 'resposta' })
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                // Adiciona no chat sem esperar o poll
+                const container = document.getElementById('chatMessages');
+                const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+                const bubble = '<div style="display:flex;flex-direction:column;align-items:flex-end;">' +
+                    '<div style="max-width:85%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.4;background:var(--bg-card,#1c2128);color:var(--text-primary,#fff);border:1px solid var(--border,#30363d);border-bottom-right-radius:4px;">' +
+                    escHtml(texto) +
+                    '<div style="font-size:10px;opacity:0.6;margin-top:4px;text-align:right;">' + time + '</div>' +
+                    '</div></div>';
+                // Remove empty state se existir
+                const empty = container.querySelector('#chatEmpty');
+                if (empty) container.innerHTML = '';
+                container.insertAdjacentHTML('beforeend', bubble);
+                container.scrollTop = container.scrollHeight;
+                showToast('✓ Resposta enviada', 'success');
+            } catch (e) {
+                showToast('Erro ao enviar: ' + e.message, 'error');
+            }
+        }
+
+        function iniciarPollChat() {
+            clearInterval(chatPollTimer);
+            chatPollTimer = setInterval(async () => {
+                if (!chatAberto) return;
+                const token = getEquipeToken();
+                const equipeId = localStorage.getItem('preventiva_equipeId');
+                if (!token || !equipeId) return;
+                try {
+                    const r = await fetch(apiUrl('/api/mensagens/' + encodeURIComponent(equipeId)), {
+                        headers: { 'X-Equipe-Token': token }
+                    });
+                    const j = await r.json();
+                    if (j.ok && j.mensagens && j.mensagens.length) {
+                        const msgs = j.mensagens;
+                        const ultima = msgs[msgs.length - 1];
+                        if (ultima.id !== ultimaMsgId) {
+                            renderizarMensagens(msgs);
+                            ultimaMsgId = ultima.id;
+                        }
+                    }
+                } catch (_) {}
+            }, 8000);
+        }
+
+        async function verificarNaoLidas() {
+            const token = getEquipeToken();
+            const equipeId = localStorage.getItem('preventiva_equipeId');
+            if (!token || !equipeId) return;
+            try {
+                const r = await fetch(apiUrl('/api/mensagens/' + encodeURIComponent(equipeId)), {
+                    headers: { 'X-Equipe-Token': token }
+                });
+                const j = await r.json();
+                if (j.ok && j.mensagens) {
+                    const naoLidas = j.mensagens.filter(m => !m.lida && m.direcao === 'noc');
+                    if (naoLidas.length > 0 && !chatAberto) {
+                        document.getElementById('chatBadge').style.display = 'block';
+                    }
+                }
+            } catch (_) {}
+        }
+
+        // Poll para badge de nao lidas (mesmo com chat fechado)
+        setInterval(verificarNaoLidas, 30000);
+
+        // =====================================================================
         // BACKGROUND SYNC — mensagens do Service Worker
         // =====================================================================
         if ('serviceWorker' in navigator) {
@@ -4872,6 +5047,12 @@
                         flushTrackingQueue(token);
                         flushProducaoQueue(token);
                     }
+                }
+                if (event.data && event.data.type === 'OPEN_MESSAGES') {
+                    abrirChat();
+                }
+                if (event.data && event.data.type === 'REPLY_SENT') {
+                    showToast('✓ Resposta enviada: ' + event.data.texto, 'success');
                 }
             });
 

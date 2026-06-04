@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION a cada release para invalidar caches antigos.
 
-const CACHE_VERSION = 'v2026.06.04-01';
+const CACHE_VERSION = 'v2026.06.04-02';
 const CACHE_CORE    = `preventiva-core-${CACHE_VERSION}`;
 const CACHE_CDN     = `preventiva-cdn-${CACHE_VERSION}`;
 const CACHE_TILES   = `preventiva-tiles-${CACHE_VERSION}`;
@@ -196,7 +196,11 @@ self.addEventListener('push', event => {
     renotify: true,
     requireInteraction: false,
     data: payload.data || {},
-    actions: payload.actions || []
+    actions: [
+      { action: 'ok', title: '✅ OK' },
+      { action: 'feito', title: '👍 Feito' },
+      { action: 'abrir', title: '💬 Responder' }
+    ]
   };
 
   event.waitUntil(self.registration.showNotification(payload.title, options));
@@ -204,14 +208,37 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = event.notification.data && event.notification.data.url
-    ? event.notification.data.url
-    : './index.html';
+  const action = event.action;
+  const data = event.notification.data || {};
+  const token = data.teamToken;
+  const body = event.notification.body || '';
+
+  if ((action === 'ok' || action === 'feito') && token) {
+    event.waitUntil((async () => {
+      const resposta = action === 'ok' ? 'OK' : 'Feito!';
+      try {
+        await fetch('./api/mensagens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Equipe-Token': token },
+          body: JSON.stringify({ texto: resposta, tipo: 'predefinida' })
+        });
+      } catch (_) {}
+      // Mostra toast no app se aberto
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      for (const client of clients) {
+        client.postMessage({ type: 'REPLY_SENT', texto: resposta });
+      }
+    })());
+    return;
+  }
+
+  const url = data.url || './index.html';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then(windowClients => {
         for (const client of windowClients) {
           if (client.url.includes(location.origin) && 'focus' in client) {
+            client.postMessage({ type: 'OPEN_MESSAGES' });
             return client.focus();
           }
         }

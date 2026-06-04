@@ -321,6 +321,17 @@
         <div id="pushResult" class="muted" style="margin-top:5px;"></div>
       </div>
 
+      <div class="section" id="sectionMensagens">
+        <h3>Mensagens <span id="msgBadge" style="display:none;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;margin-left:6px;"></span></h3>
+        <label>Equipe</label>
+        <select id="msgEquipe"><option value="">— Selecione —</option></select>
+        <div id="msgConv" style="max-height:280px;overflow-y:auto;font-size:12px;line-height:1.5;margin:6px 0;background:#0f172a;border-radius:8px;padding:8px;display:none;flex-direction:column;gap:6px;"></div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <input type="text" id="msgInput" placeholder="Responder..." style="flex:1;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#e2e8f0;font-size:12px;outline:none;" onkeydown="if(event.key==='Enter')enviarMsgNoc()">
+          <button id="btnSendMsg" onclick="enviarMsgNoc()" style="padding:8px 14px;background:#0057b8;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Enviar</button>
+        </div>
+      </div>
+
       <div class="section">
         <h3>Debug</h3>
         <div style="font-size:11px;color:#4b5563">
@@ -1170,6 +1181,11 @@
           const msg = JSON.parse(ev.data);
           if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
           if (msg.type === 'position')  upsert(msg.data);
+          if (msg.type === 'mensagem' && msg.data) {
+            msgEquipeAtual = msgEquipeAtual || document.getElementById('msgEquipe').value;
+            if (msgEquipeAtual && msg.data.equipeId === msgEquipeAtual) carregarConversa(msgEquipeAtual);
+            verificarMsgNaoLidas();
+          }
           if (msg.type === 'production' && msg.data) {
             // Usa pontoId identificado pelo servidor (GPS) — mais confiável
             if (msg.data.pontoId) {
@@ -1373,6 +1389,126 @@
       } catch (e) { resultEl.textContent = '❌ Erro: ' + e.message; }
       finally { btn.disabled = false; btn.textContent = '📬 Alertar produção pendente'; }
     });
+
+    // =========================================================================
+    // Mensagens — chat bidirecional
+    // =========================================================================
+    const msgEquipeSel = document.getElementById('msgEquipe');
+    const msgConv = document.getElementById('msgConv');
+    const msgBadge = document.getElementById('msgBadge');
+    let msgEquipeAtual = '';
+
+    // Popula dropdown com equipes
+    async function carregarEquipesMsg() {
+      try {
+        const r = await fetch('/api/equipes');
+        const j = await r.json();
+        const equipes = j.equipes || [];
+        msgEquipeSel.innerHTML = '<option value="">— Selecione —</option>';
+        for (const e of equipes) {
+          const op = document.createElement('option');
+          op.value = e.equipeId;
+          op.textContent = `${e.equipeId} — ${e.nome}`;
+          msgEquipeSel.appendChild(op);
+        }
+      } catch (_) {}
+    }
+    carregarEquipesMsg();
+
+    msgEquipeSel.addEventListener('change', () => {
+      msgEquipeAtual = msgEquipeSel.value;
+      if (msgEquipeAtual) carregarConversa(msgEquipeAtual);
+      else { msgConv.style.display = 'none'; msgConv.innerHTML = ''; }
+    });
+
+    async function carregarConversa(equipeId) {
+      try {
+        const r = await fetch('/api/mensagens');
+        const j = await r.json();
+        if (!j.ok) return;
+        const msgs = (j.mensagens || []).filter(m => m.equipeId === equipeId);
+        renderizarConversa(msgs);
+      } catch (_) {}
+    }
+
+    function renderizarConversa(msgs) {
+      msgConv.style.display = 'flex';
+      if (!msgs.length) {
+        msgConv.innerHTML = '<div style="text-align:center;color:#6b7280;padding:20px 0;font-size:12px;">Nenhuma mensagem ainda</div>';
+        return;
+      }
+      let html = '';
+      for (const m of msgs) {
+        const isNoc = m.direcao === 'noc';
+        const time = new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const date = new Date(m.createdAt).toLocaleDateString('pt-BR');
+        const label = isNoc ? 'NOC' : '👤 ' + (m.equipeNome || m.equipeId);
+        const bg = isNoc ? '#0057b8' : '#1e293b';
+        const align = isNoc ? 'flex-start' : 'flex-end';
+        const tipoIcon = m.tipo === 'predefinida' ? '⚡ ' : '';
+        html += `<div style="display:flex;flex-direction:column;align-items:${align};max-width:90%;">`;
+        html += `<div style="font-size:10px;color:#6b7280;margin-bottom:2px;">${label} · ${date} ${time}</div>`;
+        html += `<div style="padding:8px 12px;border-radius:10px;background:${bg};color:#fff;font-size:12px;line-height:1.4;${isNoc ? 'border-bottom-left-radius:2px' : 'border-bottom-right-radius:2px'};">`;
+        html += tipoIcon + escHtml(m.texto);
+        html += '</div></div>';
+      }
+      msgConv.innerHTML = html;
+      msgConv.scrollTop = msgConv.scrollHeight;
+    }
+
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function enviarMsgNoc() {
+      const input = document.getElementById('msgInput');
+      const texto = input.value.trim();
+      if (!texto || !msgEquipeAtual) return;
+      input.value = '';
+      try {
+        const r = await fetch('/api/mensagens/noc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ equipeId: msgEquipeAtual, texto, tipo: 'alerta' })
+        });
+        const j = await r.json();
+        if (j.ok) {
+          carregarConversa(msgEquipeAtual);
+          // Também envia push notification para a equipe
+          fetch('/api/push/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: 'NOC - Preventiva-CE',
+              body: texto,
+              equipeId: msgEquipeAtual
+            })
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    // Poll para badge de nao lidas
+    let ultimasNaoLidas = 0;
+    async function verificarMsgNaoLidas() {
+      try {
+        const r = await fetch('/api/mensagens');
+        const j = await r.json();
+        if (!j.ok) return;
+        const naoLidas = (j.mensagens || []).filter(m => !m.lida && m.direcao === 'tecnico').length;
+        if (naoLidas > 0) {
+          msgBadge.style.display = 'inline';
+          msgBadge.textContent = naoLidas;
+          if (naoLidas !== ultimasNaoLidas) {
+            // Recarrega conversa se estiver aberta
+            if (msgEquipeAtual) carregarConversa(msgEquipeAtual);
+          }
+          ultimasNaoLidas = naoLidas;
+        } else {
+          msgBadge.style.display = 'none';
+          ultimasNaoLidas = 0;
+        }
+      } catch (_) {}
+    }
+    setInterval(verificarMsgNaoLidas, 10000);
 
     // =========================================================================
     // Playback

@@ -32,11 +32,12 @@
     .top .stats { font-size: 12px; color: #94a3b8; }
     .top .stats.secondary { margin-left: 10px; color: #93c5fd; }
 
-    .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 48px); transition: grid-template-columns .2s ease; }
-    body.sidebar-collapsed .layout { grid-template-columns: 0 1fr; }
-    @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } #sidebar { position: absolute; top: 48px; left: -340px; height: calc(100vh - 48px); z-index: 1000; transition: left .2s; } #sidebar.open { left: 0; } .toggle-sidebar { display: inline-flex !important; } }
+    .layout { display: grid; grid-template-columns: 260px 1fr 260px; height: calc(100vh - 48px); transition: grid-template-columns .2s ease; }
+    body.sidebar-collapsed .layout { grid-template-columns: 0 1fr 260px; }
+    body.sidebar-right-collapsed .layout { grid-template-columns: 260px 1fr 0; }
+    @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } #sidebarLeft { position: absolute; top: 48px; left: -280px; height: calc(100vh - 48px); z-index: 1000; transition: left .2s; } #sidebarLeft.open { left: 0; } #sidebarRight { position: absolute; top: 48px; right: -280px; height: calc(100vh - 48px); z-index: 1000; transition: right .2s; } #sidebarRight.open { right: 0; } .toggle-sidebar { display: inline-flex !important; } }
 
-    #sidebar {
+    #sidebarLeft {
       background: #111827;
       border-right: 1px solid #1f2937;
       padding: 14px;
@@ -45,53 +46,27 @@
       -ms-overflow-style: none;
       z-index: 500;
     }
-    body.sidebar-collapsed #sidebar {
+    body.sidebar-collapsed #sidebarLeft {
       padding: 0;
-      border-right: 0;
+
       overflow: hidden;
     }
-    #sidebar::-webkit-scrollbar { width: 0; height: 0; }
-    #sidebar h3 {
-      margin: 0 0 8px;
-      font-size: 12px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #38bdf8;
-    }
-    #sidebar .section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #1f2937; }
-    #sidebar label { display: block; font-size: 11px; color: #94a3b8; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-    #sidebar select, #sidebar input[type="date"] {
-      width: 100%; padding: 8px 10px;
-      background: #0f172a; color: #e2e8f0;
-      border: 1px solid #334155; border-radius: 6px;
-      font-size: 14px;
-    }
-    #sidebar input[type="text"] {
-      width: 100%; padding: 8px 10px;
-      background: #0f172a; color: #e2e8f0;
-      border: 1px solid #334155; border-radius: 6px;
-      font-size: 14px;
-    }
-    #sidebar button {
-      width: 100%; padding: 9px; margin-top: 8px;
-      background: #0ea5e9; color: #fff; border: 0;
-      border-radius: 6px; font-weight: 600; cursor: pointer;
-      font-size: 13px;
-    }
-    #sidebar button:hover { background: #0284c7; }
-    #sidebar button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
-    #sidebar button.ghost:hover { background: #1e293b; color: #e2e8f0; }
-    #sidebar button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }
-    #sidebar button.roads-btn:hover { background: #d2e3fc; }
-    #sidebar button.roads-btn.active { background: #4285f4; color: #fff; }
-    #roadsStatus { font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
-    #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; display: inline-block; flex-shrink: 0; }
-    #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
-    #roadsStatusDot.loaded  { background: #22c55e; }
-    #roadsStatusDot.error   { background: #ef4444; }
-    #sidebar .muted { font-size: 11px; color: #4b5563; margin-top: 6px; }
 
-    #equipesList { list-style: none; padding: 0; margin: 0; max-height: 220px; overflow-y: auto; }
+    #sidebarRight {
+      background: #111827;
+      border-left: 1px solid #1f2937;
+      padding: 14px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      z-index: 500;
+    }
+    body.sidebar-right-collapsed #sidebarRight {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #equipesList { list-style: none; padding: 0; margin: 0; }
     #equipesList li {
       padding: 8px 10px; margin-bottom: 4px;
       background: #0f172a; border-radius: 6px;
@@ -217,9 +192,9 @@
     .token-box.visible { display: block; }
 
     /* Ruas KML */
-    #sidebar button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }
-    #sidebar button.roads-btn:hover { background: #d2e3fc; }
-    #sidebar button.roads-btn.active { background: #4285f4; color: #fff; }
+    #sidebarLeft button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }
+    #sidebarLeft button.roads-btn:hover { background: #d2e3fc; }
+    #sidebarLeft button.roads-btn.active { background: #4285f4; color: #fff; }
     #roadsStatus { font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
     #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; display: inline-block; flex-shrink: 0; }
     #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
@@ -259,9 +234,11 @@
       #userInfo { font-size:9px !important; }
       #logoutBtn { font-size:10px !important; padding:3px 8px !important; }
       .toggle-sidebar { padding:4px 8px !important; font-size:16px !important; }
-      #sidebar { padding:10px; }
-      #sidebar h3 { font-size:11px; }
-      #sidebar select, #sidebar input, #sidebar button { font-size:13px; padding:10px; }
+      #sidebarLeft { padding:10px; }
+      #sidebarLeft h3 { font-size:11px; }
+      #sidebarLeft select, #sidebarLeft input, #sidebarLeft button { font-size:13px; padding:10px; }
+      #sidebarRight { padding:10px; }
+      #sidebarRight h3 { font-size:11px; }
       .chat-modal { width:100% !important; height:100% !important; max-width:100% !important; max-height:100% !important; border-radius:0 !important; }
       .chat-overlay { align-items:stretch !important; }
       .chat-header { padding:12px 14px !important; }
@@ -358,15 +335,11 @@
     <button id="logoutBtn" style="padding:4px 10px;background:transparent;border:1px solid #475569;border-radius:4px;color:#94a3b8;font-size:11px;cursor:pointer;margin-right:10px;">Sair</button>
     <span class="stats" id="stats">— equipes</span>
     <span class="stats secondary" id="statsPontos">Planejados: 0 | Visitados: 0 | Pendentes: 0</span>
+    <button class="toggle-sidebar" id="toggleSidebarRight" title="Abrir/fechar equipes" style="margin-left:8px;">☰</button>
   </div>
 
   <div class="layout">
-    <aside id="sidebar">
-
-      <div class="section">
-        <h3>Equipes Ativas</h3>
-        <ul id="equipesList"><li style="opacity:0.5;cursor:default">Aguardando…</li></ul>
-      </div>
+    <aside id="sidebarLeft">
 
       <div class="section">
         <h3>Próximas a Pontos</h3>
@@ -486,7 +459,15 @@
       <div id="map"></div>
       <div class="playback-info" id="playbackInfo"></div>
       </div>
-    </div>
+
+    <aside id="sidebarRight">
+      <div class="section">
+        <h3>Equipes em Campo</h3>
+        <ul id="equipesList"><li style="opacity:0.5;cursor:default">Aguardando…</li></ul>
+      </div>
+    </aside>
+
+  </div>
   </div>
 
   <div class="alert-backdrop" id="alertBackdrop"></div>
@@ -654,9 +635,10 @@
     function construirIndice(features) {
       snapGrid.clear();
       for (const f of features) {
+        const roadName = f.properties?.name || '';
         const coords = f.geometry.coordinates;
         for (let i = 0; i < coords.length - 1; i++) {
-          const seg = { x1: coords[i][0], y1: coords[i][1], x2: coords[i+1][0], y2: coords[i+1][1] };
+          const seg = { x1: coords[i][0], y1: coords[i][1], x2: coords[i+1][0], y2: coords[i+1][1], name: roadName };
           // Indexa nas células que o segmento atravessa
           const minLat = Math.min(seg.y1, seg.y2);
           const maxLat = Math.max(seg.y1, seg.y2);
@@ -687,29 +669,30 @@
 
     function snapToRoad(lat, lng) {
       if (!snapPronto) return null;
-      const candidatos = new Set();
+      let melhorDist = Infinity;
+      let melhorPonto = null;
+      let melhorNome = '';
       // Busca nas 9 células ao redor (3x3 vizinhança)
       for (let dlat = -1; dlat <= 1; dlat++) {
         for (let dlng = -1; dlng <= 1; dlng++) {
           const k = gridKey(lat + dlat * GRID_SIZE, lng + dlng * GRID_SIZE);
           const segs = snapGrid.get(k);
-          if (segs) segs.forEach(s => candidatos.add(s));
-        }
-      }
-      let melhorDist = Infinity;
-      let melhorPonto = null;
-      for (const seg of candidatos) {
-        const proj = projetarNoSegmento(lng, lat, seg.x1, seg.y1, seg.x2, seg.y2);
-        const dx = proj.x - lng, dy = proj.y - lat;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < melhorDist) {
-          melhorDist = dist;
-          melhorPonto = proj;
+          if (!segs) continue;
+          for (const seg of segs) {
+            const proj = projetarNoSegmento(lng, lat, seg.x1, seg.y1, seg.x2, seg.y2);
+            const dx = proj.x - lng, dy = proj.y - lat;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < melhorDist) {
+              melhorDist = dist;
+              melhorPonto = proj;
+              melhorNome = seg.name || '';
+            }
+          }
         }
       }
       // Só aplica snap se estiver dentro do raio máximo
       if (melhorDist > MAX_SNAP_DIST) return null;
-      return { lat: melhorPonto.y, lng: melhorPonto.x, dist: melhorDist };
+      return { lat: melhorPonto.y, lng: melhorPonto.x, dist: melhorDist, name: melhorNome };
     }
 
     async function carregarRoads() {
@@ -811,6 +794,7 @@
     const alertaAproximacao = new Map();
     const equipesProximas = new Map();
     const equipeValidacao = new Map();
+    const equipeAddress = new Map(); // equipeId -> nome da rua
     let modalTimer = null;
     let audioAlertEnabled = false;
     let playbackLayer = null;
@@ -1017,6 +1001,18 @@
         : `<br>Validação: <b style="color:#ef4444">PENDENTE</b>`;
       const txt = `<b>${reg.equipeNome}</b>${pontoTxt}${validTxt}<br>Lat: ${reg.lat.toFixed(6)}<br>Lng: ${reg.lng.toFixed(6)}<br>Precisão: ${reg.accuracy ?? '-'} m<br>${new Date(reg.ts).toLocaleTimeString('pt-BR')}`;
       ultimoTs.set(reg.equipeId, reg.ts || Date.now());
+
+      // Extrai nome da rua via snap-to-road
+      const snapped = snapToRoad(reg.lat, reg.lng);
+      if (snapped && snapped.name) equipeAddress.set(reg.equipeId, snapped.name);
+      else if (!equipeAddress.has(reg.equipeId)) equipeAddress.set(reg.equipeId, '');
+
+      // Notifica login se é uma equipe nova ou estava deslogada
+      const isNew = !markers.has(reg.equipeId);
+      const wasLoggedOut = loggedOutEquipes.has(reg.equipeId);
+      if (isNew || wasLoggedOut) {
+        showLoginToast('🟢 ' + reg.equipeNome + ' está ativa');
+      }
 
       if (!markers.has(reg.equipeId)) {
         const snappedFirst = snapToRoad(reg.lat, reg.lng) || { lat: reg.lat, lng: reg.lng };
@@ -1395,11 +1391,21 @@
         const val = equipeValidacao.get(id);
         const badge = val ? (val.ok ? '✅' : '⚠️') : '•';
         const color = getEquipeColor(id);
+        const addr = equipeAddress.get(id) || '';
         if (equipeSelecionada === id) li.classList.add('active');
         if (stale) li.classList.add('stale');
         if (logoff) li.classList.add('logged-out');
         li.style.borderLeftColor = logoff ? '#dc2626' : color;
-        li.innerHTML = `<span>${badge} ${m.getTooltip().getContent()}</span><span class="ago">${logoff ? '🔴 deslogada' : ago}</span>`;
+        const statusIcon = logoff ? '🔴' : (stale ? '⚪' : '🟢');
+        const statusText = logoff ? 'Deslogada' : (stale ? 'Inativa' : 'Ativa');
+        li.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;width:100%;">
+          <span style="font-size:14px;flex-shrink:0;">${statusIcon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:700;color:#e2e8f0;">${escHtml(m.getTooltip().getContent().replace(/^🔴\s*/,''))}</div>
+            ${addr ? '<div style="font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;">📍 ' + escHtml(addr) + '</div>' : ''}
+            <div style="font-size:10px;color:${logoff ? '#dc2626' : (stale ? '#f59e0b' : '#22c55e')};margin-top:1px;">${statusText} · ${ago}</div>
+          </div>
+        </div>`;
         li.onclick = () => focusEquipe(id);
         ul.appendChild(li);
         if (stale) m.setIcon(carIcon(id, true));
@@ -1415,6 +1421,18 @@
       el.textContent = msg;
       el.style.display = 'block';
       el.style.opacity = '1';
+      el.style.background = '#dc2626';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
+    }
+
+    function showLoginToast(msg) {
+      const el = document.getElementById('logoutToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.opacity = '1';
+      el.style.background = '#16a34a';
       clearTimeout(el._timer);
       el._timer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
     }
@@ -1999,8 +2017,12 @@
     document.addEventListener('click', unlockAudio, true);
     document.addEventListener('touchend', unlockAudio, true);
     document.getElementById('toggleSidebar').addEventListener('click', () => {
-      if (window.innerWidth <= 720) { document.getElementById('sidebar').classList.toggle('open'); return; }
+      if (window.innerWidth <= 720) { document.getElementById('sidebarLeft').classList.toggle('open'); return; }
       document.body.classList.toggle('sidebar-collapsed');
+    });
+    document.getElementById('toggleSidebarRight').addEventListener('click', () => {
+      if (window.innerWidth <= 720) { document.getElementById('sidebarRight').classList.toggle('open'); return; }
+      document.body.classList.toggle('sidebar-right-collapsed');
     });
 
     // =========================================================================

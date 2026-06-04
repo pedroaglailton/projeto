@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOC — Rastreamento em Tempo Real</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
@@ -412,7 +410,7 @@
       <div class="section">
         <h3>Filtro de Pontos</h3>
         <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;cursor:pointer;">
-          <input type="checkbox" id="togglePontos" checked onchange="toggleVisibilidadePontos()"> Mostrar pontos no mapa
+          <input type="checkbox" id="togglePontos" checked onchange="aplicarFiltroPontos()"> Mostrar pontos no mapa
         </label>
         <select id="filtroCidade">
           <option value="TODAS">Todas as cidades</option>
@@ -541,7 +539,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
     // =========================================================================
     // Autenticacao (login)
@@ -798,7 +795,7 @@
     const paradasHoje = new Map();
     const trilhasLayer = L.layerGroup(); // não adicionado ao mapa
     const paradasLayer = L.layerGroup(); // não adicionado ao mapa
-    let pontosLayer = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50 }).addTo(map);
+    let pontosLayer = L.layerGroup().addTo(map);
     const pontosPlanejados = [];
     const pontosVisitados = new Set();
     const pontosMarkers = new Map();
@@ -1071,19 +1068,17 @@
     }
 
     function aplicarFiltroPontos() {
-      if (!document.getElementById('togglePontos').checked) { pontosLayer.clearLayers(); return; }
       const sel = document.getElementById('filtroCidade');
       const filtro = sel ? sel.value : 'TODAS';
       pontosLayer.clearLayers();
-      const batch = [];
+      if (!document.getElementById('togglePontos').checked) return;
       for (const p of pontosPlanejados) {
         const ok = filtro === 'TODAS' || (p.cidade || 'SEM CIDADE') === filtro;
         if (ok) {
           const mk = pontosMarkers.get(p.id);
-          if (mk) batch.push(mk);
+          if (mk) pontosLayer.addLayer(mk);
         }
       }
-      if (batch.length) pontosLayer.addLayers(batch);
     }
 
     function popularFiltroCidades() {
@@ -1262,7 +1257,7 @@
           markers.push(mk);
           pontosMarkers.set(p.id, mk);
         }
-        pontosLayer.addLayers(markers);
+        for (const mk of markers) pontosLayer.addLayer(mk);
         popularFiltroCidades();
         aplicarFiltroPontos();
         atualizarStatsPontos();
@@ -1494,8 +1489,6 @@
     carregarDatas();
     carregarPontosPlanejados();
     document.getElementById('filtroCidade').addEventListener('change', aplicarFiltroPontos);
-
-    window.toggleVisibilidadePontos = function() { aplicarFiltroPontos(); };
 
     async function carregarTrilhasHoje() {
       try {

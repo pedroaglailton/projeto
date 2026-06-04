@@ -6,6 +6,18 @@ const USUARIOS_FILE = path.join(__dirname, 'data', 'usuarios.json');
 const sessoes = new Map(); // token -> { usuario, perfil, nome }
 
 function carregarUsuarios() {
+  // Tenta carregar de variavel de ambiente primeiro (Render)
+  try {
+    const envUsers = process.env.NOC_USERS;
+    if (envUsers) {
+      const parsed = JSON.parse(envUsers);
+      if (Array.isArray(parsed) && parsed.length) {
+        console.log(`[usuarios] ${parsed.length} usuario(s) carregado(s) via NOC_USERS env`);
+        return parsed;
+      }
+    }
+  } catch (_) { /* fallback */ }
+
   try {
     if (!fs.existsSync(USUARIOS_FILE)) {
       const defaultUsers = {

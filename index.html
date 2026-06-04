@@ -4658,7 +4658,7 @@
             <div style="text-align:center;color:var(--text-muted,#6b7280);font-size:13px;padding:40px 0;" id="chatEmpty">Carregando mensagens...</div>
         </div>
         <div style="display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));background:var(--bg-card,#1c2128);border-top:1px solid var(--border,#30363d);flex-shrink:0;">
-            <input type="file" id="chatFileInput" accept="image/*" capture="environment" style="display:none" onchange="enviarArquivoResposta(this, true)">
+            <input type="file" id="chatFileInput" accept="image/*" style="display:none" onchange="enviarArquivoResposta(this, true)">
             <button onclick="document.getElementById('chatFileInput').click()" style="background:var(--bg-card,#1c2128);color:var(--text-muted,#6b7280);border:1px solid var(--border,#30363d);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;line-height:1;" title="Tirar foto">📷</button>
             <input type="file" id="chatVideoInput" accept="video/*" capture="environment" style="display:none" onchange="enviarArquivoResposta(this, false)">
             <button onclick="document.getElementById('chatVideoInput').click()" style="background:var(--bg-card,#1c2128);color:var(--text-muted,#6b7280);border:1px solid var(--border,#30363d);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;line-height:1;" title="Gravar video">🎬</button>

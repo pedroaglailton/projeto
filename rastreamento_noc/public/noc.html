@@ -497,6 +497,10 @@
 
   </div><!-- /nocApp -->
 
+  <!-- Toast de notificacao -->
+  <div id="logoutToast" style="position:fixed;top:64px;right:16px;z-index:99999;background:#dc2626;color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.3);display:none;max-width:320px;transition:opacity .3s;">
+  </div>
+
   <!-- Login Overlay -->
   <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
@@ -839,11 +843,12 @@
       return equipeColorMap.get(equipeId);
     }
 
-    function carIcon(equipeId, stale = false) {
-      const color = stale ? '#64748b' : getEquipeColor(equipeId);
+    function carIcon(equipeId, stale = false, forceColor = null) {
+      const color = forceColor || (stale ? '#64748b' : getEquipeColor(equipeId));
+      const cls = stale ? ' car-marker-stale' : (forceColor ? ' car-marker-logged-out' : '');
       return L.divIcon({
         className: '',
-        html: `<div class="car-marker${stale ? ' stale' : ''}" id="car-${equipeId.replace(/[^a-z0-9]/gi,'-')}">${carSVG(color)}</div>`,
+        html: `<div class="car-marker${cls}" id="car-${equipeId.replace(/[^a-z0-9]/gi,'-')}">${carSVG(color)}</div>`,
         iconSize: [36, 54],
         iconAnchor: [18, 27],
       });
@@ -1389,6 +1394,16 @@
     }
     setInterval(renderEquipesList, 10000);
 
+    function showLogoutToast(msg) {
+      const el = document.getElementById('logoutToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.opacity = '1';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
+    }
+
     // =========================================================================
     // WebSocket
     // =========================================================================
@@ -1427,6 +1442,16 @@
               // Fallback: tenta casar pelo nome digitado
               marcarPontoColetado(msg.data.pontoNumero);
             }
+          }
+          if (msg.type === 'team-logout' && msg.data) {
+            const m = markers.get(msg.data.equipeId);
+            if (m) {
+              m.setIcon(carIcon(msg.data.equipeId, false, '#dc2626'));
+              m.unbindTooltip();
+              m.bindTooltip('🔴 ' + (msg.data.equipeNome || 'Equipe') + ' (deslogada)', { direction: 'top', offset: [0, -20] });
+            }
+            showLogoutToast('🔴 ' + (msg.data.equipeNome || 'Equipe') + ' deslogou do sistema');
+            renderEquipesList();
           }
         } catch (e) { console.warn('msg invalida:', e); }
       };

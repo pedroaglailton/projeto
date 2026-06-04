@@ -112,6 +112,11 @@ class PosicoesStore {
     return Array.from(this.snapshot.values());
   }
 
+  /** Remove uma equipe do snapshot (logout) */
+  remove(equipeId) {
+    this.snapshot.delete(equipeId);
+  }
+
   /**
    * Le todas as posicoes de um dia em ordem cronologica
    * @param {string} dateStr YYYY-MM-DD

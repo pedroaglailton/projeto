@@ -4910,6 +4910,15 @@
             const ativa = contaAtiva();
             if (!ativa && !getEquipeToken()) return;
             if (!confirm('Sair da conta ' + (ativa?.equipeNome || 'atual') + '? Os dados não enviados serão perdidos.')) return;
+
+            // Notifica servidor que a equipe deslogou
+            const token = getEquipeToken();
+            if (token) {
+                fetch(apiUrl('/api/equipe/logout'), {
+                    method: 'POST', headers: { 'X-Equipe-Token': token }
+                }).catch(() => {});
+            }
+
             try { if (typeof watchIdAutoTracking !== 'undefined' && watchIdAutoTracking !== null) navigator.geolocation.clearWatch(watchIdAutoTracking); } catch (_) {}
             watchIdAutoTracking = null;
             autoTrackingArmado = false;

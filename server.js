@@ -489,6 +489,18 @@ app.post('/api/atividade', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+/** Logout de equipe — notifica NOC e remove do snapshot */
+app.post('/api/equipe/logout', requireAuth, (req, res) => {
+  const data = {
+    equipeId: req.equipe.equipeId,
+    equipeNome: req.equipe.nome,
+    ts: Date.now()
+  };
+  posicoesStore.remove(req.equipe.equipeId);
+  broadcast({ type: 'team-logout', data });
+  res.json({ ok: true });
+});
+
 /** Estado atual de todas as equipes (publico — info ja visivel no NOC). */
 app.get('/api/status', (_req, res) => {
   const equipes = posicoesStore.current();

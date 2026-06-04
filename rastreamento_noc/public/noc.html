@@ -1424,7 +1424,7 @@
         if (stale) li.classList.add('stale');
         if (logoff) li.classList.add('logged-out');
         li.style.borderLeftColor = logoff ? '#dc2626' : color;
-        const statusIcon = logoff ? '🔴' : (stale ? '⚪' : '🟢');
+        const statusIcon = logoff ? '🔴' : (stale ? '🟡' : '🟢');
         const statusText = logoff ? 'Deslogada' : (stale ? 'Inativa' : 'Ativa');
         li.innerHTML = `<div style="display:flex;align-items:flex-start;gap:8px;width:100%;">
           <span style="font-size:14px;flex-shrink:0;">${statusIcon}</span>

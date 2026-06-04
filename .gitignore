@@ -9,4 +9,5 @@ data/usuarios.json
 data/sessoes.json
 erros.txt
 server_*.txt
+renderlog.txt
 *.log

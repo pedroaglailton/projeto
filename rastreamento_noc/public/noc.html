@@ -365,6 +365,80 @@
       return JSON.parse(new TextDecoder().decode(merged));
     }
 
+    // =========================================================================
+    // Snap-to-road local usando o GeoJSON das ruas de Fortaleza
+    // Índice espacial por grade (grid) para busca em O(1) médio
+    // =========================================================================
+    const snapGrid = new Map();   // "lat4:lng4" -> [segmentos]
+    const GRID_SIZE = 0.002;      // ~220m por célula
+    const MAX_SNAP_DIST = 0.0003; // ~33m — máximo aceito para snap
+    let snapPronto = false;
+
+    function gridKey(lat, lng) {
+      return `${Math.floor(lat / GRID_SIZE)}:${Math.floor(lng / GRID_SIZE)}`;
+    }
+
+    function construirIndice(features) {
+      snapGrid.clear();
+      for (const f of features) {
+        const coords = f.geometry.coordinates;
+        for (let i = 0; i < coords.length - 1; i++) {
+          const seg = { x1: coords[i][0], y1: coords[i][1], x2: coords[i+1][0], y2: coords[i+1][1] };
+          // Indexa nas células que o segmento atravessa
+          const minLat = Math.min(seg.y1, seg.y2);
+          const maxLat = Math.max(seg.y1, seg.y2);
+          const minLng = Math.min(seg.x1, seg.x2);
+          const maxLng = Math.max(seg.x1, seg.x2);
+          for (let lat = minLat; lat <= maxLat + GRID_SIZE; lat += GRID_SIZE) {
+            for (let lng = minLng; lng <= maxLng + GRID_SIZE; lng += GRID_SIZE) {
+              const k = gridKey(lat, lng);
+              if (!snapGrid.has(k)) snapGrid.set(k, []);
+              snapGrid.get(k).push(seg);
+            }
+          }
+        }
+      }
+      snapPronto = true;
+      console.log(`[snap] índice pronto: ${snapGrid.size} células`);
+    }
+
+    // Projeta ponto P no segmento AB, retorna ponto mais próximo
+    function projetarNoSegmento(px, py, ax, ay, bx, by) {
+      const dx = bx - ax, dy = by - ay;
+      const len2 = dx * dx + dy * dy;
+      if (len2 === 0) return { x: ax, y: ay };
+      let t = ((px - ax) * dx + (py - ay) * dy) / len2;
+      t = Math.max(0, Math.min(1, t));
+      return { x: ax + t * dx, y: ay + t * dy };
+    }
+
+    function snapToRoad(lat, lng) {
+      if (!snapPronto) return null;
+      const candidatos = new Set();
+      // Busca nas 9 células ao redor (3x3 vizinhança)
+      for (let dlat = -1; dlat <= 1; dlat++) {
+        for (let dlng = -1; dlng <= 1; dlng++) {
+          const k = gridKey(lat + dlat * GRID_SIZE, lng + dlng * GRID_SIZE);
+          const segs = snapGrid.get(k);
+          if (segs) segs.forEach(s => candidatos.add(s));
+        }
+      }
+      let melhorDist = Infinity;
+      let melhorPonto = null;
+      for (const seg of candidatos) {
+        const proj = projetarNoSegmento(lng, lat, seg.x1, seg.y1, seg.x2, seg.y2);
+        const dx = proj.x - lng, dy = proj.y - lat;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < melhorDist) {
+          melhorDist = dist;
+          melhorPonto = proj;
+        }
+      }
+      // Só aplica snap se estiver dentro do raio máximo
+      if (melhorDist > MAX_SNAP_DIST) return null;
+      return { lat: melhorPonto.y, lng: melhorPonto.x, dist: melhorDist };
+    }
+
     async function carregarRoads() {
       const dot = document.getElementById('roadsStatusDot');
       const txt = document.getElementById('roadsStatusTxt');
@@ -379,11 +453,15 @@
           if (!r.ok) throw new Error('HTTP ' + r.status);
           geojson = await r.json();
         }
-        txt.textContent = 'Processando…';
+        txt.textContent = 'Processando índice espacial…';
+        // Constrói índice em setTimeout para não travar a UI
+        setTimeout(() => {
+          construirIndice(geojson.features);
+          txt.textContent = geojson.features.length.toLocaleString('pt-BR') + ' segmentos + snap ativo';
+        }, 50);
         roadsLayer = L.geoJSON(geojson, { style: getRoadStyle, interactive: false });
         if (roadsVisible) { roadsLayer.addTo(map); roadsLayer.bringToBack(); }
         dot.className = 'loaded';
-        txt.textContent = geojson.features.length.toLocaleString('pt-BR') + ' segmentos carregados';
       } catch (e) {
         dot.className = 'error';
         txt.textContent = 'Erro: ' + e.message;
@@ -391,18 +469,26 @@
       }
     }
 
-    document.getElementById('btnRoads').addEventListener('click', () => {
+    function atualizarBtnRoads() {
       const btn = document.getElementById('btnRoads');
+      if (roadsVisible) {
+        btn.textContent = '🗺️ Ruas: Ligado';
+        btn.classList.add('active');
+        btn.style.opacity = '1';
+      } else {
+        btn.textContent = '🗺️ Ruas: Desligado';
+        btn.classList.remove('active');
+        btn.style.opacity = '0.6';
+      }
+    }
+
+    document.getElementById('btnRoads').addEventListener('click', () => {
       roadsVisible = !roadsVisible;
       if (roadsLayer) {
-        if (roadsVisible) {
-          roadsLayer.addTo(map); roadsLayer.bringToBack();
-          btn.textContent = '🗺️ Ruas Fortaleza: Ligado'; btn.classList.add('active');
-        } else {
-          map.removeLayer(roadsLayer);
-          btn.textContent = '🗺️ Ruas Fortaleza: Desligado'; btn.classList.remove('active');
-        }
+        if (roadsVisible) { roadsLayer.addTo(map); roadsLayer.bringToBack(); }
+        else              { map.removeLayer(roadsLayer); }
       }
+      atualizarBtnRoads();
     });
 
     document.getElementById('roadsOpacity').addEventListener('input', (e) => {
@@ -655,7 +741,12 @@
       setTimeout(() => ring.remove(), 1200);
     }
 
-    function upsert(reg) {
+    function upsert(regOriginal) {
+      // Aplica snap-to-road antes de tudo
+      const snappedPos = snapToRoad(regOriginal.lat, regOriginal.lng);
+      let reg = snappedPos
+        ? { ...regOriginal, lat: snappedPos.lat, lng: snappedPos.lng }
+        : regOriginal;
       const valid = validarProximidadePonto(reg);
       const pontoTxt = reg.pontoNumero ? `<br>Ponto app: ${reg.pontoNumero}` : '';
       const validTxt = valid
@@ -665,13 +756,14 @@
       ultimoTs.set(reg.equipeId, reg.ts || Date.now());
 
       if (!markers.has(reg.equipeId)) {
-        const m = L.marker([reg.lat, reg.lng], { icon: carIcon(reg.equipeId, false) })
+        const snappedFirst = snapToRoad(reg.lat, reg.lng) || { lat: reg.lat, lng: reg.lng };
+        const m = L.marker([snappedFirst.lat, snappedFirst.lng], { icon: carIcon(reg.equipeId, false) })
           .addTo(map)
           .bindPopup(txt)
           .bindTooltip(reg.equipeNome, { direction: 'top', offset: [0, -20] });
         m.on('click', () => focusEquipe(reg.equipeId));
         markers.set(reg.equipeId, m);
-        posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: reg.heading });
+        posicoesAnimadas.set(reg.equipeId, { lat: snappedFirst.lat, lng: snappedFirst.lng, ts: reg.ts, heading: reg.heading });
         headingsAnimados.set(reg.equipeId, reg.heading != null ? reg.heading : 0);
       } else {
         const m = markers.get(reg.equipeId);

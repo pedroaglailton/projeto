@@ -531,7 +531,7 @@
             <textarea id="chatModalInput" rows="1" placeholder="Digite a mensagem..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMsgModal()}"></textarea>
             <button class="chat-img-btn" onclick="document.getElementById('chatUploadInput').click()" title="Enviar foto">📷</button>
             <button onclick="enviarMsgModal()">Enviar</button>
-            <input type="file" id="chatUploadInput" accept="image/*,video/*" capture="environment" style="display:none" onchange="enviarArquivoModal(this)">
+            <input type="file" id="chatUploadInput" accept="image/*" capture="environment" style="display:none" onchange="enviarArquivoModal(this)">
           </div>
         </div>
       </div>

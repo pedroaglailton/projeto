@@ -4658,7 +4658,7 @@
             <div style="text-align:center;color:var(--text-muted,#6b7280);font-size:13px;padding:40px 0;" id="chatEmpty">Carregando mensagens...</div>
         </div>
         <div style="display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));background:var(--bg-card,#1c2128);border-top:1px solid var(--border,#30363d);flex-shrink:0;">
-            <input type="file" id="chatFileInput" accept="image/*,video/*" style="display:none" onchange="enviarArquivoResposta(this)">
+            <input type="file" id="chatFileInput" accept="image/*,video/*" capture="environment" style="display:none" onchange="enviarArquivoResposta(this)">
             <button onclick="document.getElementById('chatFileInput').click()" style="background:var(--bg-card,#1c2128);color:var(--text-muted,#6b7280);border:1px solid var(--border,#30363d);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;line-height:1;">📷</button>
             <input type="text" id="chatInput" placeholder="Digite sua resposta..." style="flex:1;padding:12px 14px;border:2px solid var(--border,#30363d);border-radius:10px;font-size:15px;background:var(--bg-primary,#0f172a);color:var(--text-primary,#fff);outline:none;"
                    onkeydown="if(event.key==='Enter')enviarResposta()">
@@ -5096,8 +5096,12 @@
             if (!token) { showToast('Configure o token primeiro', 'error'); return; }
             input.value = '';
             try {
+                let arquivo = file;
+                if (!file.type.startsWith('video/') && file.type.startsWith('image/')) {
+                    arquivo = await comprimirImagemChat(file);
+                }
                 const fd = new FormData();
-                fd.append('arquivo', file);
+                fd.append('arquivo', arquivo);
                 const up = await fetch(apiUrl('/api/upload'), { method: 'POST', body: fd });
                 const upData = await up.json();
                 if (!upData.ok) throw new Error(upData.error || 'Upload falhou');
@@ -5113,6 +5117,25 @@
             } catch (e) {
                 showToast('Erro: ' + e.message, 'error');
             }
+        }
+
+        function comprimirImagemChat(file) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const MAX = 1200;
+                    if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+                    if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+                    canvas.width = w; canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    URL.revokeObjectURL(img.src);
+                    canvas.toBlob(blob => resolve(blob), 'image/jpeg', 0.75);
+                };
+                img.onerror = () => reject(new Error('Falha ao carregar imagem'));
+                img.src = URL.createObjectURL(file);
+            });
         }
 
         function iniciarPollChat() {

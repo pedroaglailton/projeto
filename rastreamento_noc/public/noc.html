@@ -328,6 +328,7 @@
     <span class="title">NOC — Equipes em Campo</span>
     <span class="spacer"></span>
     <span id="userInfo" style="font-size:10px;color:#94a3b8;margin-right:10px;"></span>
+    <button id="logoutBtn" style="padding:4px 10px;background:transparent;border:1px solid #475569;border-radius:4px;color:#94a3b8;font-size:11px;cursor:pointer;margin-right:10px;">Sair</button>
     <span class="stats" id="stats">— equipes</span>
     <span class="stats secondary" id="statsPontos">Planejados: 0 | Visitados: 0 | Pendentes: 0</span>
   </div>
@@ -559,7 +560,8 @@
     const map = L.map('map', {
       zoomControl: true,
       attributionControl: true,
-      maxZoom: 19
+      maxZoom: 19,
+      preferCanvas: true
     }).setView([-3.7319, -38.5267], 12);
 
     const darkTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -2021,6 +2023,21 @@
         document.getElementById('loginBtn').textContent = 'Entrar';
       }
     }
+    
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      const token = sessionStorage.getItem('nocToken');
+      if (token) {
+        try { await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-Noc-Token': token } }); } catch (_) {}
+      }
+      sessionStorage.clear();
+      usuarioSessao = null;
+      document.getElementById('nocApp').style.display = 'none';
+      document.getElementById('loginOverlay').classList.remove('hidden');
+      document.getElementById('loginUser').value = '';
+      document.getElementById('loginPass').value = '';
+      document.getElementById('loginError').style.display = 'none';
+      document.getElementById('sidebar').classList.remove('open');
+    });
   </script>
 </body>
 </html>

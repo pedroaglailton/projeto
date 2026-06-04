@@ -1,0 +1,12 @@
+❌ Erro: equipesStore.get is not a function
+favicon.ico:1  Failed to load resource: the server responded with a status of 404 ()
+noc:443 [snap] índice pronto: 4236 células
+api/push/notify:1  Failed to load resource: the server responded with a status of 500 ()
+favicon.ico:1  Failed to load resource: the server responded with a status of 404 ()
+noc:443 [snap] índice pronto: 4236 células
+api/push/notify:1  Failed to load resource: the server responded with a status of 500 ()
+noc:1378  POST https://projeto-ujbr.onrender.com/api/push/notify 500 (Internal Server Error)
+(anônimo) @ noc:1378
+noc:1467  POST https://projeto-ujbr.onrender.com/api/mensagens/noc 500 (Internal Server Error)
+enviarMsgNoc @ noc:1467
+onclick @ noc:331

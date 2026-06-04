@@ -1,0 +1,18 @@
+[Supabase] ERRO: SUPABASE_URL e SUPABASE_ANON_KEY não configuradas!
+D:\preventivas\projeto-main\node_modules\@supabase\supabase-js\dist\index.cjs:995
+	if (!trimmedUrl) throw new Error("supabaseUrl is required.");
+	                 ^
+
+Error: supabaseUrl is required.
+    at validateSupabaseUrl (D:\preventivas\projeto-main\node_modules\@supabase\supabase-js\dist\index.cjs:995:25)
+    at new SupabaseClient (D:\preventivas\projeto-main\node_modules\@supabase\supabase-js\dist\index.cjs:1235:19)
+    at createClient (D:\preventivas\projeto-main\node_modules\@supabase\supabase-js\dist\index.cjs:1462:9)
+    at Object.<anonymous> (D:\preventivas\projeto-main\posicoes-store.js:17:18)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+
+Node.js v20.20.2

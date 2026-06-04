@@ -4658,6 +4658,8 @@
             <div style="text-align:center;color:var(--text-muted,#6b7280);font-size:13px;padding:40px 0;" id="chatEmpty">Carregando mensagens...</div>
         </div>
         <div style="display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));background:var(--bg-card,#1c2128);border-top:1px solid var(--border,#30363d);flex-shrink:0;">
+            <input type="file" id="chatFileInput" accept="image/*,video/*" style="display:none" onchange="enviarArquivoResposta(this)">
+            <button onclick="document.getElementById('chatFileInput').click()" style="background:var(--bg-card,#1c2128);color:var(--text-muted,#6b7280);border:1px solid var(--border,#30363d);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;line-height:1;">📷</button>
             <input type="text" id="chatInput" placeholder="Digite sua resposta..." style="flex:1;padding:12px 14px;border:2px solid var(--border,#30363d);border-radius:10px;font-size:15px;background:var(--bg-primary,#0f172a);color:var(--text-primary,#fff);outline:none;"
                    onkeydown="if(event.key==='Enter')enviarResposta()">
             <button onclick="enviarResposta()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">Enviar</button>
@@ -5031,6 +5033,11 @@
                 const isNoc = m.direcao === 'noc';
                 const time = new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                 const tipoLabel = m.tipo === 'predefinida' ? '⚡' : '';
+                let extra = '';
+                if (m.arquivoUrl) {
+                    if (m.arquivoTipo === 'video') extra = '<video src="' + m.arquivoUrl + '" style="max-width:100%;border-radius:8px;margin-top:4px;max-height:300px;" controls></video>';
+                    else extra = '<img src="' + m.arquivoUrl + '" style="max-width:100%;border-radius:8px;margin-top:4px;cursor:pointer;max-height:300px;" onclick="window.open(\'' + m.arquivoUrl + '\',\'_blank\')" loading="lazy">';
+                }
                 html += '<div style="display:flex;flex-direction:column;align-items:' + (isNoc ? 'flex-start' : 'flex-end') + ';">';
                 html += '<div style="max-width:85%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.4;' +
                     (isNoc
@@ -5038,6 +5045,7 @@
                         : 'background:var(--bg-card,#1c2128);color:var(--text-primary,#fff);border:1px solid var(--border,#30363d);border-bottom-right-radius:4px;'
                     ) + '">';
                 html += tipoLabel + escHtml(m.texto);
+                if (extra) html += extra;
                 html += '<div style="font-size:10px;opacity:0.6;margin-top:4px;text-align:' + (isNoc ? 'left' : 'right') + ';">' + time + '</div>';
                 html += '</div></div>';
             }
@@ -5078,6 +5086,32 @@
                 showToast('✓ Resposta enviada', 'success');
             } catch (e) {
                 showToast('Erro ao enviar: ' + e.message, 'error');
+            }
+        }
+
+        async function enviarArquivoResposta(input) {
+            const file = input.files?.[0];
+            if (!file) return;
+            const token = getEquipeToken();
+            if (!token) { showToast('Configure o token primeiro', 'error'); return; }
+            input.value = '';
+            try {
+                const fd = new FormData();
+                fd.append('arquivo', file);
+                const up = await fetch(apiUrl('/api/upload'), { method: 'POST', body: fd });
+                const upData = await up.json();
+                if (!upData.ok) throw new Error(upData.error || 'Upload falhou');
+                const r = await fetch(apiUrl('/api/mensagens'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Equipe-Token': token },
+                    body: JSON.stringify({ texto: file.name, tipo: file.type.startsWith('video/') ? 'video' : 'imagem', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                carregarMensagens();
+                showToast('✓ Arquivo enviado', 'success');
+            } catch (e) {
+                showToast('Erro: ' + e.message, 'error');
             }
         }
 

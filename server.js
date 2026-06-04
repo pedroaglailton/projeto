@@ -144,14 +144,16 @@ function salvarMensagens() {
   catch (_) { /* best-effort */ }
 }
 
-function addMensagem(equipeId, equipeNome, direcao, texto, tipo = 'alerta') {
+function addMensagem(equipeId, equipeNome, direcao, texto, tipo = 'alerta', arquivoUrl = null, arquivoTipo = null) {
   const msg = {
     id: 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     equipeId,
     equipeNome,
     direcao, // 'noc' | 'tecnico'
-    texto: String(texto).trim(),
-    tipo, // 'alerta' | 'resposta' | 'predefinida'
+    texto: String(texto || '').trim(),
+    tipo, // 'alerta' | 'resposta' | 'predefinida' | 'imagem' | 'video'
+    arquivoUrl,
+    arquivoTipo, // 'image' | 'video' | null
     createdAt: Date.now(),
     lida: false
   };
@@ -295,6 +297,31 @@ function writeEquipeDiaArquivos(reg) {
 }
 
 app.use(express.json({ limit: '1mb' }));
+
+// ===== Upload de arquivos (fotos/videos do chat) =====
+const UPLOADS_DIR = path.join(__dirname, 'data', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const multer = require('multer');
+const upload = multer({
+  dest: UPLOADS_DIR,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+});
+app.use('/uploads', express.static(UPLOADS_DIR));
+app.post('/api/upload', upload.single('arquivo'), (req, res) => {
+  if (!req.file) return res.status(400).json({ ok: false, error: 'Nenhum arquivo enviado' });
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  const novoNome = Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6) + ext;
+  const dest = path.join(UPLOADS_DIR, novoNome);
+  try {
+    fs.renameSync(req.file.path, dest);
+  } catch (_) {
+    fs.copyFileSync(req.file.path, dest);
+    fs.unlinkSync(req.file.path);
+  }
+  const mime = req.file.mimetype;
+  const arquivoTipo = mime.startsWith('video/') ? 'video' : mime.startsWith('image/') ? 'image' : 'file';
+  res.json({ ok: true, url: '/uploads/' + novoNome, arquivoTipo });
+});
 
 // ===== CORS =====
 // Em deploy split (PWA no Netlify + API noutro host) o navegador faz preflight.
@@ -728,21 +755,21 @@ app.get('/api/push/subscriptions', (req, res) => {
 
 /** Adiciona mensagem (NOC ou tecnico). */
 app.post('/api/mensagens', requireAuth, (req, res) => {
-  const { texto = '', tipo = 'resposta', equipeId: bodyEquipeId } = req.body || {};
+  const { texto = '', tipo = 'resposta', equipeId: bodyEquipeId, arquivoUrl, arquivoTipo } = req.body || {};
   const equipe = req.equipe; // de requireAuth
-  if (!texto.trim()) return res.status(400).json({ ok: false, error: 'Texto vazio' });
-  const msg = addMensagem(equipe.equipeId, equipe.equipeNome || equipe.equipeId, 'tecnico', texto, tipo);
+  if (!texto.trim() && !arquivoUrl) return res.status(400).json({ ok: false, error: 'Texto ou arquivo obrigatorio' });
+  const msg = addMensagem(equipe.equipeId, equipe.equipeNome || equipe.equipeId, 'tecnico', texto, tipo, arquivoUrl, arquivoTipo);
   res.status(201).json({ ok: true, mensagem: msg });
 });
 
 /** Adiciona mensagem do NOC (sem token de equipe). */
 app.post('/api/mensagens/noc', (req, res) => {
-  const { equipeId, texto = '', tipo = 'alerta' } = req.body || {};
+  const { equipeId, texto = '', tipo = 'alerta', arquivoUrl, arquivoTipo } = req.body || {};
   if (!equipeId) return res.status(400).json({ ok: false, error: 'equipeId obrigatorio' });
-  if (!texto.trim()) return res.status(400).json({ ok: false, error: 'Texto vazio' });
+  if (!texto.trim() && !arquivoUrl) return res.status(400).json({ ok: false, error: 'Texto ou arquivo obrigatorio' });
   const equipe = equipesStore.get(equipeId);
   const nome = equipe ? (equipe.nome || equipeId) : equipeId;
-  const msg = addMensagem(equipeId, nome, 'noc', texto, tipo);
+  const msg = addMensagem(equipeId, nome, 'noc', texto, tipo, arquivoUrl, arquivoTipo);
   res.status(201).json({ ok: true, mensagem: msg });
 });
 

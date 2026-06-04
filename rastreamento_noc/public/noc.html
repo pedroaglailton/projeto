@@ -223,6 +223,86 @@
     #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
     #roadsStatusDot.loaded  { background: #22c55e; }
     #roadsStatusDot.error   { background: #ef4444; }
+
+    /* Chat Modal */
+    .chat-overlay {
+      position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+      display:none;align-items:center;justify-content:center;padding:20px;
+    }
+    .chat-overlay.open { display:flex; }
+    .chat-modal {
+      background:#0f172a;border:1px solid #1e293b;border-radius:16px;
+      width:100%;max-width:820px;height:min(80vh,600px);
+      display:flex;flex-direction:column;overflow:hidden;
+      box-shadow:0 20px 60px rgba(0,0,0,.5);
+    }
+    .chat-header {
+      display:flex;align-items:center;gap:12px;padding:14px 18px;
+      background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0;
+    }
+    .chat-header h3 { margin:0;font-size:15px;font-weight:700;letter-spacing:.5px;flex:1; }
+    .chat-header button {
+      background:transparent;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;
+    }
+    .chat-header button:hover { background:#334155;color:#fff; }
+    .chat-body {
+      display:grid;grid-template-columns:240px 1fr;flex:1;overflow:hidden;
+    }
+    @media (max-width:600px) { .chat-body { grid-template-columns:1fr; } .chat-team-list { display:none; } }
+    .chat-team-list {
+      background:#0f172a;border-right:1px solid #1e293b;overflow-y:auto;
+    }
+    .chat-team-item {
+      display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1e293b;
+      font-size:12px;font-weight:600;color:#cbd5e1;transition:background .15s;
+    }
+    .chat-team-item:hover { background:#1e293b; }
+    .chat-team-item.active { background:#1e3a5f;border-left:3px solid #3b82f6; }
+    .chat-team-item .badge {
+      margin-left:auto;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;
+    }
+    .chat-team-item .last-msg {
+      font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;
+    }
+    .chat-team-item .time {
+      font-size:10px;color:#475569;white-space:nowrap;
+    }
+    .chat-conv {
+      display:flex;flex-direction:column;background:#0f172a;overflow:hidden;
+    }
+    .chat-conv-header {
+      padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;font-size:13px;font-weight:700;color:#e2e8f0;flex-shrink:0;
+    }
+    .chat-msgs {
+      flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;
+    }
+    .chat-msgs .empty {
+      text-align:center;color:#475569;font-size:13px;padding:40px 0;
+    }
+    .chat-bubble {
+      max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5;
+    }
+    .chat-bubble.noc {
+      align-self:flex-end;background:#1d4ed8;color:#fff;border-bottom-right-radius:3px;
+    }
+    .chat-bubble.tecnico {
+      align-self:flex-start;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-bottom-left-radius:3px;
+    }
+    .chat-bubble .time { font-size:10px;opacity:.5;margin-top:4px;text-align:right; }
+    .chat-bubble .label { font-size:10px;opacity:.6;margin-bottom:3px;display:block; }
+    .chat-input-area {
+      display:flex;gap:8px;padding:10px 14px;
+      background:#1e293b;border-top:1px solid #334155;flex-shrink:0;
+    }
+    .chat-input-area textarea {
+      flex:1;padding:10px 12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0;
+      font-size:13px;font-family:inherit;outline:none;resize:none;
+    }
+    .chat-input-area textarea:focus { border-color:#3b82f6; }
+    .chat-input-area button {
+      padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
+    }
+    .chat-input-area button:hover { background:#1d4ed8; }
   </style>
 </head>
 <body>
@@ -321,13 +401,10 @@
         <div id="pushResult" class="muted" style="margin-top:5px;"></div>
       </div>
 
-      <div class="section" id="sectionMensagens">
-        <h3>Mensagens <span id="msgBadge" style="display:none;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;margin-left:6px;"></span></h3>
-        <label>Equipe</label>
-        <select id="msgEquipe"><option value="">— Selecione —</option></select>
-        <div id="msgConv" style="max-height:280px;overflow-y:auto;font-size:12px;line-height:1.5;margin:6px 0;background:#0f172a;border-radius:8px;padding:8px;display:none;flex-direction:column;gap:6px;"></div>
-        <textarea id="msgInput" rows="2" placeholder="Digite a mensagem..." style="width:100%;padding:8px 10px;border:1px solid #334155;border-radius:6px;background:#1e293b;color:#e2e8f0;font-size:13px;outline:none;resize:none;margin-top:6px;font-family:inherit;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMsgNoc()}"></textarea>
-        <button id="btnSendMsg" onclick="enviarMsgNoc()" style="width:100%;margin-top:6px;padding:10px;background:#0057b8;color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">Enviar</button>
+      <div class="section">
+        <button onclick="abrirModalChat()" style="width:100%;padding:12px;background:#1e3a5f;color:#e2e8f0;border:2px solid #2563eb;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;">
+          💬 Mensagens <span id="msgBadge" style="display:none;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;"></span>
+        </button>
       </div>
 
       <div class="section">
@@ -353,6 +430,29 @@
     <div class="title">Equipe próxima ao ponto</div>
     <div class="main" id="proximidadeMain">—</div>
     <div class="sub" id="proximidadeSub">—</div>
+  </div>
+
+  <!-- Chat Modal -->
+  <div class="chat-overlay" id="chatOverlay" onclick="if(event.target===this)fecharModalChat()">
+    <div class="chat-modal">
+      <div class="chat-header">
+        <h3>💬 Mensagens</h3>
+        <button onclick="fecharModalChat()">×</button>
+      </div>
+      <div class="chat-body">
+        <div class="chat-team-list" id="chatTeamList"></div>
+        <div class="chat-conv">
+          <div class="chat-conv-header" id="chatConvHeader">Selecione uma equipe</div>
+          <div class="chat-msgs" id="chatMsgs">
+            <div class="empty">👈 Selecione uma equipe ao lado</div>
+          </div>
+          <div class="chat-input-area">
+            <textarea id="chatModalInput" rows="1" placeholder="Digite a mensagem..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMsgModal()}"></textarea>
+            <button onclick="enviarMsgModal()">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1180,9 +1280,12 @@
           if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
           if (msg.type === 'position')  upsert(msg.data);
           if (msg.type === 'mensagem' && msg.data) {
-            msgEquipeAtual = msgEquipeAtual || document.getElementById('msgEquipe').value;
-            if (msgEquipeAtual && msg.data.equipeId === msgEquipeAtual) carregarConversa(msgEquipeAtual);
-            verificarMsgNaoLidas();
+            todasMensagens.push(msg.data);
+            if (chatAberto) {
+              renderizarListaEquipes();
+              if (msgEquipeAtual && msg.data.equipeId === msgEquipeAtual) renderizarConversa(msgEquipeAtual);
+            }
+            atualizarBadge();
           }
           if (msg.type === 'production' && msg.data) {
             // Usa pontoId identificado pelo servidor (GPS) — mais confiável
@@ -1389,78 +1492,128 @@
     });
 
     // =========================================================================
-    // Mensagens — chat bidirecional
+    // Mensagens — chat modal
     // =========================================================================
-    const msgEquipeSel = document.getElementById('msgEquipe');
-    const msgConv = document.getElementById('msgConv');
     const msgBadge = document.getElementById('msgBadge');
+    const chatTeamList = document.getElementById('chatTeamList');
+    const chatConvHeader = document.getElementById('chatConvHeader');
+    const chatMsgs = document.getElementById('chatMsgs');
+    const chatModalInput = document.getElementById('chatModalInput');
+    const chatOverlay = document.getElementById('chatOverlay');
     let msgEquipeAtual = '';
+    let chatAberto = false;
+    let todasMensagens = [];
 
-    // Popula dropdown com equipes
-    async function carregarEquipesMsg() {
-      try {
-        const r = await fetch('/api/equipes');
-        const j = await r.json();
-        const equipes = j.equipes || [];
-        msgEquipeSel.innerHTML = '<option value="">— Selecione —</option>';
-        for (const e of equipes) {
-          const op = document.createElement('option');
-          op.value = e.equipeId;
-          op.textContent = `${e.equipeId} — ${e.nome}`;
-          msgEquipeSel.appendChild(op);
-        }
-      } catch (_) {}
+    function abrirModalChat() {
+      chatAberto = true;
+      chatOverlay.classList.add('open');
+      carregarTodasMensagens();
     }
-    carregarEquipesMsg();
 
-    msgEquipeSel.addEventListener('change', () => {
-      msgEquipeAtual = msgEquipeSel.value;
-      if (msgEquipeAtual) carregarConversa(msgEquipeAtual);
-      else { msgConv.style.display = 'none'; msgConv.innerHTML = ''; }
-    });
+    function fecharModalChat() {
+      chatAberto = false;
+      chatOverlay.classList.remove('open');
+    }
 
-    async function carregarConversa(equipeId) {
+    async function carregarTodasMensagens() {
       try {
         const r = await fetch('/api/mensagens');
         const j = await r.json();
         if (!j.ok) return;
-        const msgs = (j.mensagens || []).filter(m => m.equipeId === equipeId);
-        renderizarConversa(msgs);
+        todasMensagens = j.mensagens || [];
+        renderizarListaEquipes();
+        if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);
+        else if (todasMensagens.length) {
+          // Seleciona a equipe com mensagem mais recente
+          const porEquipe = {};
+          for (const m of todasMensagens) {
+            porEquipe[m.equipeId] = Math.max(porEquipe[m.equipeId] || 0, m.createdAt);
+          }
+          let maisRecente = '', maiorTs = 0;
+          for (const [id, ts] of Object.entries(porEquipe)) {
+            if (ts > maiorTs) { maiorTs = ts; maisRecente = id; }
+          }
+          if (maisRecente) selecionarEquipe(maisRecente);
+        }
+        atualizarBadge();
       } catch (_) {}
     }
 
-    function renderizarConversa(msgs) {
-      msgConv.style.display = 'flex';
+    function renderizarListaEquipes() {
+      const porEquipe = {};
+      for (const m of todasMensagens) {
+        if (!porEquipe[m.equipeId]) porEquipe[m.equipeId] = { nome: m.equipeNome || m.equipeId, ultima: m, naoLidas: 0 };
+        const grupo = porEquipe[m.equipeId];
+        if (m.createdAt > (grupo.ultima.createdAt || 0)) grupo.ultima = m;
+        if (!m.lida && m.direcao === 'tecnico') grupo.naoLidas++;
+      }
+      const sorted = Object.entries(porEquipe).sort((a, b) => (b[1].ultima.createdAt || 0) - (a[1].ultima.createdAt || 0));
+      let html = '';
+      for (const [id, grupo] of sorted) {
+        const ativa = id === msgEquipeAtual ? 'active' : '';
+        const preview = grupo.ultima.texto ? grupo.ultima.texto.slice(0, 40) : '';
+        const time = grupo.ultima.createdAt ? new Date(grupo.ultima.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+        const badge = grupo.naoLidas > 0 ? `<span class="badge">${grupo.naoLidas}</span>` : '';
+        html += `<div class="chat-team-item ${ativa}" onclick="selecionarEquipe('${id}')">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;">${escHtml(grupo.nome)}</div>
+            <div class="last-msg">${escHtml(preview)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="time">${time}</div>
+            ${badge}
+          </div>
+        </div>`;
+      }
+      if (!sorted.length) html = '<div style="padding:20px;text-align:center;color:#475569;font-size:12px;">Nenhuma mensagem</div>';
+      chatTeamList.innerHTML = html;
+    }
+
+    function selecionarEquipe(equipeId) {
+      msgEquipeAtual = equipeId;
+      renderizarListaEquipes();
+      renderizarConversa(equipeId);
+      // Marca como lidas
+      for (const m of todasMensagens) {
+        if (m.equipeId === equipeId && !m.lida && m.direcao === 'tecnico') {
+          m.lida = true;
+          fetch('/api/mensagens/' + m.id + '/lida', { method: 'PATCH' }).catch(() => {});
+        }
+      }
+      atualizarBadge();
+    }
+
+    function renderizarConversa(equipeId) {
+      const msgs = todasMensagens.filter(m => m.equipeId === equipeId);
+      const nome = msgs.length ? (msgs[0].equipeNome || equipeId) : equipeId;
+      chatConvHeader.textContent = '💬 ' + nome;
       if (!msgs.length) {
-        msgConv.innerHTML = '<div style="text-align:center;color:#6b7280;padding:20px 0;font-size:12px;">Nenhuma mensagem ainda</div>';
+        chatMsgs.innerHTML = '<div class="empty">Nenhuma mensagem ainda</div>';
         return;
       }
       let html = '';
       for (const m of msgs) {
         const isNoc = m.direcao === 'noc';
+        const cls = isNoc ? 'chat-bubble noc' : 'chat-bubble tecnico';
         const time = new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const date = new Date(m.createdAt).toLocaleDateString('pt-BR');
         const label = isNoc ? 'NOC' : '👤 ' + (m.equipeNome || m.equipeId);
-        const bg = isNoc ? '#0057b8' : '#1e293b';
-        const align = isNoc ? 'flex-start' : 'flex-end';
-        const tipoIcon = m.tipo === 'predefinida' ? '⚡ ' : '';
-        html += `<div style="display:flex;flex-direction:column;align-items:${align};max-width:90%;">`;
-        html += `<div style="font-size:10px;color:#6b7280;margin-bottom:2px;">${label} · ${date} ${time}</div>`;
-        html += `<div style="padding:8px 12px;border-radius:10px;background:${bg};color:#fff;font-size:12px;line-height:1.4;${isNoc ? 'border-bottom-left-radius:2px' : 'border-bottom-right-radius:2px'};">`;
-        html += tipoIcon + escHtml(m.texto);
-        html += '</div></div>';
+        html += `<div class="${cls}">
+          <span class="label">${label} · ${date}</span>
+          ${m.tipo === 'predefinida' ? '⚡ ' : ''}${escHtml(m.texto)}
+          <div class="time">${time}</div>
+        </div>`;
       }
-      msgConv.innerHTML = html;
-      msgConv.scrollTop = msgConv.scrollHeight;
+      chatMsgs.innerHTML = html;
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
     }
 
     function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    async function enviarMsgNoc() {
-      const input = document.getElementById('msgInput');
-      const texto = input.value.trim();
+    async function enviarMsgModal() {
+      const texto = chatModalInput.value.trim();
       if (!texto || !msgEquipeAtual) return;
-      input.value = '';
+      chatModalInput.value = '';
       try {
         const r = await fetch('/api/mensagens/noc', {
           method: 'POST',
@@ -1468,45 +1621,40 @@
           body: JSON.stringify({ equipeId: msgEquipeAtual, texto, tipo: 'alerta' })
         });
         const j = await r.json();
-        if (j.ok) {
-          carregarConversa(msgEquipeAtual);
-          // Também envia push notification para a equipe
+        if (j.ok && j.mensagem) {
+          todasMensagens.push(j.mensagem);
+          renderizarListaEquipes();
+          renderizarConversa(msgEquipeAtual);
           fetch('/api/push/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: 'NOC - Preventiva-CE',
-              body: texto,
-              equipeId: msgEquipeAtual
-            })
+            body: JSON.stringify({ title: 'NOC - Preventiva-CE', body: texto, equipeId: msgEquipeAtual })
           }).catch(() => {});
         }
       } catch (_) {}
     }
 
-    // Poll para badge de nao lidas
-    let ultimasNaoLidas = 0;
-    async function verificarMsgNaoLidas() {
+    function atualizarBadge() {
+      const naoLidas = todasMensagens.filter(m => !m.lida && m.direcao === 'tecnico').length;
+      if (naoLidas > 0) { msgBadge.style.display = 'inline'; msgBadge.textContent = naoLidas; }
+      else msgBadge.style.display = 'none';
+    }
+
+    // Poll
+    setInterval(async () => {
       try {
         const r = await fetch('/api/mensagens');
         const j = await r.json();
-        if (!j.ok) return;
-        const naoLidas = (j.mensagens || []).filter(m => !m.lida && m.direcao === 'tecnico').length;
-        if (naoLidas > 0) {
-          msgBadge.style.display = 'inline';
-          msgBadge.textContent = naoLidas;
-          if (naoLidas !== ultimasNaoLidas) {
-            // Recarrega conversa se estiver aberta
-            if (msgEquipeAtual) carregarConversa(msgEquipeAtual);
+        if (j.ok) {
+          todasMensagens = j.mensagens || [];
+          if (chatAberto) {
+            renderizarListaEquipes();
+            if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);
           }
-          ultimasNaoLidas = naoLidas;
-        } else {
-          msgBadge.style.display = 'none';
-          ultimasNaoLidas = 0;
+          atualizarBadge();
         }
       } catch (_) {}
-    }
-    setInterval(verificarMsgNaoLidas, 10000);
+    }, 8000);
 
     // =========================================================================
     // Playback

@@ -4944,7 +4944,7 @@
                     '</button>'
                 ).join('');
             }
-            document.getElementById('lockBioRow').style.display = 'none';
+            document.getElementById('lockBioRow').style.display = (window.PublicKeyCredential && temContas()) ? 'block' : 'none';
             document.getElementById('lockPinInput').value = '';
             delete document.getElementById('lockPinInput').dataset.contaId;
             document.getElementById('lockError').style.display = 'none';
@@ -5024,21 +5024,12 @@
             const ativa = contaAtiva();
             if (ativa) {
                 if (ativa.pinHash) {
-                    // Conta ativa tem PIN → mostra login
-                    document.addEventListener('DOMContentLoaded', () => {
-                        showLoginScreen();
-                        if (window.PublicKeyCredential) document.getElementById('lockBioRow').style.display = 'block';
-                    });
+                    document.addEventListener('DOMContentLoaded', () => showLoginScreen());
                 } else {
-                    // Conta ativa sem PIN → loga automático
                     document.addEventListener('DOMContentLoaded', () => loginConta(ativa));
                 }
             } else if (temContas()) {
-                // Tem contas mas nenhuma ativa → mostra login
-                document.addEventListener('DOMContentLoaded', () => {
-                    showLoginScreen();
-                    if (window.PublicKeyCredential) document.getElementById('lockBioRow').style.display = 'block';
-                });
+                document.addEventListener('DOMContentLoaded', () => showLoginScreen());
             } else if (localStorage.getItem('preventiva_equipeToken')) {
                 // Migração: conta existente sem multi-account
                 const token = localStorage.getItem('preventiva_equipeToken');

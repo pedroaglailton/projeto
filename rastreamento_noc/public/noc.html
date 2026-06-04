@@ -411,6 +411,9 @@
 
       <div class="section">
         <h3>Filtro de Pontos</h3>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="togglePontos" checked onchange="toggleVisibilidadePontos()"> Mostrar pontos no mapa
+        </label>
         <select id="filtroCidade">
           <option value="TODAS">Todas as cidades</option>
         </select>
@@ -1068,6 +1071,7 @@
     }
 
     function aplicarFiltroPontos() {
+      if (!document.getElementById('togglePontos').checked) { pontosLayer.clearLayers(); return; }
       const sel = document.getElementById('filtroCidade');
       const filtro = sel ? sel.value : 'TODAS';
       pontosLayer.clearLayers();
@@ -1490,6 +1494,8 @@
     carregarDatas();
     carregarPontosPlanejados();
     document.getElementById('filtroCidade').addEventListener('change', aplicarFiltroPontos);
+
+    window.toggleVisibilidadePontos = function() { aplicarFiltroPontos(); };
 
     async function carregarTrilhasHoje() {
       try {

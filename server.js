@@ -13,7 +13,7 @@ const webPush = require('web-push');
 
 const { EquipesStore, authMiddleware } = require('./auth');
 const { PosicoesStore, todayStr }      = require('./posicoes-store');
-const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, authMiddlewarePerfil } = require('./usuarios');
+const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, authMiddlewarePerfil, listarUsuarios, criarUsuario, atualizarUsuario, removerUsuario } = require('./usuarios');
 
 // ============================================================================
 // Pontos planejados — carrega para identificar ponto por GPS
@@ -493,6 +493,42 @@ app.post('/api/auth/logout', authMiddlewareNoc, (req, res) => {
   const token = req.get('X-Noc-Token');
   if (token) authLogout(token);
   res.json({ ok: true });
+});
+
+/** Admin: lista usuarios (sem senhas). */
+app.get('/api/auth/usuarios', authMiddlewareNoc, authMiddlewarePerfil('admin'), (req, res) => {
+  res.json({ ok: true, usuarios: listarUsuarios(), envBased: require('./usuarios').isEnvBased() });
+});
+
+/** Admin: cria usuario. */
+app.post('/api/auth/usuarios', authMiddlewareNoc, authMiddlewarePerfil('admin'), (req, res) => {
+  const { usuario, senha, perfil, nome } = req.body || {};
+  try {
+    const criado = criarUsuario(usuario, senha, perfil || 'operador', nome);
+    res.status(201).json({ ok: true, usuario: criado });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+/** Admin: atualiza usuario (senha, perfil, nome). */
+app.patch('/api/auth/usuarios/:usuario', authMiddlewareNoc, authMiddlewarePerfil('admin'), (req, res) => {
+  try {
+    const atualizado = atualizarUsuario(req.params.usuario, req.body || {});
+    res.json({ ok: true, usuario: atualizado });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+/** Admin: remove usuario. */
+app.delete('/api/auth/usuarios/:usuario', authMiddlewareNoc, authMiddlewarePerfil('admin'), (req, res) => {
+  try {
+    const removido = removerUsuario(req.params.usuario);
+    res.json({ ok: true, usuario: removido });
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
+  }
 });
 
 /** Cria equipe + token (uso NOC). Exige X-Noc-Admin-Key ou sessao admin. */

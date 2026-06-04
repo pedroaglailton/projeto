@@ -404,6 +404,24 @@
         <div id="tokenGerado" class="token-box"></div>
       </div>
 
+      <div class="section admin-only" id="usuariosSection">
+        <h3>Usuários</h3>
+        <div id="usuariosList" style="font-size:12px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <input type="text" id="novoUsuario" placeholder="Usuario" style="flex:1;padding:6px 8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+          <input type="password" id="novaSenha" placeholder="Senha" style="flex:1;padding:6px 8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <input type="text" id="novoNome" placeholder="Nome" style="flex:1;padding:6px 8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+          <select id="novoPerfil" style="padding:6px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+            <option value="operador">Operador</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button id="btnCriarUsuario" style="padding:6px;background:#0ea5e9;color:#fff;border:0;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;width:100%;">+ Criar usuário</button>
+        <div id="usuariosMsg" class="muted" style="margin-top:4px;"></div>
+      </div>
+
       <div class="section">
         <h3>Notificar Equipes (Push)</h3>
         <label>Título</label>
@@ -496,33 +514,6 @@
     // =========================================================================
     let usuarioSessao = null;
 
-    async function fazerLogin() {
-      const user = document.getElementById('loginUser').value.trim();
-      const pass = document.getElementById('loginPass').value;
-      const errEl = document.getElementById('loginError');
-      const btn = document.getElementById('loginBtn');
-      if (!user || !pass) { errEl.textContent = 'Preencha usuario e senha'; errEl.style.display = 'block'; return; }
-      errEl.style.display = 'none';
-      btn.disabled = true; btn.textContent = 'Entrando...';
-      try {
-        const r = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usuario: user, senha: pass })
-        });
-        const j = await r.json();
-        if (!j.ok) { errEl.textContent = j.error || 'Falha no login'; errEl.style.display = 'block'; return; }
-        sessionStorage.setItem('nocToken', j.token);
-        sessionStorage.setItem('nocPerfil', j.perfil);
-        sessionStorage.setItem('nocNome', j.nome);
-        usuarioSessao = { perfil: j.perfil, nome: j.nome };
-        document.getElementById('loginOverlay').classList.add('hidden');
-        aplicarRestricoesPerfil();
-        document.getElementById('nocApp').style.display = '';
-      } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
-      finally { btn.disabled = false; btn.textContent = 'Entrar'; }
-    }
-
     async function verificarSessao() {
       const token = sessionStorage.getItem('nocToken');
       if (!token) return false;
@@ -539,15 +530,17 @@
 
     function getNocToken() { return sessionStorage.getItem('nocToken') || ''; }
 
+    function getToken() { return sessionStorage.getItem('nocToken') || ''; }
+
     function aplicarRestricoesPerfil() {
-      const perfil = usuarioSessao?.perfil || 'operador';
+      const perfil = usuarioSessao?.perfil || sessionStorage.getItem('nocPerfil') || 'operador';
+      const nome = usuarioSessao?.nome || sessionStorage.getItem('nocNome') || 'NOC';
       const adminSections = document.querySelectorAll('.admin-only');
       for (const el of adminSections) {
         el.style.display = perfil === 'admin' ? '' : 'none';
       }
-      // Mostra nome do usuario
       const nomeEl = document.getElementById('userInfo');
-      if (nomeEl) nomeEl.textContent = (usuarioSessao?.nome || 'NOC') + ' (' + perfil + ')';
+      if (nomeEl) nomeEl.textContent = `👤 ${nome} (${perfil})`;
     }
 
     // Boot: verifica sessao ou mostra login
@@ -557,8 +550,8 @@
         document.getElementById('loginOverlay').classList.add('hidden');
         document.getElementById('nocApp').style.display = '';
         aplicarRestricoesPerfil();
+        if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
       }
-      // else login overlay fica visivel
     })();
     // =========================================================================
     // Setup do mapa — OpenStreetMap padrão (claro)
@@ -1867,6 +1860,167 @@
       if (window.innerWidth <= 720) { document.getElementById('sidebar').classList.toggle('open'); return; }
       document.body.classList.toggle('sidebar-collapsed');
     });
+
+    // =========================================================================
+    // Usuarios CRUD (admin)
+    // =========================================================================
+    function getToken() { return sessionStorage.getItem('nocToken'); }
+
+    async function carregarUsuariosLista() {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const r = await fetch('/api/auth/usuarios', { headers: { 'X-Noc-Token': token } });
+        const data = await r.json();
+        if (!data.ok) return;
+        const el = document.getElementById('usuariosList');
+        if (data.envBased) { el.innerHTML = '<div style="color:#f59e0b;">Gerenciados via NOC_USERS env var</div>'; return; }
+        el.innerHTML = data.usuarios.map(u => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin-bottom:2px;background:#0f172a;border-radius:4px;">
+            <span><b>${u.usuario}</b> <span style="color:#94a3b8;">(${u.perfil})</span><br><small style="color:#64748b;">${u.nome}</small></span>
+            <span style="display:flex;gap:4px;">
+              <button onclick="mostrarFormEditar('${u.usuario}','${u.perfil}','${u.nome.replace(/'/g,"\\'")}')" style="padding:2px 8px;background:#2563eb;color:#fff;border:0;border-radius:3px;cursor:pointer;font-size:11px;">Editar</button>
+              <button onclick="excluirUsuario('${u.usuario}')" style="padding:2px 8px;background:#dc2626;color:#fff;border:0;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
+            </span>
+          </div>
+        `).join('');
+      } catch (_) {}
+    }
+
+    function mostrarFormEditar(usuario, perfil, nome) {
+      const el = document.getElementById('usuariosList');
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:8px;background:#1e293b;border-radius:6px;margin-top:4px;';
+      div.id = 'editUsuarioForm';
+      div.innerHTML = `
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">Editando: ${usuario}</div>
+        <input type="text" id="editNome" value="${nome}" placeholder="Nome" style="width:100%;padding:5px 6px;margin-bottom:4px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <input type="password" id="editSenha" placeholder="Nova senha (deixar vazio = manter)" style="width:100%;padding:5px 6px;margin-bottom:4px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <select id="editPerfil" style="width:100%;padding:5px;margin-bottom:4px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+          <option value="operador" ${perfil==='operador'?'selected':''}>Operador</option>
+          <option value="admin" ${perfil==='admin'?'selected':''}>Admin</option>
+        </select>
+        <div style="display:flex;gap:4px;">
+          <button onclick="atualizarUsuario('${usuario}')" style="flex:1;padding:5px;background:#22c55e;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Salvar</button>
+          <button onclick="document.getElementById('editUsuarioForm').remove()" style="flex:1;padding:5px;background:#475569;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px;">Cancelar</button>
+        </div>
+      `;
+      el.prepend(div);
+    }
+
+    async function criarUsuarioAction() {
+      const usuario = document.getElementById('novoUsuario').value.trim();
+      const senha = document.getElementById('novaSenha').value;
+      const nome = document.getElementById('novoNome').value.trim() || usuario;
+      const perfil = document.getElementById('novoPerfil').value;
+      const msg = document.getElementById('usuariosMsg');
+      if (!usuario || !senha) { msg.textContent = 'Preencha usuario e senha'; return; }
+      const token = getToken();
+      try {
+        const r = await fetch('/api/auth/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify({ usuario, senha, nome, perfil })
+        });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('novoUsuario').value = '';
+          document.getElementById('novaSenha').value = '';
+          document.getElementById('novoNome').value = '';
+          msg.textContent = '✓ Usuário criado';
+          msg.style.color = '#22c55e';
+          carregarUsuariosLista();
+        } else {
+          msg.textContent = data.error;
+          msg.style.color = '#ef4444';
+        }
+      } catch (_) { msg.textContent = 'Erro de rede'; msg.style.color = '#ef4444'; }
+    }
+
+    async function atualizarUsuario(usuario) {
+      const dados = {};
+      const senha = document.getElementById('editSenha').value;
+      if (senha) dados.senha = senha;
+      dados.perfil = document.getElementById('editPerfil').value;
+      dados.nome = document.getElementById('editNome').value.trim();
+      const token = getToken();
+      try {
+        const r = await fetch('/api/auth/usuarios/' + encodeURIComponent(usuario), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify(dados)
+        });
+        const data = await r.json();
+        const msg = document.getElementById('usuariosMsg');
+        if (data.ok) {
+          msg.textContent = '✓ Usuário atualizado';
+          msg.style.color = '#22c55e';
+          document.getElementById('editUsuarioForm')?.remove();
+          carregarUsuariosLista();
+        } else {
+          msg.textContent = data.error;
+          msg.style.color = '#ef4444';
+        }
+      } catch (_) {}
+    }
+
+    async function excluirUsuario(usuario) {
+      if (!confirm(`Excluir usuario "${usuario}"?`)) return;
+      const token = getToken();
+      try {
+        const r = await fetch('/api/auth/usuarios/' + encodeURIComponent(usuario), {
+          method: 'DELETE',
+          headers: { 'X-Noc-Token': token }
+        });
+        const data = await r.json();
+        const msg = document.getElementById('usuariosMsg');
+        if (data.ok) {
+          msg.textContent = '✓ Usuário removido';
+          msg.style.color = '#22c55e';
+          carregarUsuariosLista();
+        } else {
+          msg.textContent = data.error;
+          msg.style.color = '#ef4444';
+        }
+      } catch (_) {}
+    }
+
+    document.getElementById('btnCriarUsuario').addEventListener('click', criarUsuarioAction);
+
+    // Carregar usuarios apos login
+    async function fazerLogin() {
+      const u = document.getElementById('loginUser').value.trim();
+      const p = document.getElementById('loginPass').value;
+      document.getElementById('loginError').style.display = 'none';
+      document.getElementById('loginBtn').disabled = true;
+      document.getElementById('loginBtn').textContent = 'Entrando…';
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario: u, senha: p })
+        });
+        const data = await r.json();
+        if (!data.ok) { document.getElementById('loginError').textContent = data.error || 'Falha no login'; document.getElementById('loginError').style.display = ''; return; }
+        sessionStorage.setItem('nocToken', data.token);
+        sessionStorage.setItem('nocPerfil', data.perfil);
+        sessionStorage.setItem('nocNome', data.nome);
+        usuarioSessao = { perfil: data.perfil, nome: data.nome };
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('nocApp').style.display = '';
+        aplicarRestricoesPerfil();
+        if (data.perfil === 'admin') carregarUsuariosLista();
+        equipes = []; initWs();
+        if (data.perfil === 'admin') carregarEquipesCadastro();
+        abrirModalChat();
+      } catch (err) {
+        document.getElementById('loginError').textContent = 'Erro de conexão: ' + err.message;
+        document.getElementById('loginError').style.display = '';
+      } finally {
+        document.getElementById('loginBtn').disabled = false;
+        document.getElementById('loginBtn').textContent = 'Entrar';
+      }
+    }
   </script>
 </body>
 </html>

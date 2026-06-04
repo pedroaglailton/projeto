@@ -13,6 +13,7 @@ const webPush = require('web-push');
 
 const { EquipesStore, authMiddleware } = require('./auth');
 const { PosicoesStore, todayStr }      = require('./posicoes-store');
+const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, authMiddlewarePerfil } = require('./usuarios');
 
 // ============================================================================
 // Pontos planejados — carrega para identificar ponto por GPS
@@ -472,9 +473,36 @@ app.get('/api/equipes', (_req, res) => {
   res.json({ ok: true, equipes: equipesStore.list() });
 });
 
-/** Cria equipe + token (uso NOC). Exige X-Noc-Admin-Key quando NOC_ADMIN_KEY estiver definido. */
+// ============================================================================
+// Autenticacao do NOC (usuarios)
+// ============================================================================
+app.post('/api/auth/login', (req, res) => {
+  const { usuario, senha } = req.body || {};
+  if (!usuario || !senha) return res.status(400).json({ ok: false, error: 'usuario e senha obrigatorios' });
+  const token = authLogin(String(usuario).trim(), String(senha));
+  if (!token) return res.status(401).json({ ok: false, error: 'usuario ou senha invalidos' });
+  const sessao = validaToken(token);
+  res.json({ ok: true, token, perfil: sessao.perfil, nome: sessao.nome });
+});
+
+app.get('/api/auth/me', authMiddlewareNoc, (req, res) => {
+  res.json({ ok: true, usuario: req.usuarioSessao });
+});
+
+app.post('/api/auth/logout', authMiddlewareNoc, (req, res) => {
+  const token = req.get('X-Noc-Token');
+  if (token) authLogout(token);
+  res.json({ ok: true });
+});
+
+/** Cria equipe + token (uso NOC). Exige X-Noc-Admin-Key ou sessao admin. */
 app.post('/api/equipes', (req, res) => {
-  if (!checkAdminKey(req, res)) return;
+  if (!checkAdminKey(req, res)) {
+    // Fallback: tenta autenticacao por sessao
+    const token = req.get('X-Noc-Token');
+    const sessao = token ? validaToken(token) : null;
+    if (!sessao || sessao.perfil !== 'admin') return;
+  }
 
   const { equipeId, nome, ativo = true } = req.body || {};
   try {
@@ -495,7 +523,11 @@ app.post('/api/equipes', (req, res) => {
 
 /** Regenera token de uma equipe existente. */
 app.post('/api/equipes/:equipeId/regenerar-token', (req, res) => {
-  if (!checkAdminKey(req, res)) return;
+  if (!checkAdminKey(req, res)) {
+    const token = req.get('X-Noc-Token');
+    const sessao = token ? validaToken(token) : null;
+    if (!sessao || sessao.perfil !== 'admin') return;
+  }
   try {
     const equipe = equipesStore.regenerateToken(req.params.equipeId);
     res.json({ ok: true, equipe });
@@ -506,7 +538,11 @@ app.post('/api/equipes/:equipeId/regenerar-token', (req, res) => {
 
 /** Ativa/desativa equipe. Body: { ativo: true|false } */
 app.patch('/api/equipes/:equipeId/ativo', (req, res) => {
-  if (!checkAdminKey(req, res)) return;
+  if (!checkAdminKey(req, res)) {
+    const token = req.get('X-Noc-Token');
+    const sessao = token ? validaToken(token) : null;
+    if (!sessao || sessao.perfil !== 'admin') return;
+  }
   const ativo = !!(req.body && req.body.ativo);
   try {
     const equipe = equipesStore.setEquipeAtiva(req.params.equipeId, ativo);

@@ -303,15 +303,31 @@
       padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;
     }
     .chat-input-area button:hover { background:#1d4ed8; }
+
+    /* Login */
+    .login-overlay {
+      position:fixed;inset:0;z-index:99999;background:#0f172a;
+      display:flex;align-items:center;justify-content:center;padding:20px;
+    }
+    .login-overlay.hidden { display:none; }
+    .login-box {
+      background:#1e293b;border:1px solid #334155;border-radius:16px;
+      padding:40px 32px;width:100%;max-width:360px;text-align:center;
+    }
+    .login-logo { font-size:48px;margin-bottom:8px; }
+    .login-title { font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;letter-spacing:2px;color:#e2e8f0; }
+    .login-sub { font-size:13px;color:#64748b;margin-top:4px; }
   </style>
 </head>
 <body>
+  <div id="nocApp" style="display:none;">
 
   <div class="top">
     <button class="toggle-sidebar" id="toggleSidebar" title="Abrir/fechar menu">≡</button>
     <span class="live-dot" id="liveDot" title="Conexão WebSocket"></span>
     <span class="title">NOC — Equipes em Campo</span>
     <span class="spacer"></span>
+    <span id="userInfo" style="font-size:10px;color:#94a3b8;margin-right:10px;"></span>
     <span class="stats" id="stats">— equipes</span>
     <span class="stats secondary" id="statsPontos">Planejados: 0 | Visitados: 0 | Pendentes: 0</span>
   </div>
@@ -372,7 +388,7 @@
         </select>
       </div>
 
-      <div class="section">
+      <div class="section admin-only">
         <h3>Gestão de Equipes</h3>
         <label>Equipe ID</label>
         <input type="text" id="newEquipeId" placeholder="EQUIPE-03">
@@ -432,6 +448,24 @@
     <div class="sub" id="proximidadeSub">—</div>
   </div>
 
+  </div><!-- /nocApp -->
+
+  <!-- Login Overlay -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <div class="login-logo">🛡️</div>
+      <div class="login-title">PREVENTIVA-CE</div>
+      <div class="login-sub">NOC — Monitoramento</div>
+      <div style="margin-top:20px;width:100%;display:flex;flex-direction:column;gap:12px;">
+        <input type="text" id="loginUser" placeholder="Usuário" style="width:100%;padding:12px 14px;border:2px solid #334155;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        <input type="password" id="loginPass" placeholder="Senha" style="width:100%;padding:12px 14px;border:2px solid #334155;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')fazerLogin()">
+        <div id="loginError" style="color:#ef4444;font-size:12px;display:none;text-align:center;"></div>
+        <button onclick="fazerLogin()" id="loginBtn" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Entrar</button>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:#475569;">admin/admin123 · operador/oper123</div>
+    </div>
+  </div>
+
   <!-- Chat Modal -->
   <div class="chat-overlay" id="chatOverlay" onclick="if(event.target===this)fecharModalChat()">
     <div class="chat-modal">
@@ -457,6 +491,75 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
+    // =========================================================================
+    // Autenticacao (login)
+    // =========================================================================
+    let usuarioSessao = null;
+
+    async function fazerLogin() {
+      const user = document.getElementById('loginUser').value.trim();
+      const pass = document.getElementById('loginPass').value;
+      const errEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      if (!user || !pass) { errEl.textContent = 'Preencha usuario e senha'; errEl.style.display = 'block'; return; }
+      errEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Entrando...';
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario: user, senha: pass })
+        });
+        const j = await r.json();
+        if (!j.ok) { errEl.textContent = j.error || 'Falha no login'; errEl.style.display = 'block'; return; }
+        sessionStorage.setItem('nocToken', j.token);
+        sessionStorage.setItem('nocPerfil', j.perfil);
+        sessionStorage.setItem('nocNome', j.nome);
+        usuarioSessao = { perfil: j.perfil, nome: j.nome };
+        document.getElementById('loginOverlay').classList.add('hidden');
+        aplicarRestricoesPerfil();
+        document.getElementById('nocApp').style.display = '';
+      } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
+      finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+    }
+
+    async function verificarSessao() {
+      const token = sessionStorage.getItem('nocToken');
+      if (!token) return false;
+      try {
+        const r = await fetch('/api/auth/me', { headers: { 'X-Noc-Token': token } });
+        const j = await r.json();
+        if (!j.ok) return false;
+        usuarioSessao = j.usuario;
+        sessionStorage.setItem('nocPerfil', j.usuario.perfil);
+        sessionStorage.setItem('nocNome', j.usuario.nome);
+        return true;
+      } catch (_) { return false; }
+    }
+
+    function getNocToken() { return sessionStorage.getItem('nocToken') || ''; }
+
+    function aplicarRestricoesPerfil() {
+      const perfil = usuarioSessao?.perfil || 'operador';
+      const adminSections = document.querySelectorAll('.admin-only');
+      for (const el of adminSections) {
+        el.style.display = perfil === 'admin' ? '' : 'none';
+      }
+      // Mostra nome do usuario
+      const nomeEl = document.getElementById('userInfo');
+      if (nomeEl) nomeEl.textContent = (usuarioSessao?.nome || 'NOC') + ' (' + perfil + ')';
+    }
+
+    // Boot: verifica sessao ou mostra login
+    (async () => {
+      const ok = await verificarSessao();
+      if (ok) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        document.getElementById('nocApp').style.display = '';
+        aplicarRestricoesPerfil();
+      }
+      // else login overlay fica visivel
+    })();
     // =========================================================================
     // Setup do mapa — OpenStreetMap padrão (claro)
     // =========================================================================

@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION a cada release para invalidar caches antigos.
 
-const CACHE_VERSION = 'v2026.06.04-02';
+const CACHE_VERSION = 'v2026.06.04-03';
 const CACHE_CORE    = `preventiva-core-${CACHE_VERSION}`;
 const CACHE_CDN     = `preventiva-cdn-${CACHE_VERSION}`;
 const CACHE_TILES   = `preventiva-tiles-${CACHE_VERSION}`;
@@ -80,18 +80,16 @@ function isCdnRequest(url) {
   return /unpkg\.com|cdnjs\.cloudflare\.com|fonts\.googleapis\.com|fonts\.gstatic\.com/.test(url.hostname);
 }
 
-// network-first para HTML — garante deploy novo aparecer rápido
-async function networkFirst(req, cacheName) {
+// cache-first para HTML — mostra instantâneo, atualiza em 2o plano
+async function staleHtmlWhileRevalidate(req, cacheName) {
   const cache = await caches.open(cacheName);
-  try {
-    const fresh = await fetch(req);
-    if (fresh && fresh.ok) cache.put(req, fresh.clone()).catch(() => {});
-    return fresh;
-  } catch (_) {
-    const cached = await cache.match(req) || await cache.match('./index.html');
-    if (cached) return cached;
-    return new Response('Offline', { status: 503, statusText: 'Offline' });
-  }
+  const cached = await cache.match(req) || await cache.match('./index.html');
+  const networkPromise = fetch(req).then(resp => {
+    if (resp && resp.ok) cache.put(req, resp.clone()).catch(() => {});
+    return resp;
+  }).catch(() => null);
+  if (cached) return cached;
+  return networkPromise || new Response('Offline', { status: 503, statusText: 'Offline' });
 }
 
 // cache-first com revalidação em background — ótimo p/ CDN e tiles
@@ -124,9 +122,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // HTML / navegação -> network-first
+  // HTML / navegação -> cache-first (abre na hora, atualiza em 2o plano)
   if (isHtmlRequest(req)) {
-    event.respondWith(networkFirst(req, CACHE_CORE));
+    event.respondWith(staleHtmlWhileRevalidate(req, CACHE_CORE));
     return;
   }
 

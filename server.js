@@ -383,7 +383,7 @@ process.on('SIGTERM', shutdown);
 // ============================================================================
 server.listen(PORT, HOST, () => {
   console.log(`==========================================================`);
-  console.log(`ACONTROL PREVENTIVA-CE — servidor online`);
+  console.log(`CAMCONTROL PREVENTIVA-CE — servidor online`);
   console.log(`==========================================================`);
   console.log(`Endereco:  http://${HOST}:${PORT}`);
   console.log(`PWA:       http://localhost:${PORT}/index.html`);

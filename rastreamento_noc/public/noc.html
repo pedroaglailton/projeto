@@ -251,6 +251,25 @@
       display:grid;grid-template-columns:240px 1fr;flex:1;overflow:hidden;
     }
     @media (max-width:600px) { .chat-body { grid-template-columns:1fr; } .chat-team-list { display:none; } }
+    @media (max-width:640px) {
+      .top { flex-wrap:wrap; gap:6px; padding:8px 10px; }
+      .top .title { font-size:12px; }
+      .top .stats.secondary { display:none; }
+      .top .stats { font-size:10px; }
+      #userInfo { font-size:9px !important; }
+      #logoutBtn { font-size:10px !important; padding:3px 8px !important; }
+      .toggle-sidebar { padding:4px 8px !important; font-size:16px !important; }
+      #sidebar { padding:10px; }
+      #sidebar h3 { font-size:11px; }
+      #sidebar select, #sidebar input, #sidebar button { font-size:13px; padding:10px; }
+      .chat-modal { width:100% !important; height:100% !important; max-width:100% !important; max-height:100% !important; border-radius:0 !important; }
+      .chat-overlay { align-items:stretch !important; }
+      .chat-header { padding:12px 14px !important; }
+      .chat-header h3 { font-size:15px !important; }
+      .login-box { padding:28px 20px !important; }
+      .login-title { font-size:20px !important; }
+      #statsPontos { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
+    }
     .chat-team-list {
       background:#0f172a;border-right:1px solid #1e293b;overflow-y:auto;
     }

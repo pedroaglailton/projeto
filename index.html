@@ -1112,6 +1112,15 @@
 
     <div id="trackingStatusChip" style="position:fixed;right:12px;bottom:78px;z-index:2500;background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:999px;padding:7px 12px;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;box-shadow:0 6px 16px rgba(0,0,0,.25);">TRACKING: INICIANDO</div>
 
+    <div id="proximityBar" style="display:none;position:fixed;left:12px;right:12px;bottom:135px;z-index:2500;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-radius:12px;padding:8px 12px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.35);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);align-items:center;gap:8px;">
+        <span id="proxIcon" style="font-size:16px;">📍</span>
+        <div style="flex:1;min-width:0;">
+            <div id="proxNome" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+            <div id="proxDist" style="font-size:10px;opacity:0.7;">—</div>
+        </div>
+        <span id="proxStatus" style="font-size:11px;padding:3px 8px;border-radius:999px;white-space:nowrap;"></span>
+    </div>
+
     <div class="container">
 
         <!-- ===== SEÇÃO: ADICIONAR PONTO ===== -->
@@ -1933,10 +1942,71 @@
                     enqueueTracking(payload);
                 } else {
                     await flushTrackingQueue(token);
+                    verificarPontoProximo(payload.lat, payload.lng);
                 }
             } catch (_) {
                 // Sem rede: guarda para envio futuro
                 enqueueTracking(payload);
+            }
+        }
+
+        // =====================================================================
+        // PROXIMIDADE — identifica ponto mais próximo em tempo real
+        // =====================================================================
+        let ultimoProxCheck = 0;
+        let pontoProximoAtual = null;
+        const PROX_CHECK_INTERVAL = 12000;
+
+        async function verificarPontoProximo(lat, lng) {
+            const agora = Date.now();
+            if (agora - ultimoProxCheck < PROX_CHECK_INTERVAL) return;
+            ultimoProxCheck = agora;
+            try {
+                const r = await fetch(apiUrl(`/api/ponto-proximo?lat=${lat}&lng=${lng}`));
+                const j = await r.json();
+                if (!j.ok || !j.ponto) {
+                    document.getElementById('proximityBar').style.display = 'none';
+                    pontoProximoAtual = null;
+                    return;
+                }
+                pontoProximoAtual = j.ponto;
+                const bar = document.getElementById('proximityBar');
+                document.getElementById('proxNome').textContent = `📍 Ponto ${j.ponto.id} — ${j.ponto.nome}`;
+                document.getElementById('proxDist').textContent = `${j.ponto.distancia}m`;
+                const statusEl = document.getElementById('proxStatus');
+                if (j.ponto.jaFeito) {
+                    statusEl.textContent = '✅ Feito';
+                    statusEl.style.background = '#065f46';
+                    statusEl.style.color = '#bbf7d0';
+                } else {
+                    statusEl.textContent = '⏳ Pendente';
+                    statusEl.style.background = '#1e40af';
+                    statusEl.style.color = '#bfdbfe';
+                }
+                bar.style.display = 'flex';
+                // Auto-preenche cidade se o campo estiver vazio
+                const cidadeEl = document.getElementById('ck_cidade_nome');
+                if (cidadeEl && j.ponto.cidade && j.ponto.cidade !== 'SEM CIDADE' && !cidadeEl.value.trim()) {
+                    cidadeEl.value = j.ponto.cidade;
+                }
+            } catch (_) { /* falha silenciosa */ }
+        }
+
+        function iniciarVerificacaoProximidade() {
+            if (window._proxTimer) return;
+            window._proxTimer = setInterval(() => {
+                if (ultimaPosicaoTracking) {
+                    verificarPontoProximo(ultimaPosicaoTracking.lat, ultimaPosicaoTracking.lng);
+                }
+            }, PROX_CHECK_INTERVAL);
+        }
+
+        function autoPreencherEquipe() {
+            const nome = localStorage.getItem('preventiva_equipeNome') || '';
+            const el = document.getElementById('nomeOperador');
+            if (nome && el && !el.value.trim()) {
+                el.value = nome.toUpperCase();
+                localStorage.setItem('operadorNome', nome.toUpperCase());
             }
         }
 
@@ -2929,12 +2999,33 @@
                     btn.disabled = false;
                     btn.classList.remove('capture-active');
                     setGpsStatus('ok');
-                    // Habilita botão Salvar agora que temos GPS
                     const btnSalvar = document.getElementById('btnSalvarPonto');
                     btnSalvar.disabled = false;
                     btnSalvar.style.opacity = '1';
                     btnSalvar.style.cursor = 'pointer';
                     buscarEndereco(lat, lng);
+                    // Auto-detecta ponto mais próximo
+                    verificarPontoProximo(lat, lng).then(() => {
+                        if (pontoProximoAtual && pontoProximoAtual.distancia <= 25) {
+                            const p = pontoProximoAtual;
+                            const numEl = document.getElementById('numeroPonto');
+                            const confirmar = confirm(`📍 Ponto #${p.id} — ${p.nome}\nDistância: ${p.distancia}m\n${p.jaFeito ? '✅ Já foi feito hoje' : '⏳ Pendente'}\n\nÉ este o ponto?`);
+                            if (confirmar) {
+                                numEl.value = String(p.id);
+                                // Preenche cidade se disponível
+                                const cidadeEl = document.getElementById('ck_cidade_nome');
+                                if (cidadeEl && p.cidade && p.cidade !== 'SEM CIDADE') {
+                                    cidadeEl.value = p.cidade;
+                                }
+                                showToast(`Ponto #${p.id} selecionado (${p.distancia}m)`, 'success');
+                            } else {
+                                numEl.value = '';
+                                numEl.focus();
+                            }
+                        } else if (pontoProximoAtual) {
+                            showToast(`Ponto mais próximo: #${pontoProximoAtual.id} — ${pontoProximoAtual.distancia}m (fora do raio de 25m)`, 'info');
+                        }
+                    });
                     showToast('Localização capturada!', 'success');
                 },
                 err => {
@@ -4688,6 +4779,7 @@
             iniciarAutoTracking();
 
             atualizarConfigBadge();
+            autoPreencherEquipe();
             showToast('Configurações salvas', 'success');
 
             btn.disabled = false; btn.innerHTML = '<i class="material-icons">save</i> Salvar';
@@ -5093,6 +5185,7 @@
                 btn.addEventListener('touchstart', () => hapticLight(), { passive: true });
             });
             restaurarPushState();
+            autoPreencherEquipe();
             // Inicia restauração da inscrição push no boot
             if (localStorage.getItem('pushEnabled') === '1' && getEquipeToken()) {
                 setTimeout(async () => {
@@ -5100,6 +5193,8 @@
                 }, 3000);
             }
         });
+        // Inicia verificacao de proximidade assim que o tracking comecar
+        if (getEquipeToken()) setTimeout(iniciarVerificacaoProximidade, 5000);
 
         // =====================================================================
         // Keyboard avoidance para mobile

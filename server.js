@@ -203,12 +203,24 @@ fs.mkdirSync(producaoDir, { recursive: true });
 fs.mkdirSync(producaoEquipesDir, { recursive: true });
 
 const producaoSnapshot = new Map();
+const pontosVisitadosHoje = new Set();
+
+function carregarPontosVisitados() {
+  const data = todayStr();
+  const records = readProducao(data);
+  for (const r of records) {
+    if (r.pontoId) pontosVisitadosHoje.add(`${data}:${r.pontoId}`);
+  }
+}
+carregarPontosVisitados();
+
 function producaoFile(data = todayStr()) { return path.join(producaoDir, `${data}.jsonl`); }
 function appendProducao(reg) {
   const data = todayStr(new Date(reg.ts || Date.now()));
   fs.appendFileSync(producaoFile(data), JSON.stringify(reg) + '\n', 'utf8');
   const key = `${data}:${reg.equipeId}:${reg.pontoNumero || 'SEM-PONTO'}`;
   producaoSnapshot.set(key, reg);
+  if (reg.pontoId) pontosVisitadosHoje.add(`${data}:${reg.pontoId}`);
 }
 function readProducao(data) {
   const file = producaoFile(data);
@@ -525,6 +537,20 @@ app.get('/api/playback', async (req, res) => {
 /** Lista de datas com dados disponiveis (para o date picker do NOC). */
 app.get('/api/playback/datas', (_req, res) => {
   res.json({ ok: true, datas: posicoesStore.listDates() });
+});
+
+/** Identifica o ponto planejado mais próximo e se ja foi visitado hoje. */
+app.get('/api/ponto-proximo', (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lng = parseFloat(req.query.lng);
+  if (isNaN(lat) || isNaN(lng)) {
+    return res.status(400).json({ ok: false, error: 'lat/lng numericos obrigatorios' });
+  }
+  const ponto = identificarPontoMaisProximo(lat, lng);
+  if (!ponto) return res.json({ ok: true, ponto: null });
+  const hoje = todayStr();
+  const jaFeito = pontosVisitadosHoje.has(`${hoje}:${ponto.id}`);
+  res.json({ ok: true, ponto: { id: ponto.id, nome: ponto.nome, cidade: ponto.cidade, lat: ponto.lat, lng: ponto.lng, distancia: ponto.distancia, jaFeito } });
 });
 
 // ============================================================================

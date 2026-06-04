@@ -8,6 +8,8 @@ data/mensagens.json
 data/usuarios.json
 data/sessoes.json
 data/uploads/
+*.jpg
+*.JPG
 erros.txt
 server_*.txt
 renderlog.txt

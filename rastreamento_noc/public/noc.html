@@ -529,9 +529,11 @@
           </div>
           <div class="chat-input-area">
             <textarea id="chatModalInput" rows="1" placeholder="Digite a mensagem..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMsgModal()}"></textarea>
-            <button class="chat-img-btn" onclick="document.getElementById('chatUploadInput').click()" title="Enviar foto">📷</button>
+            <button class="chat-img-btn" onclick="document.getElementById('chatUploadInput').click()" title="Tirar foto">📷</button>
+            <input type="file" id="chatUploadInput" accept="image/*" capture="environment" style="display:none" onchange="enviarArquivoModal(this, true)">
+            <button class="chat-img-btn" onclick="document.getElementById('chatVideoInput').click()" title="Gravar video">🎬</button>
+            <input type="file" id="chatVideoInput" accept="video/*" capture="environment" style="display:none" onchange="enviarArquivoModal(this, false)">
             <button onclick="enviarMsgModal()">Enviar</button>
-            <input type="file" id="chatUploadInput" accept="image/*" capture="environment" style="display:none" onchange="enviarArquivoModal(this)">
           </div>
         </div>
       </div>
@@ -1782,16 +1784,14 @@
       } catch (_) {}
     }
 
-    async function enviarArquivoModal(input) {
+    async function enviarArquivoModal(input, comprimir) {
       const file = input.files?.[0];
       input.value = '';
       if (!file) return;
       if (!msgEquipeAtual) { alert('Selecione uma equipe no chat primeiro'); return; }
-      const isVideo = file.type.startsWith('video/');
       try {
         let arquivo = file;
-        // Comprime foto antes de enviar
-        if (!isVideo && file.type.startsWith('image/')) {
+        if (comprimir && file.type.startsWith('image/')) {
           arquivo = await comprimirImagem(file);
         }
         const fd = new FormData();

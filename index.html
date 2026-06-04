@@ -4183,13 +4183,13 @@
             }
         });
 
-        // Trava o app ao minimizar (se PIN configurado) com tolerância de 10min
+        // Trava o app ao minimizar (se PIN configurado) com tolerância de 30min
         let hiddenSince = 0;
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'hidden') {
                 hiddenSince = Date.now();
             } else if (document.visibilityState === 'visible' && contaAtiva()?.pinHash) {
-                if (Date.now() - hiddenSince > 600000) {
+                if (Date.now() - hiddenSince > 1800000) {
                     showLoginScreen();
                     document.getElementById('lockPinInput').focus();
                 }

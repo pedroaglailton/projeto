@@ -55,11 +55,15 @@
     #sidebarRight {
       background: #111827;
       border-left: 1px solid #1f2937;
-      padding: 14px;
+      padding: 12px;
       overflow-y: auto;
-      scrollbar-width: none;
+      scrollbar-width: thin;
       -ms-overflow-style: none;
       z-index: 500;
+    }
+    #sidebarRight h3 {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+      color: #64748b; margin: 0 0 8px 0; font-weight: 700;
     }
     body.sidebar-right-collapsed #sidebarRight {
       padding: 0;
@@ -68,15 +72,15 @@
 
     #equipesList { list-style: none; padding: 0; margin: 0; }
     #equipesList li {
-      padding: 8px 10px; margin-bottom: 4px;
+      padding: 10px 10px; margin-bottom: 4px;
       background: #0f172a; border-radius: 6px;
       font-size: 13px; cursor: pointer;
       border-left: 3px solid transparent;
-      display: flex; justify-content: space-between; align-items: center;
+      transition: background .15s;
     }
     #equipesList li:hover { background: #1e293b; }
     #equipesList li.active { border-left-color: #0ea5e9; background: #1e293b; }
-    #equipesList li .ago { font-size: 10px; color: #64748b; }
+    #equipesList li .ago { font-size: 10px; color: #64748b; border-left: none; }
     #equipesList li.stale .ago { color: #f59e0b; }
     #equipesList li.logged-out { opacity:0.7; }
     #equipesList li.logged-out .ago { color:#dc2626; font-weight:700; }
@@ -190,6 +194,18 @@
       word-break: break-all; display: none;
     }
     .token-box.visible { display: block; }
+
+    /* Form elements in sidebar */
+    #sidebarLeft select, #sidebarLeft input, #sidebarLeft button:not(.roads-btn) {
+      background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+      border-radius: 6px; padding: 8px 10px; font-size: 12px;
+      outline: none; width: 100%; box-sizing: border-box;
+    }
+    #sidebarLeft select:hover, #sidebarLeft input:hover { border-color: #475569; }
+    #sidebarLeft select:focus, #sidebarLeft input:focus { border-color: #0ea5e9; }
+    #sidebarLeft button:not(.roads-btn) { background: #0ea5e9; border-color: #0ea5e9; color: #fff; font-weight: 600; cursor: pointer; }
+    #sidebarLeft button:not(.roads-btn):hover { background: #0284c7; }
+    #sidebarLeft label { font-size: 11px; color: #94a3b8; font-weight: 600; display: block; margin-top: 8px; margin-bottom: 3px; }
 
     /* Ruas KML */
     #sidebarLeft button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; }

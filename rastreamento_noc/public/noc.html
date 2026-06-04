@@ -865,6 +865,23 @@
 
     function marcarVisitaPorPosicao(reg) {}
 
+    function marcarPontoColetadoPorId(pontoId, pontoNome, distM) {
+      // Marca verde pelo ID exato identificado pelo servidor via GPS
+      for (const p of pontosPlanejados) {
+        if (pontosVisitados.has(p.id)) continue;
+        if (String(p.id) !== String(pontoId)) continue;
+        pontosVisitados.add(p.id);
+        const mk = pontosMarkers.get(p.id);
+        if (mk) {
+          mk.setStyle(stylePontoPlanejado(true));
+          mk.bindPopup(`<b>${p.nome || p.id}</b><br>✅ Coletado<br>${distM ? `${distM}m do ponto` : ''}<br>${p.cidade || ''}`);
+        }
+        atualizarStatsPontos();
+        console.log(`[NOC] Ponto #${pontoId} "${pontoNome}" marcado verde (${distM}m)`);
+        return;
+      }
+    }
+
     function marcarPontoColetado(pontoNumero) {
       if (!pontoNumero) return;
       const pn = String(pontoNumero).trim().toUpperCase();
@@ -1149,8 +1166,14 @@
           const msg = JSON.parse(ev.data);
           if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
           if (msg.type === 'position')  upsert(msg.data);
-          if (msg.type === 'production' && msg.data && msg.data.pontoNumero) {
-            marcarPontoColetado(msg.data.pontoNumero);
+          if (msg.type === 'production' && msg.data) {
+            // Usa pontoId identificado pelo servidor (GPS) — mais confiável
+            if (msg.data.pontoId) {
+              marcarPontoColetadoPorId(msg.data.pontoId, msg.data.pontoNome, msg.data.pontoDistM);
+            } else if (msg.data.pontoNumero) {
+              // Fallback: tenta casar pelo nome digitado
+              marcarPontoColetado(msg.data.pontoNumero);
+            }
           }
         } catch (e) { console.warn('msg invalida:', e); }
       };

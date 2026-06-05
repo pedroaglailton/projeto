@@ -999,8 +999,16 @@
                 letter-spacing: 1px;
             }
 
+            .brand-title {
+                max-width: 160px;
+            }
+
             #gpsLabel {
                 display: none;
+            }
+
+            #dateDisplay {
+                display: none !important;
             }
 
             .container {
@@ -1029,6 +1037,59 @@
             .nav-item span {
                 font-size: 9px;
                 letter-spacing: 0.3px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .navbar > div:last-child {
+                gap: 4px !important;
+            }
+
+            .brand-text {
+                font-size: 12px;
+                letter-spacing: 0.5px;
+            }
+
+            .brand-title {
+                max-width: 110px;
+            }
+
+            #gpsStatus {
+                display: none !important;
+            }
+
+            .navbar .theme-toggle {
+                padding: 4px 5px !important;
+            }
+
+            .navbar .theme-toggle .material-icons {
+                font-size: 18px !important;
+            }
+
+            #btnSair {
+                padding: 4px 6px !important;
+            }
+
+            #btnSair span {
+                font-size: 10px !important;
+            }
+        }
+
+        @media (max-width: 380px) {
+            #btnChat, #btnConfig, #navbarEquipe {
+                display: none !important;
+            }
+        }
+
+        /* Chat panel mobile */
+        @media (max-width: 480px) {
+            #chatPanel input {
+                font-size: 16px !important;
+            }
+
+            #chatPanel [style*="padding:12px 18px"] {
+                padding: 12px 14px !important;
+                font-size: 13px !important;
             }
         }
 

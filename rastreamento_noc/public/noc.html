@@ -453,6 +453,9 @@
         <select id="filtroCidade">
           <option value="TODAS">Todas as cidades</option>
         </select>
+        <select id="filtroCategoria" style="margin-top:6px;">
+          <option value="TODAS">Todas as categorias</option>
+        </select>
       </div>
 
       <div class="section admin-only">
@@ -1354,6 +1357,8 @@
       const filtro = sel ? sel.value : 'TODAS';
       const aisSel = document.getElementById('aisFilter');
       const aisFiltro = aisSel ? aisSel.value : '';
+      const catSel = document.getElementById('filtroCategoria');
+      const catFiltro = catSel ? catSel.value : 'TODAS';
       const checked = document.getElementById('togglePontos').checked;
       const features = [];
       pontosFeatureIds.clear();
@@ -1363,10 +1368,20 @@
         if (!okCid) continue;
         const okAis = !aisFiltro || (p.ais || 'SEM AIS') === aisFiltro;
         if (!okAis) continue;
+        const okCat = catFiltro === 'TODAS' || (p.categoria || 'SEM CATEGORIA') === catFiltro;
+        if (!okCat) continue;
         const visitado = pontosVisitados.has(p.id);
         const st = estiloPonto(visitado);
         const fid = 'p_' + p.id;
         pontosFeatureIds.set(p.id, fid);
+        const tags = [];
+        if (p.ais) tags.push(`<span style="background:#1e40af;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">${p.ais}</span>`);
+        if (p.categoria) tags.push(`<span style="background:#475569;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${p.categoria}</span>`);
+        const popupHtml = `<div style="font-family:'DM Sans',sans-serif;min-width:160px;">
+          <b style="font-size:13px;color:#0f172a;">${p.nome || ('PONTO ' + p.id)}</b>
+          <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${tags.join(' ') || ''}</div>
+          <div style="margin-top:4px;font-size:11px;color:#475569;">${p.cidade || ''}${p.lat && p.lng ? ' · ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) : ''}</div>
+        </div>`;
         features.push({
           type: 'Feature', id: fid,
           geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
@@ -1374,7 +1389,7 @@
             r: st.radius, fc: st.fillColor, fo: st.fillOpacity,
             sw: st.strokeWidth, sc: st.strokeColor,
             nome: String(p.nome || ('PONTO ' + p.id)).slice(0, 20),
-            popup: `<b>${p.nome || ('PONTO ' + p.id)}</b><br>${p.cidade || ''}`
+            popup: popupHtml
           }
         });
       }
@@ -1426,6 +1441,28 @@
         op.textContent = a;
         sel.appendChild(op);
       }
+      if (atuais.includes(atual)) sel.value = atual;
+    }
+
+    function popularFiltroCategorias() {
+      const sel = document.getElementById('filtroCategoria');
+      if (!sel) return;
+      const contagem = {};
+      for (const p of pontosPlanejados) {
+        const c = p.categoria || 'SEM CATEGORIA';
+        contagem[c] = (contagem[c] || 0) + 1;
+      }
+      const atuais = Object.keys(contagem).sort((a, b) => contagem[b] - contagem[a] || a.localeCompare(b, 'pt-BR'));
+      const atual = sel.value;
+      sel.innerHTML = '<option value="TODAS">Todas (sem filtro)</option>';
+      for (const c of atuais) {
+        const op = document.createElement('option');
+        op.value = c;
+        op.textContent = c + ' (' + contagem[c] + ')';
+        sel.appendChild(op);
+      }
+      if (atuais.includes(atual)) sel.value = atual;
+    }
       if (atuais.includes(atual)) sel.value = atual;
     }
 
@@ -1586,6 +1623,7 @@
         else { map.on('load', () => renderPontosLayer()); }
         popularFiltroCidades();
         popularFiltroAis();
+        popularFiltroCategorias();
         atualizarStatsPontos();
       } catch (_) {}
     }

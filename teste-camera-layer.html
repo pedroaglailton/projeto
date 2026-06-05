@@ -55,19 +55,18 @@
     });
 
     function desenharPosteRealista(ctx, w, h) {
-      // ── Poste cônico FINO ──
-      const baseL = w * 0.08;
-      const topoL = w * 0.04;
+      // ── Poste cônico (galvanizado/branco) ──
+      const baseL = w * 0.07;
+      const topoL = w * 0.035;
       const posteY = h - h * 0.04;
-      const posteTopo = h * 0.30;
+      const posteTopo = h * 0.32;
       const posteH = posteY - posteTopo;
 
       const gradMetal = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
-      gradMetal.addColorStop(0, '#64748b');
-      gradMetal.addColorStop(0.3, '#cbd5e1');
-      gradMetal.addColorStop(0.5, '#f1f5f9');
-      gradMetal.addColorStop(0.7, '#94a3b8');
-      gradMetal.addColorStop(1, '#475569');
+      gradMetal.addColorStop(0, '#cbd5e1');
+      gradMetal.addColorStop(0.3, '#f8fafc');
+      gradMetal.addColorStop(0.6, '#f1f5f9');
+      gradMetal.addColorStop(1, '#94a3b8');
       ctx.fillStyle = gradMetal;
       ctx.beginPath();
       ctx.moveTo(w * 0.5 - baseL / 2, posteY);
@@ -77,28 +76,23 @@
       ctx.closePath();
       ctx.fill();
 
-      // sombra poste
-      ctx.fillStyle = 'rgba(0,0,0,0.06)';
-      ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY - posteH * 0.3, 3, posteH * 0.3);
-
       // base flange
-      ctx.fillStyle = '#475569';
+      ctx.fillStyle = '#94a3b8';
       ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY - 2, baseL + 4, 4);
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(w * 0.5 - baseL / 2 - 1, posteY, baseL + 2, 2);
 
       // ── Caixa hermética 3D ──
-      const cxY = posteY - posteH * 0.32;
-      const cxW = baseL * 1.8;
-      const cH = posteH * 0.09;
+      const cxY = posteY - posteH * 0.30;
+      const cxW = baseL * 2.0;
+      const cH = posteH * 0.08;
       const cxX = w * 0.5 - cxW / 2;
 
       const gf = ctx.createLinearGradient(cxX, 0, cxX + cxW, 0);
-      gf.addColorStop(0, '#334155'); gf.addColorStop(0.3, '#94a3b8');
-      gf.addColorStop(0.7, '#cbd5e1'); gf.addColorStop(1, '#475569');
+      gf.addColorStop(0, '#475569'); gf.addColorStop(0.3, '#94a3b8');
+      gf.addColorStop(0.7, '#cbd5e1'); gf.addColorStop(1, '#64748b');
       ctx.fillStyle = gf;
       ctx.fillRect(cxX, cxY - cH / 2, cxW, cH);
 
+      // topo 3D
       ctx.fillStyle = '#64748b';
       ctx.beginPath();
       ctx.moveTo(cxX, cxY - cH / 2);
@@ -108,7 +102,8 @@
       ctx.closePath();
       ctx.fill();
 
-      ctx.fillStyle = '#1e293b';
+      // lateral 3D
+      ctx.fillStyle = '#334155';
       ctx.beginPath();
       ctx.moveTo(cxX + cxW, cxY - cH / 2);
       ctx.lineTo(cxX + cxW + 3, cxY - cH / 2 - 4);
@@ -117,129 +112,72 @@
       ctx.closePath();
       ctx.fill();
 
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 0.6;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 0.5;
       ctx.strokeRect(cxX, cxY - cH / 2, cxW, cH);
       ctx.beginPath();
       ctx.moveTo(cxX + 3, cxY);
       ctx.lineTo(cxX + cxW - 3, cxY);
       ctx.stroke();
-
       ctx.fillStyle = '#1e293b';
       [[cxX + 5, cxY], [cxX + cxW - 5, cxY]].forEach(([x, y]) => {
-        ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill();
       });
 
-      // ── Suporte/bracket da PTZ ──
-      const bracoY = posteTopo + 2;
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 3;
+      // ── Braço curto para PTZ ──
+      const by = posteTopo + 3;
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.moveTo(w * 0.5, bracoY);
-      ctx.lineTo(w * 0.5 + w * 0.18, bracoY - 4);
+      ctx.moveTo(w * 0.5, by);
+      ctx.lineTo(w * 0.5 + w * 0.14, by);
       ctx.stroke();
 
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(w * 0.5 + w * 0.18, bracoY - 4);
-      ctx.lineTo(w * 0.5 + w * 0.18, bracoY + h * 0.015);
-      ctx.stroke();
+      // ── PTZ Speed Dome (compacta) ──
+      const cxPtz = w * 0.5 + w * 0.14;
+      const cyPtz = by;
 
-      // ── PTZ Hikvision Speed Dome ──
-      const cxPtz = w * 0.5 + w * 0.18;
-      const cyPtz = bracoY + h * 0.015;
+      // corpo branco (cilíndrico baixo)
+      const cw2 = w * 0.12;
+      const ch2 = h * 0.03;
+      const cx2 = cxPtz - cw2 / 2;
+      const cy2 = cyPtz;
 
-      // corpo principal (formato arredondado, branco)
-      const cW = w * 0.16;
-      const cH2 = h * 0.055;
-      const cX = cxPtz - cW / 2;
-      const cY = cyPtz;
-
-      ctx.fillStyle = '#f1f5f9';
-      ctx.beginPath();
-      ctx.roundRect(cX, cY, cW, cH2, 3);
-      ctx.fill();
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(cx2, cy2, cw2, ch2);
       ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.roundRect(cX, cY, cW, cH2, 3);
-      ctx.stroke();
+      ctx.strokeRect(cx2, cy2, cw2, ch2);
 
-      // detalhe Hikvision (faixa cinza)
-      ctx.fillStyle = '#e2e8f0';
-      ctx.fillRect(cX + 3, cY + cH2 * 0.3, cW * 0.2, cH2 * 0.4);
-
-      // fendas
-      ctx.strokeStyle = '#cbd5e1';
-      ctx.lineWidth = 0.4;
-      for (let i = 0; i < 2; i++) {
-        const vy = cY + cH2 * 0.25 + i * 3;
-        ctx.beginPath();
-        ctx.moveTo(cX + cW * 0.5, vy);
-        ctx.lineTo(cX + cW * 0.65, vy);
-        ctx.stroke();
-      }
-
-      // sunshield (visor preto na frente)
+      // sunshield (preto, projetado pra frente)
       ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.moveTo(cX - 2, cY + 2);
-      ctx.lineTo(cX + cW + 2, cY + 2);
-      ctx.lineTo(cX + cW + 4, cY - 3);
-      ctx.lineTo(cX - 1, cY - 4);
-      ctx.closePath();
-      ctx.fill();
+      ctx.fillRect(cx2, cy2 - 2, cw2, 4);
 
-      // anel do domo
+      // anel prata
       ctx.fillStyle = '#64748b';
-      ctx.fillRect(cX - 1, cY + cH2 - 2, cW + 2, 4);
+      ctx.fillRect(cx2 - 1, cy2 + ch2 - 1, cw2 + 2, 3);
 
-      // IR LEDs no anel
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      for (let i = 0; i < 4; i++) {
-        const lx = cX + 2 + i * (cW - 4) / 3;
-        ctx.beginPath(); ctx.arc(lx, cY + cH2, 0.8, 0, Math.PI * 2); ctx.fill();
-      }
-
-      // ── Domo (cúpula) ──
+      // domo (grande em relação ao corpo)
       const dX = cxPtz;
-      const dY = cY + cH2 + 1;
-      const dR = w * 0.09;
+      const dY = cy2 + ch2 + 1;
+      const dR = w * 0.075;
 
-      const gd = ctx.createRadialGradient(dX - dR * 0.25, dY - dR * 0.1, 1, dX, dY + 2, dR);
-      gd.addColorStop(0, 'rgba(255,255,255,0.15)');
-      gd.addColorStop(0.15, 'rgba(180,200,230,0.08)');
-      gd.addColorStop(0.45, 'rgba(25,45,75,0.5)');
-      gd.addColorStop(0.8, 'rgba(8,15,30,0.85)');
+      const gd = ctx.createRadialGradient(dX - dR * 0.2, dY - dR * 0.1, 1, dX, dY + 2, dR);
+      gd.addColorStop(0, 'rgba(255,255,255,0.12)');
+      gd.addColorStop(0.2, 'rgba(180,200,230,0.06)');
+      gd.addColorStop(0.5, 'rgba(25,45,75,0.5)');
+      gd.addColorStop(0.8, 'rgba(8,15,30,0.8)');
       gd.addColorStop(1, 'rgba(3,6,12,0.95)');
 
       ctx.fillStyle = gd;
       ctx.beginPath();
-      ctx.ellipse(dX, dY, dR, dR * 0.6, 0, Math.PI, 0);
+      ctx.ellipse(dX, dY, dR, dR * 0.55, 0, Math.PI, 0);
       ctx.fill();
-
-      ctx.strokeStyle = 'rgba(100,120,140,0.25)';
-      ctx.lineWidth = 0.4;
-      ctx.beginPath();
-      ctx.ellipse(dX, dY, dR, dR * 0.6, 0, Math.PI, 0);
-      ctx.stroke();
 
       // reflexo
-      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.beginPath();
-      ctx.ellipse(dX - dR * 0.25, dY - dR * 0.05, dR * 0.18, dR * 0.25, -0.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      // lente visível
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.beginPath();
-      ctx.arc(dX, dY + 2, dR * 0.2, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.fillStyle = 'rgba(100,150,255,0.05)';
-      ctx.beginPath();
-      ctx.arc(dX - 1, dY + 1, dR * 0.1, 0, Math.PI * 2);
+      ctx.ellipse(dX - dR * 0.2, dY - dR * 0.05, dR * 0.15, dR * 0.2, -0.3, 0, Math.PI * 2);
       ctx.fill();
     }
 

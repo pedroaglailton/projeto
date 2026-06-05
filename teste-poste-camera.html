@@ -35,53 +35,92 @@
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    // ── Cria o elemento HTML do poste de câmera (usa imagem poste.png) ──
-    function criarPosteCamera(nome, visitado = false) {
-      const el = document.createElement('div');
-      el.style.cssText = 'width:36px; height:64px; display:flex; align-items:flex-end; justify-content:center; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6));';
-      const img = document.createElement('img');
-      img.src = 'poste.png';
-      img.alt = nome || 'Poste';
-      img.style.cssText = 'max-width:100%; max-height:100%; object-fit:contain; pointer-events:none;';
-      if (visitado) img.style.filter = 'hue-rotate(90deg) saturate(1.5)';
-      el.appendChild(img);
-      return el;
-    }
-
-    // ── Carrega pontos do arquivo JSON ──
-    let markers = [];
-
+    // ── Carrega pontos do arquivo JSON e renderiza via symbol layer ──
+    // A symbol layer usa icon-size interpolado com exponential 2, que
+    // dobra o tamanho a cada nivel de zoom — mesma taxa que os metros/pixel
+    // dobra no mapa. Resultado: o poste mantém a proporção real de 15m.
+    // (poste.png tem 188x760px; em Fortaleza z=18 -> ~100px = 15m)
     map.on('load', async () => {
       try {
         const resp = await fetch('/pontos_planejados.json');
         const data = await resp.json();
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
-
-        // Mostra apenas os primeiros 100 para nao travar
         const amostra = pontos.slice(0, 100);
 
-        for (const p of amostra) {
-          const el = criarPosteCamera(p.nome || ('Ponto ' + p.id));
-          const mk = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-            .setLngLat([p.lng, p.lat])
-            .addTo(map);
-          markers.push(mk);
-
-          // Popup ao clicar
-          el.style.cursor = 'pointer';
-          el.addEventListener('click', () => {
-            new mapboxgl.Popup({ offset: 50 })
-              .setLngLat([p.lng, p.lat])
-              .setHTML(`
-                <b>${p.nome || 'Ponto ' + p.id}</b><br>
-                ${p.cidade || '—'}<br>
-                <span style="font-size:11px;color:#94a3b8">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</span>
-              `)
-              .addTo(map);
+        // Carrega a imagem do poste como icone
+        const image = await new Promise((resolve, reject) => {
+          map.loadImage('poste.png', (err, img) => {
+            if (err) return reject(err);
+            resolve(img);
           });
-        }
+        });
+        if (!map.hasImage('poste-15m')) map.addImage('poste-15m', image);
+
+        // Source com os pontos
+        map.addSource('postes', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: amostra.map(p => ({
+              type: 'Feature',
+              geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+              properties: { nome: p.nome || ('Ponto ' + p.id), cidade: p.cidade || '' }
+            }))
+          }
+        });
+
+        // Layer symbol com tamanho proporcional a 15m reais
+        // metros/pixel em lat -3.73: z=14 -> 2.38, z=18 -> 0.149
+        // 15m / metrosPorPixel / 760 (altura da imagem) = icon-size exato
+        // exponential 2 garante que o tamanho dobre junto com o zoom
+        map.addLayer({
+          id: 'postes-symbol',
+          type: 'symbol',
+          source: 'postes',
+          layout: {
+            'icon-image': 'poste-15m',
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-size': [
+              'interpolate', ['exponential', 2], ['zoom'],
+              10, 0.0005,
+              12, 0.002,
+              14, 0.0083,
+              15, 0.0166,
+              16, 0.033,
+              17, 0.066,
+              18, 0.133,
+              19, 0.265,
+              20, 0.530
+            ]
+          }
+        });
+
+        // Popup e cursor ao interagir
+        map.on('click', 'postes-symbol', (e) => {
+          const f = e.features[0];
+          const p = f.properties;
+          new mapboxgl.Popup({ offset: [0, -10], closeButton: true })
+            .setLngLat(f.geometry.coordinates)
+            .setHTML(`
+              <b>${p.nome}</b><br>
+              ${p.cidade || '—'}<br>
+              <span style="font-size:11px;color:#94a3b8">
+                ${f.geometry.coordinates[1].toFixed(6)}, ${f.geometry.coordinates[0].toFixed(6)}
+              </span>
+            `)
+            .addTo(map);
+        });
+        map.on('mouseenter', 'postes-symbol', () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'postes-symbol', () => {
+          map.getCanvas().style.cursor = '';
+        });
+
         document.getElementById('info').textContent =
-          `📷 ${amostra.length} postes de câmera (de ${pontos.length} totais)`;
+          `📷 ${amostra.length} postes de câmera (de ${pontos.length} totais) — escala real 15m`;
       } catch(e) {
         document.getElementById('info').textContent = '❌ erro ao carregar pontos';
         console.error(e);

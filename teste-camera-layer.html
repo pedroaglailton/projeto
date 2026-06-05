@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Teste: Câmeras via symbol layer</title>
+  <title>Teste: Câmeras 3D</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
@@ -31,7 +31,7 @@
   <div id="map"></div>
   <div id="legend">
     <span>📷 <b id="contador">0</b> câmeras</span>
-    <span style="font-size:10px;color:#64748b">zoom 14+ aparece</span>
+    <span style="font-size:10px;color:#64748b">zoom 13+ ícone · 18+ 3D</span>
   </div>
   <div id="info">🔍 Dê zoom em Fortaleza para ver as câmeras</div>
 
@@ -47,55 +47,115 @@
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    let pontosCount = 0;
+    // Ajusta pitch conforme zoom (fica 3D ao aproximar)
+    map.on('zoom', () => {
+      const z = map.getZoom();
+      const pitch = Math.max(0, Math.min(60, (z - 10) * 10));
+      map.easeTo({ pitch, duration: 200 });
+    });
+
+    function desenharPoste3D(ctx, w, h) {
+      // sombra do poste no chão
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      ctx.beginPath();
+      ctx.ellipse(w * 0.48, h * 0.88, w * 0.25, w * 0.08, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // poste (com gradiente lateral para efeito 3D)
+      const gradPoste = ctx.createLinearGradient(0, 0, w * 0.45, 0);
+      gradPoste.addColorStop(0, '#475569');
+      gradPoste.addColorStop(0.3, '#94a3b8');
+      gradPoste.addColorStop(0.7, '#cbd5e1');
+      gradPoste.addColorStop(1, '#334155');
+      ctx.fillStyle = gradPoste;
+      ctx.fillRect(w * 0.38, h * 0.30, w * 0.14, h * 0.60);
+
+      // suporte braço
+      const gradBraco = ctx.createLinearGradient(0, 0, w * 0.50, 0);
+      gradBraco.addColorStop(0, '#64748b');
+      gradBraco.addColorStop(0.5, '#94a3b8');
+      gradBraco.addColorStop(1, '#475569');
+      ctx.fillStyle = gradBraco;
+      ctx.fillRect(w * 0.25, h * 0.28, w * 0.50, h * 0.06);
+
+      // corpo da camera (caixa 3D)
+      const cx = w * 0.22, cy = h * 0.12, cw = w * 0.56, ch = h * 0.20;
+      // face frontal
+      const gradCam = ctx.createLinearGradient(cx, cy, cx + cw, cy);
+      gradCam.addColorStop(0, '#0ea5e9');
+      gradCam.addColorStop(0.3, '#38bdf8');
+      gradCam.addColorStop(0.7, '#7dd3fc');
+      gradCam.addColorStop(1, '#0284c7');
+      ctx.fillStyle = gradCam;
+      ctx.fillRect(cx, cy, cw, ch);
+      ctx.strokeStyle = '#0c4a6e';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx, cy, cw, ch);
+
+      // topo da camera (face superior - perspectiva)
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.moveTo(cx + cw * 0.1, cy);
+      ctx.lineTo(cx + cw * 0.9, cy);
+      ctx.lineTo(cx + cw, cy - ch * 0.25);
+      ctx.lineTo(cx + cw * 0.2, cy - ch * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#0c4a6e';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // lateral direita da camera
+      ctx.fillStyle = '#0369a1';
+      ctx.beginPath();
+      ctx.moveTo(cx + cw, cy);
+      ctx.lineTo(cx + cw, cy + ch);
+      ctx.lineTo(cx + cw * 1.1, cy + ch * 0.75);
+      ctx.lineTo(cx + cw * 1.1, cy - ch * 0.25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#0c4a6e';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // lente (círculo com brilho)
+      const lx = cx + cw * 0.42, ly = cy + ch * 0.5, lr = ch * 0.32;
+      const gradLente = ctx.createRadialGradient(lx - lr * 0.2, ly - lr * 0.2, lr * 0.05, lx, ly, lr);
+      gradLente.addColorStop(0, '#ffffff');
+      gradLente.addColorStop(0.3, '#7dd3fc');
+      gradLente.addColorStop(0.7, '#0369a1');
+      gradLente.addColorStop(1, '#0c4a6e');
+      ctx.fillStyle = gradLente;
+      ctx.beginPath();
+      ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+      ctx.fill();
+
+      // brilho da lente
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(lx - lr * 0.2, ly - lr * 0.25, lr * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+
+      // LED vermelho
+      ctx.fillStyle = '#ef4444';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = 3;
+      ctx.beginPath();
+      ctx.arc(cx + cw * 0.85, cy + ch * 0.25, ch * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
 
     map.on('load', async () => {
       try {
-        // ── 1. Cria o ícone de câmera como imagem ──
+        // ── 1. Cria ícone 2D com aspecto 3D ──
         const canvas = document.createElement('canvas');
-        canvas.width = 36;
-        canvas.height = 48;
+        const size = 128;
+        canvas.width = size;
+        canvas.height = size;
         const ctx = canvas.getContext('2d');
+        desenharPoste3D(ctx, size, size);
 
-        // poste
-        ctx.fillStyle = '#64748b';
-        ctx.fillRect(15, 20, 6, 28);
-
-        // base
-        ctx.fillStyle = '#475569';
-        ctx.fillRect(11, 44, 14, 4);
-
-        // suporte
-        ctx.fillStyle = '#64748b';
-        ctx.fillRect(11, 19, 14, 3);
-
-        // corpo da camera
-        const grad = ctx.createRadialGradient(14, 26, 2, 16, 26, 10);
-        grad.addColorStop(0, '#5eead4');
-        grad.addColorStop(1, '#0ea5e9');
-        ctx.fillStyle = grad;
-        ctx.strokeStyle = '#0284c7';
-        ctx.lineWidth = 2;
-        ctx.fillRect(8, 20, 20, 14);
-        ctx.strokeRect(8, 20, 20, 14);
-
-        // lente
-        const grad2 = ctx.createRadialGradient(16, 26, 1, 16, 26, 5);
-        grad2.addColorStop(0, '#fff');
-        grad2.addColorStop(0.4, '#7dd3fc');
-        grad2.addColorStop(1, '#0369a1');
-        ctx.fillStyle = grad2;
-        ctx.beginPath();
-        ctx.arc(16, 26, 5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // brilho da lente
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.beginPath();
-        ctx.arc(14, 24, 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // ── 2. Adiciona a imagem ao mapa ──
         const img = new Image();
         await new Promise((resolve, reject) => {
           img.onload = resolve;
@@ -104,7 +164,7 @@
         });
         map.addImage('camera-icon', img, { pixelRatio: 2 });
 
-        // ── 3. Carrega os pontos ──
+        // ── 2. Carrega os pontos ──
         const resp = await fetch('/pontos_planejados.json');
         const data = await resp.json();
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
@@ -126,7 +186,7 @@
           maxzoom: 22
         });
 
-        // ── 4. Camada de círculos (zoom baixo) ──
+        // ── 3. Círculos (zoom baixo) ──
         map.addLayer({
           id: 'cameras-circle',
           type: 'circle',
@@ -134,22 +194,15 @@
           minzoom: 10,
           maxzoom: 13.9,
           paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'],
-              10, 2,
-              13, 6
-            ],
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2, 13, 6],
             'circle-color': '#38bdf8',
-            'circle-opacity': ['interpolate', ['linear'], ['zoom'],
-              10, 0,
-              11, 0.6,
-              13, 1
-            ],
+            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0, 11, 0.6, 13, 1],
             'circle-stroke-width': 1,
             'circle-stroke-color': '#0284c7'
           }
         });
 
-        // ── 5. Camada de ícones de câmera (zoom alto) ──
+        // ── 4. Ícone 2D (zoom médio-alto) ──
         map.addLayer({
           id: 'cameras-icon',
           type: 'symbol',
@@ -158,10 +211,12 @@
           layout: {
             'icon-image': 'camera-icon',
             'icon-size': ['interpolate', ['linear'], ['zoom'],
-              13, 0.3,
-              14, 0.5,
-              16, 0.8,
-              18, 1.0
+              13, 0.15,
+              14, 0.25,
+              16, 0.5,
+              18, 1.0,
+              20, 2.0,
+              22, 4.0
             ],
             'icon-anchor': 'bottom',
             'icon-allow-overlap': true,
@@ -169,7 +224,7 @@
           }
         });
 
-        // ── 6. Labels dos pontos (zoom alto) ──
+        // ── 5. Labels ──
         map.addLayer({
           id: 'cameras-label',
           type: 'symbol',
@@ -177,8 +232,8 @@
           minzoom: 15,
           layout: {
             'text-field': ['get', 'nome'],
-            'text-size': 10,
-            'text-offset': [0, -1.5],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 15, 8, 18, 12, 22, 18],
+            'text-offset': [0, -1.8],
             'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
             'text-optional': true
           },
@@ -189,7 +244,7 @@
           }
         });
 
-        // ── 7. Popup ao clicar ──
+        // ── 6. Popups ──
         map.on('click', 'cameras-icon', (e) => {
           const p = e.features[0].properties;
           new mapboxgl.Popup()
@@ -209,7 +264,7 @@
         map.on('mouseenter', 'cameras-circle', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'cameras-circle', () => map.getCanvas().style.cursor = '');
 
-        pontosCount = features.length;
+        const pontosCount = features.length;
         document.getElementById('contador').textContent = pontosCount;
         document.getElementById('info').textContent = `✅ ${pontosCount} câmeras carregadas`;
       } catch (err) {

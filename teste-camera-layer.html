@@ -56,19 +56,18 @@
 
     function desenharPosteRealista(ctx, w, h) {
       // ── Poste cônico FINO ──
-      const baseL = w * 0.10;
-      const topoL = w * 0.05;
+      const baseL = w * 0.08;
+      const topoL = w * 0.04;
       const posteY = h - h * 0.04;
-      const posteTopo = h * 0.28;
+      const posteTopo = h * 0.30;
       const posteH = posteY - posteTopo;
 
       const gradMetal = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
       gradMetal.addColorStop(0, '#64748b');
-      gradMetal.addColorStop(0.25, '#cbd5e1');
+      gradMetal.addColorStop(0.3, '#cbd5e1');
       gradMetal.addColorStop(0.5, '#f1f5f9');
-      gradMetal.addColorStop(0.75, '#94a3b8');
+      gradMetal.addColorStop(0.7, '#94a3b8');
       gradMetal.addColorStop(1, '#475569');
-
       ctx.fillStyle = gradMetal;
       ctx.beginPath();
       ctx.moveTo(w * 0.5 - baseL / 2, posteY);
@@ -77,210 +76,170 @@
       ctx.lineTo(w * 0.5 + baseL / 2, posteY);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 0.5;
-      ctx.stroke();
 
-      // ── Base flange ──
+      // sombra poste
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
+      ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY - posteH * 0.3, 3, posteH * 0.3);
+
+      // base flange
       ctx.fillStyle = '#475569';
-      ctx.fillRect(w * 0.5 - baseL / 2 - 3, posteY - 3, baseL + 6, 5);
+      ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY - 2, baseL + 4, 4);
       ctx.fillStyle = '#334155';
-      ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY, baseL + 4, 2);
-      ctx.fillStyle = '#1e293b';
-      [[w * 0.5 - baseL / 2 - 1, posteY], [w * 0.5 + baseL / 2 + 1, posteY]].forEach(([x, y]) => {
-        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
-      });
+      ctx.fillRect(w * 0.5 - baseL / 2 - 1, posteY, baseL + 2, 2);
 
       // ── Caixa hermética 3D ──
       const cxY = posteY - posteH * 0.32;
-      const cxW = baseL * 1.6;
-      const cH = posteH * 0.10;
+      const cxW = baseL * 1.8;
+      const cH = posteH * 0.09;
       const cxX = w * 0.5 - cxW / 2;
 
-      // face frontal
-      const gradFrente = ctx.createLinearGradient(cxX, 0, cxX + cxW, 0);
-      gradFrente.addColorStop(0, '#334155');
-      gradFrente.addColorStop(0.3, '#94a3b8');
-      gradFrente.addColorStop(0.7, '#cbd5e1');
-      gradFrente.addColorStop(1, '#475569');
-      ctx.fillStyle = gradFrente;
+      const gf = ctx.createLinearGradient(cxX, 0, cxX + cxW, 0);
+      gf.addColorStop(0, '#334155'); gf.addColorStop(0.3, '#94a3b8');
+      gf.addColorStop(0.7, '#cbd5e1'); gf.addColorStop(1, '#475569');
+      ctx.fillStyle = gf;
       ctx.fillRect(cxX, cxY - cH / 2, cxW, cH);
 
-      // face superior (3D perspective)
       ctx.fillStyle = '#64748b';
       ctx.beginPath();
       ctx.moveTo(cxX, cxY - cH / 2);
-      ctx.lineTo(cxX + 4, cxY - cH / 2 - 5);
-      ctx.lineTo(cxX + cxW + 4, cxY - cH / 2 - 5);
+      ctx.lineTo(cxX + 3, cxY - cH / 2 - 4);
+      ctx.lineTo(cxX + cxW + 3, cxY - cH / 2 - 4);
       ctx.lineTo(cxX + cxW, cxY - cH / 2);
       ctx.closePath();
       ctx.fill();
 
-      // face lateral (3D perspective)
       ctx.fillStyle = '#1e293b';
       ctx.beginPath();
       ctx.moveTo(cxX + cxW, cxY - cH / 2);
-      ctx.lineTo(cxX + cxW + 4, cxY - cH / 2 - 5);
-      ctx.lineTo(cxX + cxW + 4, cxY + cH / 2 - 5);
+      ctx.lineTo(cxX + cxW + 3, cxY - cH / 2 - 4);
+      ctx.lineTo(cxX + cxW + 3, cxY + cH / 2 - 4);
       ctx.lineTo(cxX + cxW, cxY + cH / 2);
       ctx.closePath();
       ctx.fill();
 
-      // borda da caixa
       ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 0.8;
+      ctx.lineWidth = 0.6;
       ctx.strokeRect(cxX, cxY - cH / 2, cxW, cH);
-
-      // tampa (linha horizontal)
-      ctx.strokeStyle = '#1e293b';
-      ctx.lineWidth = 0.5;
       ctx.beginPath();
-      ctx.moveTo(cxX + 4, cxY);
-      ctx.lineTo(cxX + cxW - 4, cxY);
+      ctx.moveTo(cxX + 3, cxY);
+      ctx.lineTo(cxX + cxW - 3, cxY);
       ctx.stroke();
 
-      // fechos
       ctx.fillStyle = '#1e293b';
-      [[cxX + 6, cxY], [cxX + cxW - 6, cxY]].forEach(([x, y]) => {
-        ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI * 2); ctx.fill();
+      [[cxX + 5, cxY], [cxX + cxW - 5, cxY]].forEach(([x, y]) => {
+        ctx.beginPath(); ctx.arc(x, y, 1.2, 0, Math.PI * 2); ctx.fill();
       });
 
-      // ── Braço para PTZ ──
-      const bracoY = posteTopo;
+      // ── Suporte/bracket da PTZ ──
+      const bracoY = posteTopo + 2;
       ctx.strokeStyle = '#64748b';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(w * 0.5, bracoY);
-      ctx.lineTo(w * 0.5 + w * 0.24, bracoY - 3);
+      ctx.lineTo(w * 0.5 + w * 0.18, bracoY - 4);
       ctx.stroke();
 
-      // suporte vertical
-      const supX = w * 0.5 + w * 0.24;
       ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(supX, bracoY - 3);
-      ctx.lineTo(supX, bracoY + h * 0.025);
+      ctx.moveTo(w * 0.5 + w * 0.18, bracoY - 4);
+      ctx.lineTo(w * 0.5 + w * 0.18, bracoY + h * 0.015);
       ctx.stroke();
 
-      // ── PTZ Hikvision ──
-      const ptzBaseY = bracoY + h * 0.025;
+      // ── PTZ Hikvision Speed Dome ──
+      const cxPtz = w * 0.5 + w * 0.18;
+      const cyPtz = bracoY + h * 0.015;
 
-      // 1. Sunshield/visor (curvo, estilo Hikvision)
-      ctx.fillStyle = '#1a1a2e';
+      // corpo principal (formato arredondado, branco)
+      const cW = w * 0.16;
+      const cH2 = h * 0.055;
+      const cX = cxPtz - cW / 2;
+      const cY = cyPtz;
+
+      ctx.fillStyle = '#f1f5f9';
       ctx.beginPath();
-      ctx.moveTo(supX - w * 0.10, ptzBaseY + 2);
-      ctx.lineTo(supX + w * 0.16, ptzBaseY + 2);
-      ctx.quadraticCurveTo(supX + w * 0.18, ptzBaseY - h * 0.015, supX + w * 0.14, ptzBaseY - h * 0.025);
-      ctx.lineTo(supX - w * 0.08, ptzBaseY - h * 0.03);
-      ctx.quadraticCurveTo(supX - w * 0.13, ptzBaseY - h * 0.01, supX - w * 0.10, ptzBaseY + 2);
-      ctx.closePath();
+      ctx.roundRect(cX, cY, cW, cH2, 3);
       ctx.fill();
-
-      // sombra do sunshield no corpo
-      ctx.fillStyle = 'rgba(0,0,0,0.12)';
-      ctx.fillRect(supX - w * 0.11, ptzBaseY + 2, w * 0.27, 4);
-
-      // 2. Corpo principal (branco, formato Hikvision)
-      const corpoW = w * 0.26;
-      const corpoH = h * 0.07;
-      const corpoX = supX - corpoW / 2;
-      const corpoY = ptzBaseY + 2;
-
-      const gradCorpo = ctx.createLinearGradient(corpoX, 0, corpoX + corpoW, 0);
-      gradCorpo.addColorStop(0, '#cbd5e1');
-      gradCorpo.addColorStop(0.25, '#f8fafc');
-      gradCorpo.addColorStop(0.6, '#f1f5f9');
-      gradCorpo.addColorStop(1, '#94a3b8');
-      ctx.fillStyle = gradCorpo;
-      ctx.fillRect(corpoX, corpoY, corpoW, corpoH);
-      ctx.strokeStyle = '#6b7280';
+      ctx.strokeStyle = '#94a3b8';
       ctx.lineWidth = 0.5;
-      ctx.strokeRect(corpoX, corpoY, corpoW, corpoH);
+      ctx.beginPath();
+      ctx.roundRect(cX, cY, cW, cH2, 3);
+      ctx.stroke();
 
-      // detalhe frontal (painel Hikvision)
+      // detalhe Hikvision (faixa cinza)
       ctx.fillStyle = '#e2e8f0';
-      ctx.fillRect(corpoX + corpoW * 0.08, corpoY + 2, corpoW * 0.18, corpoH - 4);
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 0.3;
-      ctx.strokeRect(corpoX + corpoW * 0.08, corpoY + 2, corpoW * 0.18, corpoH - 4);
+      ctx.fillRect(cX + 3, cY + cH2 * 0.3, cW * 0.2, cH2 * 0.4);
 
-      // fendas de ventilação
-      ctx.strokeStyle = '#94a3b8';
+      // fendas
+      ctx.strokeStyle = '#cbd5e1';
       ctx.lineWidth = 0.4;
-      for (let i = 0; i < 3; i++) {
-        const vy = corpoY + corpoH * 0.3 + i * 3;
+      for (let i = 0; i < 2; i++) {
+        const vy = cY + cH2 * 0.25 + i * 3;
         ctx.beginPath();
-        ctx.moveTo(corpoX + corpoW * 0.45, vy);
-        ctx.lineTo(corpoX + corpoW * 0.6, vy);
+        ctx.moveTo(cX + cW * 0.5, vy);
+        ctx.lineTo(cX + cW * 0.65, vy);
         ctx.stroke();
       }
 
-      // 3. Anel/base do domo (com IR LEDs)
-      ctx.fillStyle = '#64748b';
-      ctx.fillRect(corpoX - 2, corpoY + corpoH - 2, corpoW + 4, 4);
-      ctx.fillStyle = '#475569';
-      ctx.fillRect(corpoX - 1, corpoY + corpoH - 1, corpoW + 2, 2);
+      // sunshield (visor preto na frente)
+      ctx.fillStyle = '#1e293b';
+      ctx.beginPath();
+      ctx.moveTo(cX - 2, cY + 2);
+      ctx.lineTo(cX + cW + 2, cY + 2);
+      ctx.lineTo(cX + cW + 4, cY - 3);
+      ctx.lineTo(cX - 1, cY - 4);
+      ctx.closePath();
+      ctx.fill();
 
-      // IR LEDs ao redor do anel
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      for (let i = 0; i < 5; i++) {
-        const lx = corpoX + 3 + i * (corpoW - 6) / 4;
-        ctx.beginPath();
-        ctx.arc(lx, corpoY + corpoH, 1, 0, Math.PI * 2);
-        ctx.fill();
+      // anel do domo
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(cX - 1, cY + cH2 - 2, cW + 2, 4);
+
+      // IR LEDs no anel
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      for (let i = 0; i < 4; i++) {
+        const lx = cX + 2 + i * (cW - 4) / 3;
+        ctx.beginPath(); ctx.arc(lx, cY + cH2, 0.8, 0, Math.PI * 2); ctx.fill();
       }
 
-      // 4. Domo (cúpula semitransparente)
-      const domoX = supX;
-      const domoY = corpoY + corpoH + 2;
-      const domoR = w * 0.11;
+      // ── Domo (cúpula) ──
+      const dX = cxPtz;
+      const dY = cY + cH2 + 1;
+      const dR = w * 0.09;
 
-      // camada externa do domo (gradiente esférico)
-      const gradDomo = ctx.createRadialGradient(
-        domoX - domoR * 0.25, domoY - domoR * 0.15, domoR * 0.05,
-        domoX, domoY + 3, domoR
-      );
-      gradDomo.addColorStop(0, 'rgba(255,255,255,0.2)');
-      gradDomo.addColorStop(0.1, 'rgba(180,200,230,0.1)');
-      gradDomo.addColorStop(0.4, 'rgba(30,50,80,0.5)');
-      gradDomo.addColorStop(0.75, 'rgba(10,20,40,0.8)');
-      gradDomo.addColorStop(1, 'rgba(3,7,15,0.95)');
+      const gd = ctx.createRadialGradient(dX - dR * 0.25, dY - dR * 0.1, 1, dX, dY + 2, dR);
+      gd.addColorStop(0, 'rgba(255,255,255,0.15)');
+      gd.addColorStop(0.15, 'rgba(180,200,230,0.08)');
+      gd.addColorStop(0.45, 'rgba(25,45,75,0.5)');
+      gd.addColorStop(0.8, 'rgba(8,15,30,0.85)');
+      gd.addColorStop(1, 'rgba(3,6,12,0.95)');
 
-      ctx.fillStyle = gradDomo;
+      ctx.fillStyle = gd;
       ctx.beginPath();
-      ctx.ellipse(domoX, domoY, domoR, domoR * 0.7, 0, Math.PI, 0);
+      ctx.ellipse(dX, dY, dR, dR * 0.6, 0, Math.PI, 0);
       ctx.fill();
 
-      // borda do domo
-      ctx.strokeStyle = 'rgba(100,120,140,0.3)';
-      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = 'rgba(100,120,140,0.25)';
+      ctx.lineWidth = 0.4;
       ctx.beginPath();
-      ctx.ellipse(domoX, domoY, domoR, domoR * 0.7, 0, Math.PI, 0);
+      ctx.ellipse(dX, dY, dR, dR * 0.6, 0, Math.PI, 0);
       ctx.stroke();
 
-      // reflexo principal
-      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+      // reflexo
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
       ctx.beginPath();
-      ctx.ellipse(domoX - domoR * 0.25, domoY - domoR * 0.1, domoR * 0.2, domoR * 0.3, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(dX - dR * 0.25, dY - dR * 0.05, dR * 0.18, dR * 0.25, -0.3, 0, Math.PI * 2);
       ctx.fill();
 
-      // reflexo secundário pequeno
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      // lente visível
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.beginPath();
-      ctx.ellipse(domoX + domoR * 0.2, domoY + domoR * 0.05, domoR * 0.08, domoR * 0.12, 0.3, 0, Math.PI * 2);
+      ctx.arc(dX, dY + 2, dR * 0.2, 0, Math.PI * 2);
       ctx.fill();
 
-      // lente visível dentro do domo (círculo escuro)
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillStyle = 'rgba(100,150,255,0.05)';
       ctx.beginPath();
-      ctx.arc(domoX - 1, domoY + 2, domoR * 0.25, 0, Math.PI * 2);
-      ctx.fill();
-
-      // brilho da lente
-      ctx.fillStyle = 'rgba(100,150,255,0.08)';
-      ctx.beginPath();
-      ctx.arc(domoX - 2, domoY + 1, domoR * 0.15, 0, Math.PI * 2);
+      ctx.arc(dX - 1, dY + 1, dR * 0.1, 0, Math.PI * 2);
       ctx.fill();
     }
 

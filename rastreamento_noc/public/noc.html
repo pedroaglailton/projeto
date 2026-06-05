@@ -1013,6 +1013,7 @@
 
     document.getElementById('aisFilter').addEventListener('change', () => {
       if (roadDataLoaded) renderRoadsLayer();
+      if (typeof renderPontosLayer === 'function') renderPontosLayer();
     });
 
     setTimeout(carregarRoads, 3000);
@@ -1351,13 +1352,17 @@
       initPontosLayer();
       const sel = document.getElementById('filtroCidade');
       const filtro = sel ? sel.value : 'TODAS';
+      const aisSel = document.getElementById('aisFilter');
+      const aisFiltro = aisSel ? aisSel.value : '';
       const checked = document.getElementById('togglePontos').checked;
       const features = [];
       pontosFeatureIds.clear();
       for (const p of pontosPlanejados) {
         if (!checked) break;
-        const ok = filtro === 'TODAS' || (p.cidade || 'SEM CIDADE') === filtro;
-        if (!ok) continue;
+        const okCid = filtro === 'TODAS' || (p.cidade || 'SEM CIDADE') === filtro;
+        if (!okCid) continue;
+        const okAis = !aisFiltro || (p.ais || 'SEM AIS') === aisFiltro;
+        if (!okAis) continue;
         const visitado = pontosVisitados.has(p.id);
         const st = estiloPonto(visitado);
         const fid = 'p_' + p.id;
@@ -1394,6 +1399,7 @@
     let pontosClickHandler = null;
 
     const aplicarFiltroPontos = renderPontosLayer;
+    window.aplicarFiltroPontos = renderPontosLayer;
 
     function popularFiltroCidades() {
       const sel = document.getElementById('filtroCidade');
@@ -1406,6 +1412,21 @@
         op.textContent = c;
         sel.appendChild(op);
       }
+    }
+
+    function popularFiltroAis() {
+      const sel = document.getElementById('aisFilter');
+      if (!sel) return;
+      const atuais = Array.from(new Set(pontosPlanejados.map(p => p.ais).filter(Boolean))).sort();
+      const atual = sel.value;
+      sel.innerHTML = '<option value="">Todas</option>';
+      for (const a of atuais) {
+        const op = document.createElement('option');
+        op.value = a;
+        op.textContent = a;
+        sel.appendChild(op);
+      }
+      if (atuais.includes(atual)) sel.value = atual;
     }
 
     function distMetros(a, b) {
@@ -1564,6 +1585,7 @@
         if (window.mapPronto) { renderPontosLayer(); }
         else { map.on('load', () => renderPontosLayer()); }
         popularFiltroCidades();
+        popularFiltroAis();
         atualizarStatsPontos();
       } catch (_) {}
     }

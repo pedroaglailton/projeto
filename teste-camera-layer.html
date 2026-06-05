@@ -48,10 +48,10 @@
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
     // Ajusta pitch conforme zoom (fica 3D ao aproximar)
-    map.on('zoom', () => {
+    map.on('zoomend', () => {
       const z = map.getZoom();
       const pitch = Math.max(0, Math.min(60, (z - 10) * 10));
-      map.easeTo({ pitch, duration: 200 });
+      map.setPitch(pitch);
     });
 
     function desenharPoste3D(ctx, w, h) {

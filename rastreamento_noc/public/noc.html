@@ -649,7 +649,7 @@
           .setLngLat([lng, lat]);
         this._mk._wrapper = this;
       }
-      addTo(map) { this._mk.addTo(map); return this; }
+      addTo(map) { this._map = map; this._mk.addTo(map); return this; }
       setLatLng(ll) {
         let lat, lng;
         if (Array.isArray(ll)) { lat = ll[0]; lng = ll[1]; }
@@ -687,7 +687,7 @@
       setIcon(newState) {
         // setElement não existe no Mapbox GL JS v3 — recria o marker inteiro
         const lngLat = this._mk.getLngLat();
-        const map = this._mk._map;
+        const map = this._map;
         this._mk.remove();
 
         const novoEl = criarPinoTeardrop(this._equipeId, this._stale, this._forceColor);

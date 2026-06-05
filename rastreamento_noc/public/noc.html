@@ -1337,8 +1337,21 @@
         map.addLayer({
           id: pontosLayerId, type: 'circle', source: pontosSourceId,
           paint: {
-            'circle-radius': ['get', 'r'], 'circle-color': ['get', 'fc'],
-            'circle-opacity': ['get', 'fo'], 'circle-stroke-width': ['get', 'sw'],
+            'circle-radius': [
+              'interpolate', ['linear'], ['zoom'],
+              10, ['*', ['get', 'r'], 1.2],
+              13, ['*', ['get', 'r'], 2.5],
+              16, ['*', ['get', 'r'], 5],
+              19, ['*', ['get', 'r'], 10]
+            ],
+            'circle-color': ['get', 'fc'],
+            'circle-opacity': ['get', 'fo'],
+            'circle-stroke-width': [
+              'interpolate', ['linear'], ['zoom'],
+              10, ['get', 'sw'],
+              16, ['*', ['get', 'sw'], 2],
+              19, ['*', ['get', 'sw'], 4]
+            ],
             'circle-stroke-color': ['get', 'sc'], 'circle-stroke-opacity': 1
           }
         });

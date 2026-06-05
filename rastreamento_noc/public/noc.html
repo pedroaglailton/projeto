@@ -775,21 +775,14 @@
 
     async function atualizarClima() {
       try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LNG}&current_weather=true&hourly=precipitation,weathercode&timezone=America/Fortaleza&forecast_days=1`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LNG}&current=temperature_2m,precipitation,weather_code&timezone=America/Fortaleza&forecast_days=1`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const data = await resp.json();
 
-        let precipitation = 0;
-        const temperatura = data.current_weather?.temperature ?? '--';
-        if (data.hourly?.precipitation && data.hourly.time) {
-          const now = new Date();
-          const currentHourStr = now.toISOString().slice(0, 13) + ':00';
-          const idx = data.hourly.time.indexOf(currentHourStr);
-          if (idx !== -1 && data.hourly.precipitation[idx] !== undefined) {
-            precipitation = data.hourly.precipitation[idx];
-          }
-        }
+        const current = data.current || {};
+        const temperatura = current.temperature_2m ?? '--';
+        const precipitation = current.precipitation ?? 0;
 
         let cond, icon, label, rainIntensity;
         if (precipitation <= 0.2) {

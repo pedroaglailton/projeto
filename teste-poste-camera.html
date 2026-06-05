@@ -31,7 +31,7 @@
       zoom: 16,
       center: [-38.5267, -3.7319],
       pitch: 45,
-      style: 'mapbox://styles/mapbox/light-v11'
+      style: 'mapbox://styles/mapbox/standard'
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
@@ -56,11 +56,27 @@
         const resp = await fetch('/pontos_planejados.json');
         const data = await resp.json();
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
-        const amostra = pontos.slice(0, 100);
+        const amostra = pontos.slice(0, 15);
 
-        // Carrega a imagem do poste como icone (cache-busting: ?v=3)
+        // Calcula bounds dos primeiros 100 pontos para enquadrar o mapa
+        let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+        for (const p of amostra) {
+          const lng = Number(p.lng), lat = Number(p.lat);
+          if (!isFinite(lng) || !isFinite(lat)) continue;
+          if (lng < minLng) minLng = lng;
+          if (lng > maxLng) maxLng = lng;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
+        }
+        if (isFinite(minLng) && isFinite(minLat)) {
+          map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+            padding: 60, maxZoom: 17, duration: 0
+          });
+        }
+
+        // Carrega a imagem do poste como icone (cache-busting: ?v=4)
         const image = await new Promise((resolve, reject) => {
-          map.loadImage('poste.png?v=3', (err, img) => {
+          map.loadImage('poste.png?v=4', (err, img) => {
             if (err) return reject(err);
             console.log('[poste] imagem carregada:', img.width, 'x', img.height);
             resolve(img);

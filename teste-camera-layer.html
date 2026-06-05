@@ -55,13 +55,14 @@
     });
 
     function desenharPosteRealista(ctx, w, h) {
-      // ── Poste cônico de 15m (mais largo na base) ──
-      const baseL = w * 0.18;   // largura na base
-      const topoL = w * 0.08;   // largura no topo
-      const posteH = h * 0.78;  // altura do poste (78% do ícone)
-      const posteY = h - h * 0.10;  // base do poste
+      // ── Poste cônico de 15m ──
+      const baseL = w * 0.20;    // largura na base (~26px)
+      const topoL = w * 0.08;    // largura no topo (~10px)
+      const posteY = h - h * 0.04;
+      const posteTopo = h * 0.22;
+      const posteH = posteY - posteTopo;
 
-      // gradiente metálico (aço galvanizado)
+      // gradiente metálico do poste
       const gradMetal = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
       gradMetal.addColorStop(0, '#64748b');
       gradMetal.addColorStop(0.25, '#cbd5e1');
@@ -69,12 +70,12 @@
       gradMetal.addColorStop(0.75, '#94a3b8');
       gradMetal.addColorStop(1, '#475569');
 
-      // desenha poste cônico como polígono
+      // poste cônico
       ctx.fillStyle = gradMetal;
       ctx.beginPath();
       ctx.moveTo(w * 0.5 - baseL / 2, posteY);
-      ctx.lineTo(w * 0.5 - topoL / 2, posteY - posteH);
-      ctx.lineTo(w * 0.5 + topoL / 2, posteY - posteH);
+      ctx.lineTo(w * 0.5 - topoL / 2, posteTopo);
+      ctx.lineTo(w * 0.5 + topoL / 2, posteTopo);
       ctx.lineTo(w * 0.5 + baseL / 2, posteY);
       ctx.closePath();
       ctx.fill();
@@ -82,70 +83,115 @@
       ctx.lineWidth = 0.5;
       ctx.stroke();
 
-      // ── Base / flange ──
+      // ── Base flange ──
       ctx.fillStyle = '#475569';
-      ctx.fillRect(w * 0.5 - baseL / 2 - 4, posteY - 2, baseL + 8, 6);
+      ctx.fillRect(w * 0.5 - baseL / 2 - 4, posteY - 3, baseL + 8, 6);
       ctx.fillStyle = '#334155';
       ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY, baseL + 4, 2);
-
-      // parafusos da base
       ctx.fillStyle = '#1e293b';
-      [
-        [w * 0.5 - baseL / 2 - 2, posteY + 1],
-        [w * 0.5 + baseL / 2 + 2, posteY + 1]
-      ].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
+      const parafusos = [
+        [w * 0.5 - baseL / 2 - 2, posteY],
+        [w * 0.5 + baseL / 2 + 2, posteY]
+      ];
+      parafusos.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
 
-      // ── Braço articulado (suporte da câmera) ──
-      const bracoY = posteY - posteH + 4;
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = 3;
+      // ── Caixa hermética (meio do poste) ──
+      const cxH = posteH * 0.28;
+      const cxY = posteY - posteH * 0.30;
+      const cxW = baseL * 0.85;
+      const cH = posteH * 0.12;
+
+      // corpo da caixa
+      const gradCaixa = ctx.createLinearGradient(w * 0.5 - cxW / 2, 0, w * 0.5 + cxW / 2, 0);
+      gradCaixa.addColorStop(0, '#334155');
+      gradCaixa.addColorStop(0.3, '#94a3b8');
+      gradCaixa.addColorStop(0.7, '#cbd5e1');
+      gradCaixa.addColorStop(1, '#475569');
+      ctx.fillStyle = gradCaixa;
+      ctx.fillRect(w * 0.5 - cxW / 2, cxY - cH / 2, cxW, cH);
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(w * 0.5 - cxW / 2, cxY - cH / 2, cxW, cH);
+
+      // tampa / linha divisória da caixa
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 0.5;
       ctx.beginPath();
-      ctx.moveTo(w * 0.5, bracoY);
-      ctx.lineTo(w * 0.5 + w * 0.20, bracoY - 6);
+      ctx.moveTo(w * 0.5 - cxW / 2 + 4, cxY);
+      ctx.lineTo(w * 0.5 + cxW / 2 - 4, cxY);
       ctx.stroke();
 
-      // ── Câmera no topo do braço ──
-      const camX = w * 0.5 + w * 0.20;
-      const camY = bracoY - 6;
-      const camW = w * 0.18;
-      const camH = h * 0.10;
+      // fechos da caixa
+      ctx.fillStyle = '#1e293b';
+      [[w * 0.5 - cxW / 2 + 6, cxY], [w * 0.5 + cxW / 2 - 6, cxY]].forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
 
-      // corpo da câmera (caixa retangular)
-      const gradCam = ctx.createLinearGradient(camX - camW / 2, camY, camX + camW / 2, camY);
-      gradCam.addColorStop(0, '#0c4a6e');
-      gradCam.addColorStop(0.3, '#0ea5e9');
-      gradCam.addColorStop(0.6, '#38bdf8');
-      gradCam.addColorStop(1, '#0284c7');
-      ctx.fillStyle = gradCam;
-      ctx.fillRect(camX - camW / 2, camY - camH / 2, camW, camH);
-      ctx.strokeStyle = '#082f49';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(camX - camW / 2, camY - camH / 2, camW, camH);
-
-      // lente
-      const lr = camH * 0.30;
-      const gradLente = ctx.createRadialGradient(camX, camY - 1, 1, camX, camY, lr);
-      gradLente.addColorStop(0, '#fff');
-      gradLente.addColorStop(0.2, '#7dd3fc');
-      gradLente.addColorStop(0.6, '#0369a1');
-      gradLente.addColorStop(1, '#0c4a6e');
-      ctx.fillStyle = gradLente;
+      // ── Braço articulado para PTZ ──
+      const bracoY = posteTopo + 2;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.arc(camX, camY, lr, 0, Math.PI * 2);
+      ctx.moveTo(w * 0.5, bracoY);
+      ctx.lineTo(w * 0.5 + w * 0.22, bracoY - 4);
+      ctx.stroke();
+
+      // suporte vertical do braço
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.5 + w * 0.22, bracoY - 4);
+      ctx.lineTo(w * 0.5 + w * 0.22, bracoY + h * 0.04);
+      ctx.stroke();
+
+      // ── PTZ (câmera domo) ──
+      const ptzX = w * 0.5 + w * 0.22;
+      const ptzY = bracoY + h * 0.04;
+      const ptzW = w * 0.20;
+      const ptzH = h * 0.14;
+
+      // base da PTZ (anel)
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(ptzX - ptzW / 2 - 1, ptzY - 3, ptzW + 2, 6);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(ptzX - ptzW / 2 - 2, ptzY - 1, ptzW + 4, 3);
+
+      // domo (cúpula) - gradiente esférico
+      const gradDomo = ctx.createRadialGradient(
+        ptzX - ptzW * 0.15, ptzY + ptzH * 0.15, ptzH * 0.05,
+        ptzX, ptzY + ptzH * 0.3, ptzH * 0.65
+      );
+      gradDomo.addColorStop(0, 'rgba(255,255,255,0.9)');
+      gradDomo.addColorStop(0.15, 'rgba(200,220,240,0.8)');
+      gradDomo.addColorStop(0.4, 'rgba(100,150,200,0.7)');
+      gradDomo.addColorStop(0.7, 'rgba(30,60,100,0.8)');
+      gradDomo.addColorStop(1, 'rgba(10,20,40,0.95)');
+
+      ctx.fillStyle = gradDomo;
+      ctx.beginPath();
+      ctx.ellipse(ptzX, ptzY + ptzH * 0.25, ptzW / 2, ptzH * 0.55, 0, Math.PI, 0);
       ctx.fill();
 
-      // brilho da lente
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      // visor / sunshield
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
-      ctx.arc(camX - lr * 0.2, camY - lr * 0.25, lr * 0.3, 0, Math.PI * 2);
+      ctx.ellipse(ptzX, ptzY + 2, ptzW / 2 + 2, 4, 0, 0, Math.PI);
       ctx.fill();
 
-      // LED vermelho
+      // reflexo do domo
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(ptzX - ptzW * 0.2, ptzY + ptzH * 0.2, ptzW * 0.2, ptzH * 0.25, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // LED vermelho na base da PTZ
       ctx.shadowColor = '#ef4444';
       ctx.shadowBlur = 4;
       ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.arc(camX + camW / 2 - 5, camY - camH / 2 + 5, 2.5, 0, Math.PI * 2);
+      ctx.arc(ptzX + ptzW / 2 - 4, ptzY - 1, 2, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     }

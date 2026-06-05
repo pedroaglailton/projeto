@@ -1420,13 +1420,26 @@
       const sel = document.getElementById('filtroCidade');
       if (!sel) return;
       const cidades = Array.from(new Set(pontosPlanejados.map(p => p.cidade || 'SEM CIDADE'))).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      const ais = Array.from(new Set(pontosPlanejados.map(p => p.ais).filter(Boolean))).sort();
       sel.innerHTML = '<option value="TODAS">Todas</option>';
+      const grpCid = document.createElement('optgroup');
+      grpCid.label = 'Cidades';
       for (const c of cidades) {
         const op = document.createElement('option');
         op.value = c;
         op.textContent = c;
-        sel.appendChild(op);
+        grpCid.appendChild(op);
       }
+      sel.appendChild(grpCid);
+      const grpAis = document.createElement('optgroup');
+      grpAis.label = 'AIS (Fortaleza)';
+      for (const a of ais) {
+        const op = document.createElement('option');
+        op.value = a;
+        op.textContent = a;
+        grpAis.appendChild(op);
+      }
+      sel.appendChild(grpAis);
     }
 
     function popularFiltroAis() {

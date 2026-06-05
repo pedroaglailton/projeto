@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Teste: Câmeras 3D</title>
+  <title>Teste: Câmeras 3D - Fortaleza</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
@@ -17,14 +17,26 @@
       padding: 10px 18px; font-size: 13px; z-index: 999;
       text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.5);
       pointer-events: none;
+      font-weight: 500;
     }
     #legend {
       position: fixed; top: 16px; right: 60px; z-index: 999;
       background: #1e293be0; backdrop-filter: blur(6px);
       border: 1px solid #334155; border-radius: 8px;
       padding: 10px 14px; font-size: 12px; color: #94a3b8;
+      font-weight: 500;
     }
     #legend span { display: flex; align-items: center; gap: 6px; }
+    .mapboxgl-popup-content {
+      background: #1e293b;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .mapboxgl-popup-tip {
+      border-top-color: #1e293b;
+    }
   </style>
 </head>
 <body>
@@ -54,136 +66,229 @@
       map.setPitch(pitch);
     });
 
+    // Função redesenhada: Poste de concreto/cimento estilo urbano com braço metálico e câmera bullet
     function desenharPosteRealista(ctx, w, h) {
-      // ── Poste cônico (galvanizado/branco) ──
-      const baseL = w * 0.07;
-      const topoL = w * 0.035;
-      const posteY = h - h * 0.04;
-      const posteTopo = h * 0.32;
-      const posteH = posteY - posteTopo;
-
-      const gradMetal = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
-      gradMetal.addColorStop(0, '#cbd5e1');
-      gradMetal.addColorStop(0.3, '#f8fafc');
-      gradMetal.addColorStop(0.6, '#f1f5f9');
-      gradMetal.addColorStop(1, '#94a3b8');
-      ctx.fillStyle = gradMetal;
+      ctx.clearRect(0, 0, w, h);
+      
+      // ============================================
+      // 1. POSTE DE CONCRETO (cinza texturizado)
+      // ============================================
+      const baseW = w * 0.09;      // base larga
+      const topoW = w * 0.045;     // topo mais fino
+      const posteBaseY = h - h * 0.05;
+      const posteTopoY = h * 0.22;
+      
+      // Gradiente de concreto
+      const gradConcreto = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
+      gradConcreto.addColorStop(0, '#9ca3af');
+      gradConcreto.addColorStop(0.25, '#b9c3d0');
+      gradConcreto.addColorStop(0.5, '#cbd5e1');
+      gradConcreto.addColorStop(0.75, '#b9c3d0');
+      gradConcreto.addColorStop(1, '#9ca3af');
+      ctx.fillStyle = gradConcreto;
+      
+      // Desenha poste cônico
       ctx.beginPath();
-      ctx.moveTo(w * 0.5 - baseL / 2, posteY);
-      ctx.lineTo(w * 0.5 - topoL / 2, posteTopo);
-      ctx.lineTo(w * 0.5 + topoL / 2, posteTopo);
-      ctx.lineTo(w * 0.5 + baseL / 2, posteY);
+      ctx.moveTo(w * 0.5 - baseW / 2, posteBaseY);
+      ctx.lineTo(w * 0.5 - topoW / 2, posteTopoY);
+      ctx.lineTo(w * 0.5 + topoW / 2, posteTopoY);
+      ctx.lineTo(w * 0.5 + baseW / 2, posteBaseY);
       ctx.closePath();
       ctx.fill();
-
-      // base flange
-      ctx.fillStyle = '#94a3b8';
-      ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY - 2, baseL + 4, 4);
-
-      // ── Caixa hermética 3D ──
-      const cxY = posteY - posteH * 0.30;
-      const cxW = baseL * 2.0;
-      const cH = posteH * 0.08;
+      
+      // Textura de concreto (pontos simulando porosidade)
+      ctx.fillStyle = '#7e8a98';
+      for (let i = 0; i < 60; i++) {
+        const randX = w * 0.5 + (Math.random() - 0.5) * baseW;
+        const randY = posteTopoY + Math.random() * (posteBaseY - posteTopoY);
+        ctx.beginPath();
+        ctx.arc(randX, randY, Math.random() * 1.5 + 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Anéis de concreto (marcas de forma)
+      ctx.strokeStyle = '#6b7280';
+      ctx.lineWidth = 1.2;
+      const numAneis = 5;
+      for (let i = 1; i <= numAneis; i++) {
+        const yPos = posteTopoY + (posteBaseY - posteTopoY) * (i / (numAneis + 1));
+        const widthAtY = baseW - ((baseW - topoW) * ((yPos - posteTopoY) / (posteBaseY - posteTopoY)));
+        ctx.beginPath();
+        ctx.moveTo(w * 0.5 - widthAtY / 2, yPos);
+        ctx.lineTo(w * 0.5 + widthAtY / 2, yPos);
+        ctx.stroke();
+      }
+      
+      // Base de concreto reforçada
+      ctx.fillStyle = '#7e8a98';
+      ctx.fillRect(w * 0.5 - baseW / 2 - 4, posteBaseY - 4, baseW + 8, 8);
+      ctx.fillStyle = '#6b7280';
+      ctx.fillRect(w * 0.5 - baseW / 2 - 2, posteBaseY - 2, baseW + 4, 4);
+      
+      // Parafusos de ancoragem
+      ctx.fillStyle = '#4b5563';
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.arc(w * 0.5 + i * (baseW / 3.5), posteBaseY + 1, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // ============================================
+      // 2. BRAÇO METÁLICO CURVO (tipo "pescoço de ganso")
+      // ============================================
+      const bracoInicioX = w * 0.5;
+      const bracoInicioY = posteTopoY + 6;
+      
+      // Sombra do braço
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = 3;
+      
+      ctx.beginPath();
+      ctx.moveTo(bracoInicioX, bracoInicioY);
+      ctx.quadraticCurveTo(bracoInicioX + w * 0.08, bracoInicioY - 5, bracoInicioX + w * 0.2, bracoInicioY);
+      ctx.lineTo(bracoInicioX + w * 0.21, bracoInicioY + 6);
+      ctx.quadraticCurveTo(bracoInicioX + w * 0.08, bracoInicioY + 2, bracoInicioX, bracoInicioY + 6);
+      ctx.closePath();
+      
+      const gradBraco = ctx.createLinearGradient(bracoInicioX, bracoInicioY, bracoInicioX + w * 0.2, bracoInicioY);
+      gradBraco.addColorStop(0, '#9ca3af');
+      gradBraco.addColorStop(0.5, '#e5e7eb');
+      gradBraco.addColorStop(1, '#9ca3af');
+      ctx.fillStyle = gradBraco;
+      ctx.fill();
+      ctx.strokeStyle = '#6b7280';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      
+      ctx.shadowBlur = 0;
+      
+      // Reforço / suporte triangular
+      ctx.beginPath();
+      ctx.moveTo(bracoInicioX + 3, bracoInicioY + 3);
+      ctx.lineTo(bracoInicioX + w * 0.1, bracoInicioY + 1);
+      ctx.lineTo(bracoInicioX + w * 0.08, bracoInicioY + 5);
+      ctx.fillStyle = '#7e8a98';
+      ctx.fill();
+      
+      // ============================================
+      // 3. CAIXA DE JUNÇÃO (passagem de cabos)
+      // ============================================
+      const cxW = baseW * 1.3;
+      const cH = (posteBaseY - posteTopoY) * 0.06;
       const cxX = w * 0.5 - cxW / 2;
-
-      const gf = ctx.createLinearGradient(cxX, 0, cxX + cxW, 0);
-      gf.addColorStop(0, '#475569'); gf.addColorStop(0.3, '#94a3b8');
-      gf.addColorStop(0.7, '#cbd5e1'); gf.addColorStop(1, '#64748b');
-      ctx.fillStyle = gf;
+      const cxY = posteBaseY - (posteBaseY - posteTopoY) * 0.25;
+      
+      ctx.fillStyle = '#475569';
       ctx.fillRect(cxX, cxY - cH / 2, cxW, cH);
-
-      // topo 3D
       ctx.fillStyle = '#64748b';
+      ctx.fillRect(cxX + 2, cxY - cH / 2 - 1, cxW - 4, 3);
+      
+      // Tampa da caixa
+      ctx.fillStyle = '#334155';
       ctx.beginPath();
       ctx.moveTo(cxX, cxY - cH / 2);
       ctx.lineTo(cxX + 3, cxY - cH / 2 - 4);
-      ctx.lineTo(cxX + cxW + 3, cxY - cH / 2 - 4);
+      ctx.lineTo(cxX + cxW - 3, cxY - cH / 2 - 4);
       ctx.lineTo(cxX + cxW, cxY - cH / 2);
-      ctx.closePath();
       ctx.fill();
-
-      // lateral 3D
-      ctx.fillStyle = '#334155';
-      ctx.beginPath();
-      ctx.moveTo(cxX + cxW, cxY - cH / 2);
-      ctx.lineTo(cxX + cxW + 3, cxY - cH / 2 - 4);
-      ctx.lineTo(cxX + cxW + 3, cxY + cH / 2 - 4);
-      ctx.lineTo(cxX + cxW, cxY + cH / 2);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(cxX, cxY - cH / 2, cxW, cH);
-      ctx.beginPath();
-      ctx.moveTo(cxX + 3, cxY);
-      ctx.lineTo(cxX + cxW - 3, cxY);
-      ctx.stroke();
+      
+      // Conector aparente
       ctx.fillStyle = '#1e293b';
-      [[cxX + 5, cxY], [cxX + cxW - 5, cxY]].forEach(([x, y]) => {
-        ctx.beginPath(); ctx.arc(x, y, 1, 0, Math.PI * 2); ctx.fill();
-      });
-
-      // ── Braço curto para PTZ ──
-      const by = posteTopo + 3;
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 3.5;
+      ctx.fillRect(cxX + cxW - 10, cxY - 3, 5, 6);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fillRect(cxX + 5, cxY - 2, 2, 3);
+      
+      // ============================================
+      // 4. SUPORTE DA CÂMERA (articulado)
+      // ============================================
+      const supX = bracoInicioX + w * 0.2;
+      const supY = bracoInicioY;
+      
+      ctx.fillStyle = '#6b7280';
+      ctx.fillRect(supX - 2, supY - 3, 6, 10);
+      ctx.fillStyle = '#4b5563';
+      ctx.fillRect(supX - 1, supY - 5, 4, 4);
+      
+      // Parafuso de articulação
       ctx.beginPath();
-      ctx.moveTo(w * 0.5, by);
-      ctx.lineTo(w * 0.5 + w * 0.14, by);
+      ctx.arc(supX + 1, supY - 1, 2, 0, Math.PI * 2);
+      ctx.fillStyle = '#374151';
+      ctx.fill();
+      
+      // ============================================
+      // 5. CÂMERA TIPO BULLET (cilíndrica)
+      // ============================================
+      const camX = supX + 6;
+      const camY = supY - 2;
+      const camComprimento = w * 0.16;
+      const camDiametro = w * 0.045;
+      
+      // Corpo principal da câmera
+      const gradCam = ctx.createLinearGradient(camX, camY - camDiametro/2, camX + camComprimento, camY);
+      gradCam.addColorStop(0, '#e2e8f0');
+      gradCam.addColorStop(0.3, '#ffffff');
+      gradCam.addColorStop(0.7, '#cbd5e1');
+      gradCam.addColorStop(1, '#94a3b8');
+      ctx.fillStyle = gradCam;
+      ctx.fillRect(camX, camY - camDiametro/2, camComprimento, camDiametro);
+      
+      // Anéis de acabamento
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(camX + 2, camY - camDiametro/2 - 1, 3, camDiametro + 2);
+      ctx.fillRect(camX + camComprimento - 8, camY - camDiametro/2 - 1, 4, camDiametro + 2);
+      
+      // Lente frontal (grande, escura)
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.ellipse(camX + camComprimento - 3, camY, 4, camDiametro/1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Reflexo da lente
+      ctx.fillStyle = 'rgba(59,130,246,0.4)';
+      ctx.beginPath();
+      ctx.ellipse(camX + camComprimento - 4, camY - 1, 1.5, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Detalhe IR (infravermelho)
+      ctx.fillStyle = '#7f1d1d';
+      ctx.fillRect(camX + camComprimento - 12, camY - 2, 4, 4);
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(camX + camComprimento - 11, camY - 1, 2, 2);
+      
+      // Suporte de fixação da câmera
+      ctx.fillStyle = '#4b5563';
+      ctx.fillRect(camX + 5, camY - camDiametro/2 - 2, camComprimento - 18, 3);
+      
+      // ============================================
+      // 6. CABO / FIAÇÃO APARENTE
+      // ============================================
+      ctx.beginPath();
+      ctx.moveTo(cxX + cxW - 8, cxY);
+      ctx.quadraticCurveTo(cxX + cxW, cxY - 5, supX - 3, supY + 2);
+      ctx.lineTo(supX - 5, supY + 4);
+      ctx.strokeStyle = '#374151';
+      ctx.lineWidth = 1.5;
       ctx.stroke();
-
-      // ── PTZ Speed Dome (compacta) ──
-      const cxPtz = w * 0.5 + w * 0.14;
-      const cyPtz = by;
-
-      // corpo branco (cilíndrico baixo)
-      const cw2 = w * 0.12;
-      const ch2 = h * 0.03;
-      const cx2 = cxPtz - cw2 / 2;
-      const cy2 = cyPtz;
-
-      ctx.fillStyle = '#f8fafc';
-      ctx.fillRect(cx2, cy2, cw2, ch2);
-      ctx.strokeStyle = '#94a3b8';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(cx2, cy2, cw2, ch2);
-
-      // sunshield (preto, projetado pra frente)
-      ctx.fillStyle = '#1e293b';
-      ctx.fillRect(cx2, cy2 - 2, cw2, 4);
-
-      // anel prata
-      ctx.fillStyle = '#64748b';
-      ctx.fillRect(cx2 - 1, cy2 + ch2 - 1, cw2 + 2, 3);
-
-      // domo (grande em relação ao corpo)
-      const dX = cxPtz;
-      const dY = cy2 + ch2 + 1;
-      const dR = w * 0.075;
-
-      const gd = ctx.createRadialGradient(dX - dR * 0.2, dY - dR * 0.1, 1, dX, dY + 2, dR);
-      gd.addColorStop(0, 'rgba(255,255,255,0.12)');
-      gd.addColorStop(0.2, 'rgba(180,200,230,0.06)');
-      gd.addColorStop(0.5, 'rgba(25,45,75,0.5)');
-      gd.addColorStop(0.8, 'rgba(8,15,30,0.8)');
-      gd.addColorStop(1, 'rgba(3,6,12,0.95)');
-
-      ctx.fillStyle = gd;
+      
+      // ============================================
+      // 7. DETALHES FINAIS (sombras e realces)
+      // ============================================
+      // Sombra projetada no chão
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
       ctx.beginPath();
-      ctx.ellipse(dX, dY, dR, dR * 0.55, 0, Math.PI, 0);
+      ctx.ellipse(w * 0.5, h - h * 0.03, baseW * 1.2, baseW * 0.5, 0, 0, Math.PI * 2);
       ctx.fill();
-
-      // reflexo
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      ctx.beginPath();
-      ctx.ellipse(dX - dR * 0.2, dY - dR * 0.05, dR * 0.15, dR * 0.2, -0.3, 0, Math.PI * 2);
-      ctx.fill();
+      
+      // Realce lateral no poste
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillRect(w * 0.5 - topoW/3, posteTopoY, topoW/2, posteBaseY - posteTopoY);
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     map.on('load', async () => {
       try {
-        // ── 1. Cria ícone 2D com aspecto 3D ──
+        // ── 1. Cria ícone com poste redesenhado ──
         const canvas = document.createElement('canvas');
         const size = 128;
         canvas.width = size;
@@ -199,7 +304,7 @@
         });
         map.addImage('camera-icon', img, { pixelRatio: 2 });
 
-        // ── 2. Carrega os pontos ──
+        // ── 2. Carrega os pontos do arquivo JSON ──
         const resp = await fetch('/pontos_planejados.json');
         const data = await resp.json();
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
@@ -210,7 +315,8 @@
           properties: {
             id: p.id,
             nome: p.nome || ('Ponto ' + p.id),
-            cidade: p.cidade || ''
+            cidade: p.cidade || 'Fortaleza',
+            endereco: p.endereco || ''
           }
         }));
 
@@ -229,15 +335,15 @@
           minzoom: 10,
           maxzoom: 13.9,
           paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2, 13, 6],
-            'circle-color': '#38bdf8',
-            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0, 11, 0.6, 13, 1],
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#0284c7'
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 2.5, 13, 7],
+            'circle-color': '#3b82f6',
+            'circle-opacity': ['interpolate', ['linear'], ['zoom'], 10, 0, 11, 0.7, 13, 1],
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#1e3a8a'
           }
         });
 
-        // ── 4. Ícone 2D (zoom médio-alto) ──
+        // ── 4. Ícone do poste 3D (zoom médio-alto) ──
         map.addLayer({
           id: 'cameras-icon',
           type: 'symbol',
@@ -246,12 +352,12 @@
           layout: {
             'icon-image': 'camera-icon',
             'icon-size': ['interpolate', ['linear'], ['zoom'],
-              13, 0.15,
-              14, 0.25,
-              16, 0.5,
-              18, 1.0,
-              20, 2.0,
-              22, 4.0
+              13, 0.12,
+              14, 0.2,
+              16, 0.4,
+              18, 0.8,
+              20, 1.6,
+              22, 3.2
             ],
             'icon-anchor': 'bottom',
             'icon-allow-overlap': true,
@@ -259,7 +365,7 @@
           }
         });
 
-        // ── 5. Labels ──
+        // ── 5. Labels com nome das câmeras ──
         map.addLayer({
           id: 'cameras-label',
           type: 'symbol',
@@ -267,33 +373,43 @@
           minzoom: 15,
           layout: {
             'text-field': ['get', 'nome'],
-            'text-size': ['interpolate', ['linear'], ['zoom'], 15, 8, 18, 12, 22, 18],
-            'text-offset': [0, -1.8],
+            'text-size': ['interpolate', ['linear'], ['zoom'], 15, 9, 18, 13, 22, 20],
+            'text-offset': [0, -1.6],
             'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
             'text-optional': true
           },
           paint: {
-            'text-color': '#e2e8f0',
-            'text-halo-color': 'rgba(0,0,0,0.8)',
-            'text-halo-width': 2
+            'text-color': '#f1f5f9',
+            'text-halo-color': 'rgba(0,0,0,0.85)',
+            'text-halo-width': 2.5,
+            'text-halo-blur': 1
           }
         });
 
-        // ── 6. Popups ──
+        // ── 6. Popups interativos com informações detalhadas ──
         map.on('click', 'cameras-icon', (e) => {
           const p = e.features[0].properties;
           new mapboxgl.Popup()
             .setLngLat(e.lngLat)
-            .setHTML(`<b>${p.nome}</b><br>${p.cidade}<br><span style="font-size:11px;color:#94a3b8">${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}</span>`)
+            .setHTML(`
+              <div style="font-family: monospace; font-size: 12px;">
+                <strong style="color: #60a5fa;">📹 ${p.nome}</strong><br>
+                📍 ${p.cidade}<br>
+                ${p.endereco ? `🏠 ${p.endereco}<br>` : ''}
+                <span style="color: #94a3b8; font-size: 10px;">${e.lngLat.lat.toFixed(5)}°, ${e.lngLat.lng.toFixed(5)}°</span>
+              </div>
+            `)
             .addTo(map);
         });
+        
         map.on('click', 'cameras-circle', (e) => {
           const p = e.features[0].properties;
           new mapboxgl.Popup()
             .setLngLat(e.lngLat)
-            .setHTML(`<b>${p.nome}</b><br>${p.cidade}`)
+            .setHTML(`<strong>${p.nome}</strong><br>${p.cidade}`)
             .addTo(map);
         });
+        
         map.on('mouseenter', 'cameras-icon', () => map.getCanvas().style.cursor = 'pointer');
         map.on('mouseleave', 'cameras-icon', () => map.getCanvas().style.cursor = '');
         map.on('mouseenter', 'cameras-circle', () => map.getCanvas().style.cursor = 'pointer');
@@ -301,9 +417,15 @@
 
         const pontosCount = features.length;
         document.getElementById('contador').textContent = pontosCount;
-        document.getElementById('info').textContent = `✅ ${pontosCount} câmeras carregadas`;
+        document.getElementById('info').innerHTML = `✅ ${pontosCount} câmeras carregadas | Poste de concreto + câmera bullet`;
+        
+        // Pequena animação de carregamento
+        setTimeout(() => {
+          document.getElementById('info').style.opacity = '0.8';
+        }, 3000);
+        
       } catch (err) {
-        document.getElementById('info').textContent = `❌ Erro: ${err.message}`;
+        document.getElementById('info').innerHTML = `❌ Erro: ${err.message}`;
         console.error('teste-camera-layer:', err);
       }
     });

@@ -676,7 +676,9 @@
       on(event, fn) {
         if (event === 'click') {
           this._clickFn = fn;
-          this._el.addEventListener('click', (e) => { e.stopPropagation(); fn({ target: this }); });
+          // Usa _handleClick como método fixo para poder remover/reusar
+          this._handleClick = (e) => { e.stopPropagation(); fn({ target: this }); };
+          this._el.addEventListener('click', this._handleClick);
         }
         return this;
       }
@@ -694,9 +696,12 @@
           .setLngLat(lngLat);
         this._mk._wrapper = this;
 
-        if (this._clickFn) {
-          novoEl.addEventListener('click', (e) => { e.stopPropagation(); this._clickFn({ target: this }); });
+        // Reanexa o click handler no novo elemento
+        if (this._handleClick) {
+          novoEl.addEventListener('click', this._handleClick);
         }
+        // Reanexa o popup ao novo marker (o antigo foi removido com .remove())
+        this._popup = null;
         this._updatePopup();
         if (map) this._mk.addTo(map);
         return this;

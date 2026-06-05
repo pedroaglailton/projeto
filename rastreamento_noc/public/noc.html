@@ -741,21 +741,22 @@
     }
 
     // =========================================================================
-    // Clima dinâmico por coordenadas do mapa — Open-Meteo
+    // Clima dinâmico — Open-Meteo (Fortaleza) — sem CORS, sem chave
     // =========================================================================
-    let weatherCache = {};
-    let currentRainIntensity = 0;
+    const WEATHER_LAT = -3.7319;
+    const WEATHER_LNG = -38.5267;
     let weatherTimer = null;
-    let buscaClimaTimeout = null;
+    let weatherCache = null;
+    let currentRainIntensity = 0;
 
     function applyRainEffect(intensity) {
-      if (!window.map.getStyle()) return;
+      if (!map.getStyle()) return;
       try {
         if (intensity <= 0) {
-          try { window.map.setRain(null); } catch(_) {}
-          window.map.setConfigProperty('basemap', 'lightPreset', 'day');
+          try { map.setRain(null); } catch(_) {}
+          map.setConfigProperty('basemap', 'lightPreset', 'day');
         } else {
-          window.map.setRain({
+          map.setRain({
             density: intensity * 0.8,
             intensity: 0.8 + intensity * 0.4,
             color: '#a8adbc',
@@ -767,58 +768,66 @@
             'distortion-strength': 0.6,
             'center-thinning': 0
           });
-          window.map.setConfigProperty('basemap', 'lightPreset', intensity > 0.5 ? 'dawn' : 'dusk');
+          map.setConfigProperty('basemap', 'lightPreset', intensity > 0.5 ? 'dawn' : 'dusk');
         }
       } catch(e) { console.warn('[clima] erro ao aplicar efeito:', e); }
     }
 
-    async function buscarClimaCoords(lat, lng) {
-      const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
-      if (weatherCache[key]) return weatherCache[key];
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,precipitation,weather_code&timezone=auto&forecast_days=1`;
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-      const cur = data.current || {};
-      const result = { temp: cur.temperature_2m ?? '--', precip: cur.precipitation ?? 0, weatherCode: cur.weather_code ?? 0 };
-      weatherCache[key] = result;
-      return result;
-    }
-
-    function interpretarPrecipitacao(precip) {
-      if (precip <= 0.2) return { nivel: 0, label: 'Sem chuva', icon: '☀️' };
-      if (precip <= 2)  return { nivel: 0.3, label: 'Garoa leve', icon: '💧' };
-      if (precip <= 8)  return { nivel: 0.6, label: 'Chuva moderada', icon: '🌦️' };
-      return { nivel: 0.9, label: 'Chuva forte', icon: '⛈️' };
-    }
-
-    async function atualizarClimaPorMapa() {
-      const center = window.map.getCenter();
-      const lat = center.lat, lng = center.lng;
+    async function atualizarClima() {
       try {
-        const clima = await buscarClimaCoords(lat, lng);
-        const chuva = interpretarPrecipitacao(clima.precip);
-        currentRainIntensity = chuva.nivel;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LNG}&current_weather=true&hourly=precipitation,weathercode&timezone=America/Fortaleza&forecast_days=1`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+
+        let precipitation = 0;
+        const temperatura = data.current_weather?.temperature ?? '--';
+        if (data.hourly?.precipitation && data.hourly.time) {
+          const now = new Date();
+          const currentHourStr = now.toISOString().slice(0, 13) + ':00';
+          const idx = data.hourly.time.indexOf(currentHourStr);
+          if (idx !== -1 && data.hourly.precipitation[idx] !== undefined) {
+            precipitation = data.hourly.precipitation[idx];
+          }
+        }
+
+        let cond, icon, label, rainIntensity;
+        if (precipitation <= 0.2) {
+          cond = 'clear'; icon = '☀️'; label = 'Sol'; rainIntensity = 0;
+        } else if (precipitation <= 2) {
+          cond = 'rain'; icon = '💧'; label = 'Garoa'; rainIntensity = 0.3;
+        } else if (precipitation <= 8) {
+          cond = 'rain'; icon = '🌦️'; label = 'Chuva mod.'; rainIntensity = 0.6;
+        } else {
+          cond = 'rain'; icon = '⛈️'; label = 'Chuva forte'; rainIntensity = 0.9;
+        }
+
+        weatherCache = { cond, precipitation, temperatura };
+        currentRainIntensity = rainIntensity;
+
         const wIcon = document.getElementById('weatherIndicator').querySelector('.w-icon');
         const wDesc = document.getElementById('weatherDesc');
-        wIcon.textContent = chuva.icon;
-        wDesc.textContent = `${chuva.label} ${Math.round(clima.temp)}°C (${clima.precip.toFixed(1)}mm)`;
-        if (window.mapPronto) applyRainEffect(chuva.nivel);
+        wIcon.textContent = icon;
+        wDesc.textContent = `${label} ${Math.round(temperatura)}°C (${precipitation.toFixed(1)}mm)`;
+
+        if (window.mapPronto) {
+          applyRainEffect(rainIntensity);
+        }
       } catch (e) {
-        console.warn('[clima] falha:', e);
+        console.warn('[clima] falha ao buscar:', e);
         const wDesc = document.getElementById('weatherDesc');
         wDesc.textContent = 'clima indisponivel';
       }
     }
 
+    // map.on registrado dentro do window.onload via initClima()
     function initClima() {
-      window.map.on('style.load', () => applyRainEffect(currentRainIntensity));
+      window.map.on('style.load', () => {
+        applyRainEffect(currentRainIntensity);
+      });
       window.map.on('load', () => {
-        setTimeout(atualizarClimaPorMapa, 2000);
-        window.map.on('moveend', () => {
-          if (buscaClimaTimeout) clearTimeout(buscaClimaTimeout);
-          buscaClimaTimeout = setTimeout(atualizarClimaPorMapa, 800);
-        });
+        setTimeout(atualizarClima, 2000);
+        weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
       });
     }
 

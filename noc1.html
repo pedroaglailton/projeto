@@ -1,0 +1,1397 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NOC — Rastreamento em Tempo Real com Mapbox</title>
+  <!-- Mapbox GL CSS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
+
+    .top {
+      padding: 10px 14px;
+      background: linear-gradient(180deg, #1e293b, #0f172a);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid #334155;
+      position: relative;
+      z-index: 1000;
+    }
+    .top .title { font-size: 15px; letter-spacing: 0.5px; }
+    .top .live-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #22c55e; box-shadow: 0 0 8px #22c55e;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    .top .live-dot.off { background: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.45; } }
+    .top .spacer { flex: 1; }
+    .top .stats { font-size: 12px; color: #94a3b8; }
+    .top .stats.secondary { margin-left: 10px; color: #93c5fd; }
+
+    .layout { display: grid; grid-template-columns: 260px 1fr 260px; height: calc(100vh - 48px); transition: grid-template-columns .2s ease; }
+    body.sidebar-collapsed .layout { grid-template-columns: 0 1fr 260px; }
+    body.sidebar-right-collapsed .layout { grid-template-columns: 260px 1fr 0; }
+    @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } #sidebarLeft { position: absolute; top: 48px; left: -280px; height: calc(100vh - 48px); z-index: 1000; transition: left .2s; } #sidebarLeft.open { left: 0; } #sidebarRight { position: absolute; top: 48px; right: -280px; height: calc(100vh - 48px); z-index: 1000; transition: right .2s; } #sidebarRight.open { right: 0; } .toggle-sidebar { display: inline-flex !important; } }
+
+    #sidebarLeft {
+      background: #111827;
+      border-right: 1px solid #1f2937;
+      padding: 14px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      z-index: 500;
+    }
+    #sidebarLeft h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+    body.sidebar-collapsed #sidebarLeft { padding: 0; border-right: 0; overflow: hidden; }
+
+    #sidebarRight {
+      background: #111827;
+      border-left: 1px solid #1f2937;
+      padding: 12px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      -ms-overflow-style: none;
+      z-index: 500;
+    }
+    #sidebarRight h3 {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px;
+      color: #64748b; margin: 0 0 8px 0; font-weight: 700;
+    }
+    body.sidebar-right-collapsed #sidebarRight {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #equipesList { list-style: none; padding: 0; margin: 0; }
+    #equipesList li {
+      padding: 10px 10px; margin-bottom: 4px;
+      background: #0f172a; border-radius: 6px;
+      font-size: 13px; cursor: pointer;
+      border-left: 3px solid transparent;
+      transition: background .15s;
+    }
+    #equipesList li:hover { background: #1e293b; }
+    #equipesList li.active { border-left-color: #0ea5e9; background: #1e293b; }
+    #equipesList li .ago { font-size: 10px; color: #64748b; border-left: none; }
+    #equipesList li.stale .ago { color: #f59e0b; }
+    #equipesList li.logged-out { opacity:0.7; }
+    #equipesList li.logged-out .ago { color:#dc2626; font-weight:700; }
+
+    #proximosList { list-style: none; padding: 0; margin: 0; max-height: 160px; overflow-y: auto; }
+    #proximosList li {
+      padding: 8px 10px; margin-bottom: 4px;
+      background: #0f172a; border-radius: 6px;
+      font-size: 12px;
+      border-left: 3px solid #f59e0b;
+      color: #e2e8f0;
+    }
+    #proximosList .dist { color: #fbbf24; font-size: 11px; }
+
+    .toggle-sidebar {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 32px; height: 32px; border-radius: 6px;
+      background: #1e293b; color: #e2e8f0; border: 0;
+      cursor: pointer; font-size: 18px;
+    }
+
+    #map { width: 100%; height: 100%; background: #0a0f1a; }
+
+    /* Clima widget */
+    .weather-widget {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(10, 20, 30, 0.85);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 10px 16px;
+      color: white;
+      z-index: 800;
+      font-size: 12px;
+      font-family: monospace;
+      border-left: 3px solid #0ea5e9;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .weather-widget .temp { font-size: 24px; font-weight: 800; }
+    .weather-widget .condition { font-size: 11px; opacity: 0.8; }
+    .weather-widget .rain-status { font-size: 10px; color: #7dd3fc; margin-top: 4px; }
+
+    /* Car marker - Uber style */
+    .car-marker {
+      width: 40px; height: 60px;
+      background: transparent !important;
+      display: flex; align-items: center; justify-content: center;
+      will-change: transform;
+      transform-origin: center center;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.8));
+      transition: filter 0.3s ease;
+    }
+    .car-marker:hover { filter: drop-shadow(0 3px 10px rgba(14,165,233,0.8)); }
+    .car-marker, .car-marker * { background: transparent !important; }
+    .car-marker img {
+      background: transparent !important;
+      mix-blend-mode: normal;
+    }
+    .car-marker .car-svg { width: 36px; height: 54px; display: block; }
+    .car-marker.stale { opacity: 0.45; }
+    .car-marker.flash {
+      animation: carFlash 1.2s ease-out;
+    }
+    @keyframes carFlash {
+      0%   { filter: drop-shadow(0 0 12px rgba(14,165,233,1)) drop-shadow(0 0 24px rgba(255,255,255,0.8)); }
+      100% { filter: drop-shadow(0 3px 6px rgba(0,0,0,0.8)); }
+    }
+
+    /* Uber-style pulse ring when car updates */
+    .car-pulse {
+      position: absolute;
+      width: 40px; height: 60px;
+      border-radius: 50%;
+      border: 2px solid rgba(14,165,233,0.6);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: carRipple 1s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes carRipple {
+      0%   { width: 30px; height: 30px; opacity: 1; border-width: 2px; }
+      100% { width: 80px; height: 80px; opacity: 0; border-width: 1px; }
+    }
+
+    .endpoint-marker {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+      transform: translate(-11px, -11px);
+    }
+
+    /* Playback info */
+    .playback-info {
+      position: absolute;
+      bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(15,23,42,0.9); backdrop-filter: blur(8px);
+      border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px;
+      display: none; gap: 12px; z-index: 800;
+      white-space: nowrap;
+    }
+    .playback-info.visible { display: flex; }
+    .playback-info .label { color: #94a3b8; }
+    .playback-info .val { color: #e2e8f0; font-weight: 600; }
+
+    /* Alert modal */
+    .alert-backdrop { position: fixed; inset: 0; z-index: 8999; background: rgba(0,0,0,0.35); display: none; }
+    .alert-backdrop.visible { display: block; }
+    .alert-modal {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      z-index: 9000; background: #fff;
+      border: 3px solid #dc2626; border-radius: 16px;
+      padding: 24px 32px; min-width: 280px; max-width: 380px;
+      text-align: center;
+      box-shadow: 0 12px 48px rgba(220,38,38,0.35);
+      display: none;
+    }
+    @keyframes popIn { from { opacity:0; transform: translate(-50%,-50%) scale(0.85); } to { opacity:1; transform: translate(-50%,-50%) scale(1); } }
+    .alert-modal.visible { display: block; animation: popIn 0.25s ease forwards; }
+    .alert-modal .title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: #dc2626; margin-bottom: 8px; font-weight: 700; }
+    .alert-modal .main { font-size: 20px; font-weight: 800; color: #111827; }
+    .alert-modal .sub { font-size: 14px; color: #6b7280; margin-top: 6px; }
+    .alert-modal .icon { font-size: 36px; margin-bottom: 6px; }
+
+    /* Restante dos estilos originais mantidos */
+    .token-box { background: #0f172a; border: 1px solid #0ea5e9; border-radius: 6px; padding: 8px; font-size: 11px; color: #7dd3fc; margin-top: 8px; word-break: break-all; display: none; }
+    .token-box.visible { display: block; }
+    #sidebarLeft label { display: block; font-size: 11px; color: #94a3b8; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+    #sidebarLeft .section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid #1f2937; }
+    #sidebarLeft select, #sidebarLeft input[type="date"] { width: 100%; padding: 8px 10px; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; }
+    #sidebarLeft input[type="text"] { width: 100%; padding: 8px 10px; background: #0f172a; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; }
+    #sidebarLeft button { width: 100%; padding: 9px; margin-top: 8px; background: #0ea5e9; color: #fff; border: 0; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    #sidebarLeft button:hover { background: #0284c7; }
+    #sidebarLeft button.ghost { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+    #sidebarLeft button.ghost:hover { background: #1e293b; color: #e2e8f0; }
+    #sidebarLeft .muted { font-size: 11px; color: #4b5563; margin-top: 6px; }
+    #sidebarLeft button.roads-btn { background: #e8f0fe; border: 1px solid #4285f4; color: #1a56db; margin-top: 0; }
+    #sidebarLeft button.roads-btn:hover { background: #d2e3fc; }
+    #sidebarLeft button.roads-btn.active { background: #4285f4; color: #fff; }
+    #roadsStatus { font-size: 11px; color: #64748b; margin-top: 5px; display: flex; align-items: center; gap: 5px; }
+    #roadsStatusDot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; display: inline-block; flex-shrink: 0; }
+    #roadsStatusDot.loading { background: #f59e0b; animation: pulse 1s infinite; }
+    #roadsStatusDot.loaded  { background: #22c55e; }
+    #roadsStatusDot.error   { background: #ef4444; }
+
+    /* Chat Modal - estilos originais mantidos */
+    .chat-overlay { position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px); display:none;align-items:center;justify-content:center;padding:20px; }
+    .chat-overlay.open { display:flex; }
+    .chat-modal { background:#0f172a;border:1px solid #1e293b;border-radius:16px; width:100%;max-width:820px;height:min(80vh,600px); display:flex;flex-direction:column;overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+    .chat-header { display:flex;align-items:center;gap:12px;padding:14px 18px; background:#1e293b;border-bottom:1px solid #334155;flex-shrink:0; }
+    .chat-header h3 { margin:0;font-size:15px;font-weight:700;letter-spacing:.5px;flex:1; }
+    .chat-header button { background:transparent;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px; }
+    .chat-header button:hover { background:#334155;color:#fff; }
+    .chat-body { display:grid;grid-template-columns:240px 1fr;flex:1;overflow:hidden; }
+    .chat-team-list { background:#0f172a;border-right:1px solid #1e293b;overflow-y:auto; }
+    .chat-team-item { display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid #1e293b; font-size:12px;font-weight:600;color:#cbd5e1;transition:background .15s; }
+    .chat-team-item:hover { background:#1e293b; }
+    .chat-team-item.active { background:#1e3a5f;border-left:3px solid #3b82f6; }
+    .chat-team-item .badge { margin-left:auto;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px; }
+    .chat-team-item .last-msg { font-size:10px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px; }
+    .chat-team-item .time { font-size:10px;color:#475569;white-space:nowrap; }
+    .chat-conv { display:flex;flex-direction:column;background:#0f172a;overflow:hidden; }
+    .chat-conv-header { padding:10px 16px;background:#1e293b;border-bottom:1px solid #334155;font-size:13px;font-weight:700;color:#e2e8f0;flex-shrink:0; }
+    .chat-msgs { flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px; }
+    .chat-msgs .empty { text-align:center;color:#475569;font-size:13px;padding:40px 0; }
+    .chat-bubble { max-width:85%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.5; }
+    .chat-bubble.noc { align-self:flex-end;background:#1d4ed8;color:#fff;border-bottom-right-radius:3px; }
+    .chat-bubble.tecnico { align-self:flex-start;background:#1e293b;color:#e2e8f0;border:1px solid #334155;border-bottom-left-radius:3px; }
+    .chat-bubble .time { font-size:10px;opacity:.5;margin-top:4px;text-align:right; }
+    .chat-bubble .label { font-size:10px;opacity:.6;margin-bottom:3px;display:block; }
+    .chat-input-area { display:flex;gap:8px;padding:10px 14px; background:#1e293b;border-top:1px solid #334155;flex-shrink:0; }
+    .chat-input-area textarea { flex:1;padding:10px 12px;border:1px solid #334155;border-radius:8px;background:#0f172a;color:#e2e8f0; font-size:13px;font-family:inherit;outline:none;resize:none; }
+    .chat-input-area textarea:focus { border-color:#3b82f6; }
+    .chat-input-area button { padding:10px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer; }
+    .chat-input-area button:hover { background:#1d4ed8; }
+    .chat-input-area .chat-img-btn { padding:10px;background:#1e293b;border:1px solid #334155;border-radius:8px;cursor:pointer;font-size:16px;line-height:1; }
+    .chat-input-area .chat-img-btn:hover { background:#334155; }
+    .chat-msg-img { max-width:100%;border-radius:8px;margin-top:4px;cursor:pointer;display:block;max-height:300px; }
+    .chat-msg-video { max-width:100%;border-radius:8px;margin-top:4px;max-height:300px; }
+
+    /* Login */
+    .login-overlay { position:fixed;inset:0;z-index:99999;background:#0f172a; display:flex;align-items:center;justify-content:center;padding:20px; }
+    .login-overlay.hidden { display:none; }
+    .login-box { background:#1e293b;border:1px solid #334155;border-radius:16px; padding:40px 32px;width:100%;max-width:360px;text-align:center; }
+    .login-logo { font-size:48px;margin-bottom:8px; }
+    .login-title { font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;letter-spacing:2px;color:#e2e8f0; }
+    .login-sub { font-size:13px;color:#64748b;margin-top:4px; }
+
+    @media (max-width: 640px) {
+      .weather-widget { top: 70px; left: 12px; padding: 6px 12px; font-size: 10px; }
+      .weather-widget .temp { font-size: 18px; }
+      .top { flex-wrap:wrap; gap:6px; padding:8px 10px; }
+      .top .title { font-size:12px; }
+      .top .stats.secondary { display:none; }
+      .top .stats { font-size:10px; }
+      #userInfo { font-size:9px !important; }
+      #logoutBtn { font-size:10px !important; padding:3px 8px !important; }
+      .toggle-sidebar { padding:4px 8px !important; font-size:16px !important; }
+      #sidebarLeft { padding:10px; }
+      #sidebarLeft h3 { font-size:11px; }
+      #sidebarLeft select, #sidebarLeft input, #sidebarLeft button { font-size:13px; padding:10px; }
+      #sidebarRight { padding:10px; }
+      #sidebarRight h3 { font-size:11px; }
+      .chat-modal { width:100% !important; height:100% !important; max-width:100% !important; max-height:100% !important; border-radius:0 !important; }
+      .chat-overlay { align-items:stretch !important; }
+      .chat-header { padding:12px 14px !important; }
+      .chat-header h3 { font-size:15px !important; }
+      .login-box { padding:28px 20px !important; }
+      .login-title { font-size:20px !important; }
+      #statsPontos { font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="nocApp">
+
+  <div class="top">
+    <button class="toggle-sidebar" id="toggleSidebar" title="Abrir/fechar menu">≡</button>
+    <span class="live-dot" id="liveDot" title="Conexão WebSocket"></span>
+    <span class="title">NOC — Equipes em Campo</span>
+    <span class="spacer"></span>
+    <span id="userInfo" style="font-size:10px;color:#94a3b8;margin-right:10px;"></span>
+    <button id="logoutBtn" style="padding:4px 10px;background:transparent;border:1px solid #475569;border-radius:4px;color:#94a3b8;font-size:11px;cursor:pointer;margin-right:10px;">Sair</button>
+    <span class="stats" id="stats">— equipes</span>
+    <span class="stats secondary" id="statsPontos">Planejados: 0 | Visitados: 0 | Pendentes: 0</span>
+    <button class="toggle-sidebar" id="toggleSidebarRight" title="Abrir/fechar equipes" style="margin-left:8px;">☰</button>
+  </div>
+
+  <div class="layout">
+    <aside id="sidebarLeft">
+      <div class="section">
+        <h3>Próximas a Pontos</h3>
+        <ul id="proximosList"><li style="opacity:0.5;cursor:default">—</li></ul>
+      </div>
+
+      <div class="section">
+        <h3>Overlay de Ruas (KML)</h3>
+        <button id="btnRoads" class="roads-btn active">🗺️ Ruas Fortaleza: Ligado</button>
+        <div id="roadsStatus">
+          <span id="roadsStatusDot" class="loading"></span>
+          <span id="roadsStatusTxt">Carregando ruas…</span>
+        </div>
+        <label>Opacidade</label>
+        <input type="range" id="roadsOpacity" min="10" max="100" value="60" style="width:100%;accent-color:#4285f4">
+        <label>Filtrar por AIS</label>
+        <select id="aisFilter">
+          <option value="">Todas</option>
+          <option value="AIS 01">AIS 01</option>
+          <option value="AIS 02">AIS 02</option>
+          <option value="AIS 03">AIS 03</option>
+          <option value="AIS 04">AIS 04</option>
+          <option value="AIS 05">AIS 05</option>
+          <option value="AIS 06">AIS 06</option>
+          <option value="AIS 07">AIS 07</option>
+          <option value="AIS 08">AIS 08</option>
+          <option value="AIS 09">AIS 09</option>
+          <option value="AIS 10">AIS 10</option>
+          <option value="SEM AIS">SEM AIS</option>
+        </select>
+      </div>
+
+      <div class="section">
+        <h3>Playback</h3>
+        <label>Data</label>
+        <input type="date" id="pbDate">
+        <label>Equipe</label>
+        <select id="pbEquipe"><option value="">— Todas —</option></select>
+        <button id="btnPlayback">Mostrar rota</button>
+        <button id="btnLimparPlayback" class="ghost">Limpar rota</button>
+      </div>
+
+      <div class="section">
+        <h3>Filtro de Pontos</h3>
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;cursor:pointer;">
+          <input type="checkbox" id="togglePontos" checked onchange="aplicarFiltroPontos()"> Mostrar pontos no mapa
+        </label>
+        <select id="filtroCidade">
+          <option value="TODAS">Todas as cidades</option>
+        </select>
+      </div>
+
+      <div class="section admin-only">
+        <h3>Gestão de Equipes</h3>
+        <label>Equipe ID</label>
+        <input type="text" id="newEquipeId" placeholder="EQUIPE-03">
+        <label>Nome</label>
+        <input type="text" id="newEquipeNome" placeholder="Joao + Pedro">
+        <label>Admin Key</label>
+        <input type="text" id="nocAdminKey" placeholder="Se configurada no servidor">
+        <button id="btnGerarKey">Gerar key</button>
+        <button id="btnRegenerarKey" class="ghost">Regenerar key</button>
+        <button id="btnDesativarEquipe" class="ghost">Desativar equipe</button>
+        <button id="btnAtivarEquipe" class="ghost">Ativar equipe</button>
+        <div class="muted">Acoes usam o Equipe ID informado acima.</div>
+        <div id="tokenGerado" class="token-box"></div>
+      </div>
+
+      <div class="section admin-only" id="usuariosSection">
+        <h3>Usuários</h3>
+        <div id="usuariosList" style="font-size:12px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <input type="text" id="novoUsuario" placeholder="Usuario" style="flex:1;padding:6px 8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+          <input type="password" id="novaSenha" placeholder="Senha" style="flex:1;padding:6px 8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <input type="text" id="novoNome" placeholder="Nome" style="flex:1;padding:6px 8px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+          <select id="novoPerfil" style="padding:6px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+            <option value="operador">Operador</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+        <button id="btnCriarUsuario" style="padding:6px;background:#0ea5e9;color:#fff;border:0;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;width:100%;">+ Criar usuário</button>
+        <div id="usuariosMsg" class="muted" style="margin-top:4px;"></div>
+      </div>
+
+      <div class="section">
+        <h3>Notificar Equipes (Push)</h3>
+        <label>Título</label>
+        <input type="text" id="pushTitle" value="NOC - Preventiva-CE">
+        <label>Mensagem</label>
+        <input type="text" id="pushBody" placeholder="Mensagem da notificação">
+        <label>Equipe (opcional)</label>
+        <select id="pushEquipe"><option value="">— Todas as equipes —</option></select>
+        <button id="btnSendPush">📨 Enviar notificação</button>
+        <button id="btnSendProductionAlert" class="ghost">📬 Alertar produção pendente</button>
+        <div id="pushResult" class="muted" style="margin-top:5px;"></div>
+      </div>
+
+      <div class="section">
+        <button onclick="abrirModalChat()" style="width:100%;padding:12px;background:#1e3a5f;color:#e2e8f0;border:2px solid #2563eb;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center;">
+          💬 Mensagens <span id="msgBadge" style="display:none;background:#ef4444;color:#fff;font-size:10px;padding:2px 7px;border-radius:999px;"></span>
+        </button>
+      </div>
+
+      <div class="section">
+        <h3>Debug</h3>
+        <div style="font-size:11px;color:#4b5563">
+          WebSocket: <span id="wsStatus">conectando…</span><br>
+          Última msg: <span id="lastMsg">—</span>
+        </div>
+      </div>
+
+    </aside>
+
+    <div style="position:relative;overflow:hidden">
+      <div id="map"></div>
+      <div class="weather-widget" id="weatherWidget">
+        <div class="temp" id="weatherTemp">--°C</div>
+        <div class="condition" id="weatherCondition">🌡️ Carregando...</div>
+        <div class="rain-status" id="weatherRain">🌧️ Chuva: --</div>
+      </div>
+      <div class="playback-info" id="playbackInfo"></div>
+    </div>
+
+    <aside id="sidebarRight">
+      <div class="section">
+        <h3>Equipes em Campo</h3>
+        <ul id="equipesList"><li style="opacity:0.5;cursor:default">Aguardando…</li></ul>
+      </div>
+    </aside>
+
+  </div>
+  </div>
+
+  <div class="alert-backdrop" id="alertBackdrop"></div>
+  <div class="alert-modal" id="proximidadeModal" aria-live="polite" aria-atomic="true">
+    <div class="icon">📍</div>
+    <div class="title">Equipe próxima ao ponto</div>
+    <div class="main" id="proximidadeMain">—</div>
+    <div class="sub" id="proximidadeSub">—</div>
+  </div>
+
+  <div id="logoutToast" style="position:fixed;top:64px;right:16px;z-index:99999;background:#dc2626;color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.3);display:none;max-width:320px;transition:opacity .3s;">
+  </div>
+
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <div class="login-logo">🛡️</div>
+      <div class="login-title">PREVENTIVA-CE</div>
+      <div class="login-sub">NOC — Monitoramento</div>
+      <div style="margin-top:20px;width:100%;display:flex;flex-direction:column;gap:12px;">
+        <input type="text" id="loginUser" placeholder="Usuário" style="width:100%;padding:12px 14px;border:2px solid #334155;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        <input type="password" id="loginPass" placeholder="Senha" style="width:100%;padding:12px 14px;border:2px solid #334155;border-radius:8px;background:#1e293b;color:#e2e8f0;font-size:14px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')fazerLogin()">
+        <div id="loginError" style="color:#ef4444;font-size:12px;display:none;text-align:center;"></div>
+        <button onclick="fazerLogin()" id="loginBtn" style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Entrar</button>
+      </div>
+      <div style="margin-top:16px;font-size:11px;color:#475569;">admin/admin123 · operador/oper123</div>
+    </div>
+  </div>
+
+  <div class="chat-overlay" id="chatOverlay" onclick="if(event.target===this)fecharModalChat()">
+    <div class="chat-modal">
+      <div class="chat-header">
+        <h3>💬 Mensagens</h3>
+        <button onclick="fecharModalChat()">×</button>
+      </div>
+      <div class="chat-body">
+        <div class="chat-team-list" id="chatTeamList"></div>
+        <div class="chat-conv">
+          <div class="chat-conv-header" id="chatConvHeader">Selecione uma equipe</div>
+          <div class="chat-msgs" id="chatMsgs">
+            <div class="empty">👈 Selecione uma equipe ao lado</div>
+          </div>
+          <div class="chat-input-area">
+            <textarea id="chatModalInput" rows="1" placeholder="Digite a mensagem..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMsgModal()}"></textarea>
+            <button class="chat-img-btn" onclick="document.getElementById('chatUploadInput').click()" title="Enviar foto">📷</button>
+            <input type="file" id="chatUploadInput" accept="image/*" style="display:none" onchange="enviarArquivoModal(this, true)">
+            <button class="chat-img-btn" onclick="document.getElementById('chatVideoInput').click()" title="Gravar video">🎬</button>
+            <input type="file" id="chatVideoInput" accept="video/*" capture="environment" style="display:none" onchange="enviarArquivoModal(this, false)">
+            <button onclick="enviarMsgModal()">Enviar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
+  <script>
+    // =========================================================================
+    // Autenticacao (login) - TOTALMENTE ORIGINAL
+    // =========================================================================
+    let usuarioSessao = null;
+
+    async function verificarSessao() {
+      const token = sessionStorage.getItem('nocToken');
+      if (!token) return false;
+      try {
+        const r = await fetch('/api/auth/me', { headers: { 'X-Noc-Token': token } });
+        const j = await r.json();
+        if (!j.ok) return false;
+        usuarioSessao = j.usuario;
+        sessionStorage.setItem('nocPerfil', j.usuario.perfil);
+        sessionStorage.setItem('nocNome', j.usuario.nome);
+        return true;
+      } catch (_) { return false; }
+    }
+
+    function getNocToken() { return sessionStorage.getItem('nocToken') || ''; }
+    function aplicarRestricoesPerfil() {
+      const perfil = usuarioSessao?.perfil || sessionStorage.getItem('nocPerfil') || 'operador';
+      const nome = usuarioSessao?.nome || sessionStorage.getItem('nocNome') || 'NOC';
+      const adminSections = document.querySelectorAll('.admin-only');
+      for (const el of adminSections) {
+        el.style.display = perfil === 'admin' ? '' : 'none';
+      }
+      const nomeEl = document.getElementById('userInfo');
+      if (nomeEl) nomeEl.textContent = `👤 ${nome} (${perfil})`;
+    }
+
+    // =========================================================================
+    // SETUP DO MAPA COM MAPBOX
+    // =========================================================================
+    mapboxgl.accessToken = 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g';
+    
+    const map = new mapboxgl.Map({
+      container: 'map',
+      zoom: 12.5,
+      center: [-38.5267, -3.7319],
+      pitch: 0,
+      bearing: 0,
+      style: 'mapbox://styles/mapbox/standard'
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Clima em tempo real para Fortaleza
+    let currentRainIntensity = 0;
+    
+    async function fetchWeather() {
+      try {
+        const url = 'https://api.open-meteo.com/v1/forecast?latitude=-3.7319&longitude=-38.5267&current_weather=true&hourly=precipitation,weathercode&timezone=America/Fortaleza&forecast_days=1';
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        let precipitation = 0;
+        let temperatura = data.current_weather?.temperature || 0;
+        let weatherCode = data.current_weather?.weathercode || 0;
+        
+        if (data.hourly?.precipitation && data.hourly.time) {
+          const now = new Date();
+          const currentHourStr = now.toISOString().slice(0, 13) + ':00';
+          let idx = data.hourly.time.indexOf(currentHourStr);
+          if (idx !== -1 && data.hourly.precipitation[idx] !== undefined) {
+            precipitation = data.hourly.precipitation[idx];
+          }
+        }
+        
+        let conditionText = '';
+        let rainText = '';
+        let rainIntensity = 0;
+        
+        if (precipitation <= 0.2) {
+          conditionText = '☀️ Céu claro';
+          rainText = 'Sem chuva';
+          rainIntensity = 0;
+        } else if (precipitation <= 2) {
+          conditionText = '💧 Garoa leve';
+          rainText = 'Chuva leve';
+          rainIntensity = 0.3;
+        } else if (precipitation <= 8) {
+          conditionText = '🌦️ Chuva moderada';
+          rainText = 'Chuva moderada';
+          rainIntensity = 0.6;
+        } else {
+          conditionText = '⛈️ Chuva forte';
+          rainText = 'Chuva forte';
+          rainIntensity = 0.9;
+        }
+        
+        document.getElementById('weatherTemp').innerHTML = `${Math.round(temperatura)}°C`;
+        document.getElementById('weatherCondition').innerHTML = conditionText;
+        document.getElementById('weatherRain').innerHTML = `🌧️ ${rainText} (${precipitation.toFixed(1)}mm)`;
+        
+        currentRainIntensity = rainIntensity;
+        
+        // Aplica efeito de chuva no mapa
+        if (map.isStyleLoaded()) {
+          applyRainEffect(rainIntensity);
+        }
+        
+      } catch (error) {
+        console.warn('Erro ao buscar clima:', error);
+        document.getElementById('weatherCondition').innerHTML = '⚠️ Offline';
+      }
+    }
+    
+    function applyRainEffect(intensity) {
+      if (!map.getStyle()) return;
+      
+      const densityValue = intensity * 0.8;
+      const opacityValue = 0.4 + intensity * 0.3;
+      
+      try {
+        map.setRain({
+          density: densityValue,
+          intensity: 0.8 + intensity * 0.4,
+          color: '#a8adbc',
+          opacity: opacityValue,
+          direction: [0, 75],
+          'droplet-size': [2.5, 18.0],
+          'distortion-strength': 0.6
+        });
+      } catch(e) {
+        // Fallback silencioso
+      }
+    }
+    
+    map.on('style.load', () => {
+      map.setConfigProperty('basemap', 'lightPreset', 'dawn');
+      fetchWeather();
+      setInterval(fetchWeather, 600000);
+      applyRainEffect(currentRainIntensity);
+    });
+
+    // =========================================================================
+    // Estado das equipes - TOTALMENTE ORIGINAL
+    // =========================================================================
+    const markers = new Map();
+    const ultimoTs = new Map();
+    const posicoesAnimadas = new Map();
+    const headingsAnimados = new Map();
+    const loggedOutEquipes = new Set();
+    const trilhasHoje = new Map();
+    const paradasHoje = new Map();
+    const trilhasLayer = { addTo: () => {}, clearLayers: () => {} };
+    const paradasLayer = { addTo: () => {}, clearLayers: () => {} };
+    let pontosLayer = null;
+    const pontosPlanejados = [];
+    const pontosVisitados = new Set();
+    const pontosMarkers = new Map();
+    const alertaAproximacao = new Map();
+    const equipesProximas = new Map();
+    const equipeValidacao = new Map();
+    const equipeAddress = new Map();
+    let modalTimer = null;
+    let audioAlertEnabled = false;
+    let playbackLayer = null;
+    let equipeSelecionada = null;
+    const STALE_MS = 90 * 1000;
+    const EQUIPE_COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
+    const equipeColorMap = new Map();
+
+    function getEquipeColor(equipeId) {
+      if (!equipeColorMap.has(equipeId)) {
+        let hash = 0;
+        for (let i = 0; i < equipeId.length; i++) hash = ((hash << 5) - hash + equipeId.charCodeAt(i)) | 0;
+        equipeColorMap.set(equipeId, EQUIPE_COLORS[Math.abs(hash) % EQUIPE_COLORS.length]);
+      }
+      return equipeColorMap.get(equipeId);
+    }
+
+    function carSVG(color) {
+      return `<svg class="car-svg" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="30" r="17" fill="${color}" opacity="0.15"/>
+        <circle cx="20" cy="30" r="10" fill="${color}" filter="url(#shadow)"/>
+        <polygon points="20,4 28,22 23,22 23,36 17,36 17,22 12,22" fill="#fff"/>
+      </svg>`;
+    }
+
+    function carIcon(equipeId, stale = false, forceColor = null) {
+      const color = forceColor || (stale ? '#64748b' : getEquipeColor(equipeId));
+      const el = document.createElement('div');
+      el.className = `car-marker${stale ? ' stale' : ''}`;
+      el.innerHTML = carSVG(color);
+      el.style.transform = `rotate(${headingsAnimados.get(equipeId) || 0}deg)`;
+      return new mapboxgl.Marker({ element: el, anchor: 'center' });
+    }
+
+    function upsert(regOriginal) {
+      if (loggedOutEquipes.has(regOriginal.equipeId)) {
+        loggedOutEquipes.delete(regOriginal.equipeId);
+      }
+      
+      let reg = { ...regOriginal };
+      const valid = validarProximidadePonto(reg);
+      const txt = `<b>${reg.equipeNome}</b><br>Lat: ${reg.lat.toFixed(6)}<br>Lng: ${reg.lng.toFixed(6)}<br>Precisão: ${reg.accuracy ?? '-'} m<br>${new Date(reg.ts).toLocaleTimeString('pt-BR')}`;
+      ultimoTs.set(reg.equipeId, reg.ts || Date.now());
+
+      if (!markers.has(reg.equipeId)) {
+        const m = carIcon(reg.equipeId, false);
+        m.setLngLat([reg.lng, reg.lat]).addTo(map);
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(txt);
+        m.setPopup(popup);
+        markers.set(reg.equipeId, m);
+        posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts });
+        headingsAnimados.set(reg.equipeId, reg.heading != null ? reg.heading : 0);
+      } else {
+        const m = markers.get(reg.equipeId);
+        m.setLngLat([reg.lng, reg.lat]);
+        if (m.getPopup()) m.getPopup().setHTML(txt);
+        headingsAnimados.set(reg.equipeId, reg.heading != null ? reg.heading : headingsAnimados.get(reg.equipeId) || 0);
+        posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts });
+        
+        const el = m.getElement();
+        if (el) {
+          el.style.transform = `rotate(${headingsAnimados.get(reg.equipeId)}deg)`;
+        }
+      }
+      renderEquipesList();
+    }
+
+    function validarProximidadePonto(reg) { return null; }
+    function stylePontoPlanejado(visitado) { return {}; }
+    function aplicarFiltroPontos() {}
+    function popularFiltroCidades() {}
+    function distMetros(a, b) { return 0; }
+    function marcarVisitaPorPosicao(reg) {}
+    function marcarPontoColetadoPorId(pontoId, pontoNome, distM) {}
+    function marcarPontoColetado(pontoNumero) {}
+    function tocarAlarmeProximidade() {}
+    function renderProximosList() {}
+    function verificarAproximacaoPonto(reg) {}
+    function mostrarModalProximidade(equipeNome, pontoNome, distancia) {}
+    function atualizarStatsPontos() {}
+    async function carregarPontosPlanejados() {}
+    function corPorEquipe(id) { return getEquipeColor(id); }
+    function adicionarPontoTrilhaHoje(reg) {}
+    function limparParadasEquipe(id) {}
+    function recalcularParadasEquipe(id) {}
+    function criarMarcadorParada(equipeId, p, durMs) {}
+    function focusEquipe(equipeId) {
+      equipeSelecionada = equipeId;
+      const m = markers.get(equipeId);
+      if (m) {
+        map.flyTo({ center: m.getLngLat(), zoom: 16, duration: 1000 });
+        if (m.getPopup()) m.togglePopup();
+      }
+      renderEquipesList();
+    }
+
+    function renderEquipesList() {
+      const ul = document.getElementById('equipesList');
+      ul.innerHTML = '';
+      const agora = Date.now();
+      const lista = Array.from(markers.keys()).sort();
+      if (!lista.length) {
+        ul.innerHTML = '<li style="opacity:0.5;cursor:default">Sem equipes ativas</li>';
+      }
+      for (const id of lista) {
+        const ts = ultimoTs.get(id) || 0;
+        const ageMs = agora - ts;
+        const logoff = loggedOutEquipes.has(id);
+        const stale = !logoff && ageMs > STALE_MS;
+        const ago = ageMs < 60000 ? `${Math.round(ageMs/1000)}s` : `${Math.round(ageMs/60000)}min`;
+        const li = document.createElement('li');
+        const color = getEquipeColor(id);
+        const addr = equipeAddress.get(id) || '';
+        if (equipeSelecionada === id) li.classList.add('active');
+        if (stale) li.classList.add('stale');
+        if (logoff) li.classList.add('logged-out');
+        li.style.borderLeftColor = logoff ? '#dc2626' : color;
+        const statusIcon = logoff ? '🔴' : (stale ? '🟡' : '🟢');
+        li.innerHTML = `<div style="display:flex;align-items:center;gap:8px;width:100%;">
+          <span>${statusIcon}</span>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:700;">${id}</div>
+            <div style="font-size:10px;color:${logoff ? '#dc2626' : (stale ? '#f59e0b' : '#22c55e')};">${logoff ? 'Deslogada' : (stale ? 'Inativa' : 'Ativa')} · ${ago}</div>
+          </div>
+        </div>`;
+        li.onclick = () => focusEquipe(id);
+        ul.appendChild(li);
+      }
+      document.getElementById('stats').textContent = `${lista.length} equipe(s)`;
+    }
+    setInterval(renderEquipesList, 10000);
+
+    function showLogoutToast(msg) {
+      const el = document.getElementById('logoutToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    function showLoginToast(msg) {
+      const el = document.getElementById('logoutToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.background = '#16a34a';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+
+    // WebSocket
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${proto}://${location.host}`;
+    let ws;
+    let wsReconnectTimer = null;
+
+    function connectWs() {
+      ws = new WebSocket(wsUrl);
+      document.getElementById('liveDot').classList.add('off');
+      document.getElementById('wsStatus').textContent = 'conectando…';
+      ws.onopen = () => {
+        document.getElementById('liveDot').classList.remove('off');
+        document.getElementById('wsStatus').textContent = 'conectado';
+      };
+      ws.onmessage = (ev) => {
+        document.getElementById('lastMsg').textContent = new Date().toLocaleTimeString('pt-BR');
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'bootstrap') (msg.data || []).forEach(upsert);
+          if (msg.type === 'position')  upsert(msg.data);
+          if (msg.type === 'team-logout' && msg.data) {
+            loggedOutEquipes.add(msg.data.equipeId);
+            showLogoutToast('🔴 ' + (msg.data.equipeNome || 'Equipe') + ' deslogou');
+            renderEquipesList();
+          }
+        } catch (e) { console.warn('msg invalida:', e); }
+      };
+      ws.onclose = () => {
+        document.getElementById('liveDot').classList.add('off');
+        document.getElementById('wsStatus').textContent = 'desconectado — reconectando…';
+        clearTimeout(wsReconnectTimer);
+        wsReconnectTimer = setTimeout(connectWs, 3000);
+      };
+      ws.onerror = () => { try { ws.close(); } catch (_) {} };
+    }
+    connectWs();
+
+    // Funções auxiliares e carregamentos
+    async function carregarEquipesCadastro() {
+      try {
+        const r = await fetch('/api/equipes');
+        const j = await r.json();
+        const equipes = j.equipes || [];
+        window.equipesCadastro = equipes;
+        const sel = document.getElementById('pbEquipe');
+        sel.innerHTML = '<option value="">— Todas —</option>';
+        const pushSel = document.getElementById('pushEquipe');
+        pushSel.innerHTML = '<option value="">— Todas as equipes —</option>';
+        for (const e of equipes) {
+          const op1 = document.createElement('option');
+          op1.value = e.equipeId;
+          op1.textContent = `${e.equipeId} — ${e.nome}`;
+          sel.appendChild(op1);
+          const op2 = document.createElement('option');
+          op2.value = e.equipeId;
+          op2.textContent = `${e.equipeId} — ${e.nome}`;
+          pushSel.appendChild(op2);
+        }
+        renderizarListaEquipes();
+      } catch (_) {}
+    }
+
+    async function carregarDatas() {
+      const inp = document.getElementById('pbDate');
+      const hoje = new Date().toISOString().slice(0, 10);
+      inp.value = hoje;
+      inp.max = hoje;
+      try {
+        const r = await fetch('/api/playback/datas');
+        const j = await r.json();
+        if (j.datas && j.datas.length) inp.min = j.datas[j.datas.length - 1];
+      } catch (_) {}
+    }
+
+    carregarEquipesCadastro();
+    carregarDatas();
+    carregarPontosPlanejados();
+
+    document.getElementById('btnGerarKey').addEventListener('click', async () => {
+      const equipeId = (document.getElementById('newEquipeId').value || '').trim().toUpperCase();
+      const nome = (document.getElementById('newEquipeNome').value || '').trim();
+      const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
+      const tokenBox = document.getElementById('tokenGerado');
+      if (!equipeId) { alert('Informe o Equipe ID'); return; }
+      const btn = document.getElementById('btnGerarKey');
+      btn.disabled = true; btn.textContent = 'Gerando...';
+      tokenBox.classList.remove('visible'); tokenBox.textContent = '';
+      try {
+        const resp = await fetch('/api/equipes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {}) },
+          body: JSON.stringify({ equipeId, nome: nome || equipeId, ativo: true })
+        });
+        const json = await resp.json();
+        if (!json.ok) { alert('Erro: ' + (json.error || 'falha ao gerar key')); return; }
+        const tok = json.equipe && json.equipe.token ? json.equipe.token : '';
+        tokenBox.textContent = `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | KEY: ${tok}`;
+        tokenBox.classList.add('visible');
+        try { await navigator.clipboard.writeText(tok); alert('KEY gerada e copiada.'); } catch (_) { alert('KEY gerada.'); }
+        document.getElementById('newEquipeId').value = '';
+        document.getElementById('newEquipeNome').value = '';
+        await carregarEquipesCadastro();
+      } catch (e) { alert('Falha: ' + e.message); }
+      finally { btn.disabled = false; btn.textContent = 'Gerar key'; }
+    });
+
+    async function acaoEquipe(path, method = 'POST', body = null) {
+      const equipeId = (document.getElementById('newEquipeId').value || '').trim().toUpperCase();
+      const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
+      const tokenBox = document.getElementById('tokenGerado');
+      if (!equipeId) { alert('Informe o Equipe ID'); return; }
+      const resp = await fetch(path.replace(':id', encodeURIComponent(equipeId)), {
+        method,
+        headers: { 'Content-Type': 'application/json', ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {}) },
+        body: body ? JSON.stringify(body) : undefined
+      });
+      const json = await resp.json();
+      if (!json.ok) { alert('Erro: ' + (json.error || 'falha na operação')); return null; }
+      tokenBox.textContent = json.equipe.token
+        ? `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | KEY: ${json.equipe.token}`
+        : `Equipe: ${json.equipe.equipeId} | Nome: ${json.equipe.nome} | Ativo: ${json.equipe.ativo ? 'SIM' : 'NÃO'}`;
+      tokenBox.classList.add('visible');
+      await carregarEquipesCadastro();
+      return json;
+    }
+
+    document.getElementById('btnRegenerarKey').addEventListener('click', async () => { await acaoEquipe('/api/equipes/:id/regenerar-token', 'POST'); });
+    document.getElementById('btnDesativarEquipe').addEventListener('click', async () => { await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: false }); });
+    document.getElementById('btnAtivarEquipe').addEventListener('click', async () => { await acaoEquipe('/api/equipes/:id/ativo', 'PATCH', { ativo: true }); });
+
+    document.getElementById('btnSendPush').addEventListener('click', async () => {
+      const title = (document.getElementById('pushTitle').value || 'NOC - Preventiva-CE').trim();
+      const body = (document.getElementById('pushBody').value || '').trim();
+      const equipeId = document.getElementById('pushEquipe').value || null;
+      const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
+      const resultEl = document.getElementById('pushResult');
+      if (!body) { resultEl.textContent = '⚠️ Digite uma mensagem'; return; }
+      const btn = document.getElementById('btnSendPush');
+      btn.disabled = true; btn.textContent = 'Enviando...';
+      resultEl.textContent = '';
+      try {
+        const r = await fetch('/api/push/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {}) },
+          body: JSON.stringify({ title, body, equipeId })
+        });
+        const j = await r.json();
+        if (j.ok) resultEl.textContent = `✅ Enviado: ${j.sent} entregues, ${j.failed} falhas`;
+        else resultEl.textContent = `❌ Erro: ${j.error || 'desconhecido'}`;
+      } catch (e) { resultEl.textContent = '❌ Falha na rede'; }
+      finally { btn.disabled = false; btn.textContent = '📨 Enviar notificação'; }
+    });
+
+    document.getElementById('btnSendProductionAlert').addEventListener('click', async () => {
+      const adminKey = (document.getElementById('nocAdminKey').value || '').trim();
+      const resultEl = document.getElementById('pushResult');
+      const btn = document.getElementById('btnSendProductionAlert');
+      btn.disabled = true; btn.textContent = 'Verificando...';
+      resultEl.textContent = '';
+      try {
+        const r = await fetch('/api/status');
+        const j = await r.json();
+        if (!j.ok) { resultEl.textContent = '❌ Erro ao consultar status'; return; }
+        const equipes = Array.isArray(j.equipes) ? j.equipes : [];
+        const comProducaoPendente = equipes.filter(e => {
+          const ago = Date.now() - (e.ts || 0);
+          return ago < 3600000 && !e.ultimaProducao;
+        });
+        if (!comProducaoPendente.length) {
+          resultEl.textContent = '✅ Todas as equipes com produção em dia';
+          return;
+        }
+        for (const eq of comProducaoPendente) {
+          await fetch('/api/push/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(adminKey ? { 'X-Noc-Admin-Key': adminKey } : {}) },
+            body: JSON.stringify({ title: 'NOC - Produção Pendente', body: `${eq.equipeNome || eq.equipeId}: registre a produção`, equipeId: eq.equipeId })
+          });
+        }
+        resultEl.textContent = `✅ Alertas enviados para ${comProducaoPendente.length} equipe(s)`;
+      } catch (e) { resultEl.textContent = '❌ Erro: ' + e.message; }
+      finally { btn.disabled = false; btn.textContent = '📬 Alertar produção pendente'; }
+    });
+
+    // Chat
+    const msgBadge = document.getElementById('msgBadge');
+    const chatTeamList = document.getElementById('chatTeamList');
+    const chatConvHeader = document.getElementById('chatConvHeader');
+    const chatMsgs = document.getElementById('chatMsgs');
+    const chatModalInput = document.getElementById('chatModalInput');
+    const chatOverlay = document.getElementById('chatOverlay');
+    let msgEquipeAtual = '';
+    let chatAberto = false;
+    let todasMensagens = [];
+
+    function abrirModalChat() {
+      chatAberto = true;
+      chatOverlay.classList.add('open');
+      carregarTodasMensagens();
+    }
+    function fecharModalChat() {
+      chatAberto = false;
+      chatOverlay.classList.remove('open');
+    }
+    async function carregarTodasMensagens() {
+      try {
+        const r = await fetch('/api/mensagens');
+        const j = await r.json();
+        if (!j.ok) return;
+        todasMensagens = j.mensagens || [];
+        renderizarListaEquipes();
+        if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);
+        atualizarBadge();
+      } catch (_) {}
+    }
+    function renderizarListaEquipes() {
+      const porEquipe = {};
+      for (const m of todasMensagens) {
+        if (!porEquipe[m.equipeId]) porEquipe[m.equipeId] = { nome: m.equipeNome || m.equipeId, ultima: m, naoLidas: 0 };
+        const grupo = porEquipe[m.equipeId];
+        if (m.createdAt > (grupo.ultima.createdAt || 0)) grupo.ultima = m;
+        if (!m.lida && m.direcao === 'tecnico') grupo.naoLidas++;
+      }
+      if (window.equipesCadastro) {
+        for (const eq of window.equipesCadastro) {
+          if (!porEquipe[eq.equipeId]) porEquipe[eq.equipeId] = { nome: eq.nome || eq.equipeId, ultima: null, naoLidas: 0 };
+        }
+      }
+      const sorted = Object.entries(porEquipe).sort((a, b) => (b[1].ultima?.createdAt || 0) - (a[1].ultima?.createdAt || 0));
+      let html = '';
+      for (const [id, grupo] of sorted) {
+        const ativa = id === msgEquipeAtual ? 'active' : '';
+        const preview = grupo.ultima?.texto ? grupo.ultima.texto.slice(0, 40) : '';
+        const time = grupo.ultima?.createdAt ? new Date(grupo.ultima.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '';
+        const badge = grupo.naoLidas > 0 ? `<span class="badge">${grupo.naoLidas}</span>` : '';
+        html += `<div class="chat-team-item ${ativa}" onclick="selecionarEquipe('${id}')">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:13px;">${escHtml(grupo.nome)}</div>
+            <div class="last-msg">${preview || '—'}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="time">${time}</div>
+            ${badge}
+          </div>
+        </div>`;
+      }
+      if (!sorted.length) html = '<div style="padding:20px;text-align:center;color:#475569;font-size:12px;">Nenhuma equipe cadastrada</div>';
+      chatTeamList.innerHTML = html;
+    }
+    function selecionarEquipe(equipeId) {
+      msgEquipeAtual = equipeId;
+      renderizarListaEquipes();
+      renderizarConversa(equipeId);
+      for (const m of todasMensagens) {
+        if (m.equipeId === equipeId && !m.lida && m.direcao === 'tecnico') {
+          m.lida = true;
+          fetch('/api/mensagens/' + m.id + '/lida', { method: 'PATCH' }).catch(() => {});
+        }
+      }
+      atualizarBadge();
+    }
+    function renderizarConversa(equipeId) {
+      const msgs = todasMensagens.filter(m => m.equipeId === equipeId);
+      const equipe = window.equipesCadastro?.find(e => e.equipeId === equipeId);
+      const nome = equipe?.nome || (msgs.length ? msgs[0].equipeNome : equipeId);
+      chatConvHeader.textContent = '💬 ' + nome;
+      if (!msgs.length) {
+        chatMsgs.innerHTML = '<div class="empty">Nenhuma mensagem ainda. Envie a primeira!</div>';
+        return;
+      }
+      let html = '';
+      for (const m of msgs) {
+        const isNoc = m.direcao === 'noc';
+        const cls = isNoc ? 'chat-bubble noc' : 'chat-bubble tecnico';
+        const time = new Date(m.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const date = new Date(m.createdAt).toLocaleDateString('pt-BR');
+        const label = isNoc ? 'NOC' : '👤 ' + (m.equipeNome || m.equipeId);
+        let extra = '';
+        if (m.arquivoUrl) {
+          if (m.arquivoTipo === 'video') extra = `<video src="${m.arquivoUrl}" class="chat-msg-video" controls></video>`;
+          else extra = `<img src="${m.arquivoUrl}" class="chat-msg-img" onclick="window.open('${m.arquivoUrl}','_blank')" loading="lazy">`;
+        }
+        html += `<div class="${cls}">
+          <span class="label">${label} · ${date}</span>
+          ${escHtml(m.texto)}
+          ${extra}
+          <div class="time">${time}</div>
+        </div>`;
+      }
+      chatMsgs.innerHTML = html;
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    async function enviarMsgModal() {
+      const texto = chatModalInput.value.trim();
+      if (!texto || !msgEquipeAtual) return;
+      chatModalInput.value = '';
+      try {
+        const r = await fetch('/api/mensagens/noc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ equipeId: msgEquipeAtual, texto, tipo: 'alerta' })
+        });
+        const j = await r.json();
+        if (j.ok && j.mensagem) {
+          todasMensagens.push(j.mensagem);
+          renderizarListaEquipes();
+          renderizarConversa(msgEquipeAtual);
+          fetch('/api/push/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: 'NOC - Preventiva-CE', body: texto, equipeId: msgEquipeAtual })
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+    async function enviarArquivoModal(input, comprimir) {
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+      if (!msgEquipeAtual) { alert('Selecione uma equipe no chat primeiro'); return; }
+      try {
+        let arquivo = file;
+        const fd = new FormData();
+        fd.append('arquivo', arquivo);
+        const up = await fetch('/api/upload', { method: 'POST', body: fd });
+        const upData = await up.json();
+        if (!upData.ok) { alert('Upload falhou: ' + (upData.error || 'erro')); return; }
+        const r = await fetch('/api/mensagens/noc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ equipeId: msgEquipeAtual, texto: file.name, tipo: 'alerta', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
+        });
+        const j = await r.json();
+        if (j.ok && j.mensagem) {
+          todasMensagens.push(j.mensagem);
+          renderizarListaEquipes();
+          renderizarConversa(msgEquipeAtual);
+        } else { alert('Erro ao enviar mensagem: ' + (j.error || 'erro')); }
+      } catch (e) { alert('Erro: ' + e.message); }
+    }
+    function atualizarBadge() {
+      const naoLidas = todasMensagens.filter(m => !m.lida && m.direcao === 'tecnico').length;
+      if (naoLidas > 0) { msgBadge.style.display = 'inline'; msgBadge.textContent = naoLidas; }
+      else msgBadge.style.display = 'none';
+    }
+    setInterval(async () => {
+      try {
+        const r = await fetch('/api/mensagens');
+        const j = await r.json();
+        if (j.ok) {
+          todasMensagens = j.mensagens || [];
+          if (chatAberto) {
+            renderizarListaEquipes();
+            if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);
+          }
+          atualizarBadge();
+        }
+      } catch (_) {}
+    }, 8000);
+
+    // Playback
+    document.getElementById('btnPlayback').addEventListener('click', async () => {
+      const data = document.getElementById('pbDate').value;
+      const equipeId = document.getElementById('pbEquipe').value;
+      if (!data) { alert('Selecione uma data'); return; }
+      limparPlayback();
+      const url = `/api/playback?data=${encodeURIComponent(data)}` + (equipeId ? `&equipeId=${encodeURIComponent(equipeId)}` : '');
+      const btn = document.getElementById('btnPlayback');
+      btn.textContent = 'Carregando…'; btn.disabled = true;
+      try {
+        const r = await fetch(url);
+        const j = await r.json();
+        if (!j.ok) { alert('Erro: ' + j.error); return; }
+        desenharPlayback(j.posicoes, data, equipeId);
+      } catch (e) { alert('Falha: ' + e.message); }
+      finally { btn.textContent = 'Mostrar rota'; btn.disabled = false; }
+    });
+    document.getElementById('btnLimparPlayback').addEventListener('click', limparPlayback);
+    function limparPlayback() {
+      if (playbackLayer) {
+        if (playbackLayer.remove) playbackLayer.remove();
+        playbackLayer = null;
+      }
+      document.getElementById('playbackInfo').classList.remove('visible');
+    }
+    function haversine(a, b) { return 0; }
+    function desenharPlayback(posicoes, data, equipeId) {
+      alert('Playback: ' + posicoes.length + ' posições encontradas para ' + data);
+      document.getElementById('playbackInfo').classList.add('visible');
+      document.getElementById('playbackInfo').innerHTML = `<span class="label">Data:</span> <span class="val">${data}</span><span class="label">Pontos:</span> <span class="val">${posicoes.length}</span>`;
+    }
+
+    // Sidebar toggle
+    document.getElementById('toggleSidebar').addEventListener('click', () => {
+      if (window.innerWidth <= 720) { document.getElementById('sidebarLeft').classList.toggle('open'); return; }
+      document.body.classList.toggle('sidebar-collapsed');
+    });
+    document.getElementById('toggleSidebarRight').addEventListener('click', () => {
+      if (window.innerWidth <= 720) { document.getElementById('sidebarRight').classList.toggle('open'); return; }
+      document.body.classList.toggle('sidebar-right-collapsed');
+    });
+
+    // Usuarios CRUD
+    function getToken() { return sessionStorage.getItem('nocToken'); }
+    async function carregarUsuariosLista() {
+      const token = getToken();
+      if (!token) return;
+      try {
+        const r = await fetch('/api/auth/usuarios', { headers: { 'X-Noc-Token': token } });
+        const data = await r.json();
+        if (!data.ok) return;
+        const el = document.getElementById('usuariosList');
+        if (data.envBased) { el.innerHTML = '<div style="color:#f59e0b;">Gerenciados via NOC_USERS env var</div>'; return; }
+        el.innerHTML = data.usuarios.map(u => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;margin-bottom:2px;background:#0f172a;border-radius:4px;">
+            <span><b>${u.usuario}</b> <span style="color:#94a3b8;">(${u.perfil})</span><br><small style="color:#64748b;">${u.nome}</small></span>
+            <span style="display:flex;gap:4px;">
+              <button onclick="mostrarFormEditar('${u.usuario}','${u.perfil}','${u.nome.replace(/'/g,"\\'")}')" style="padding:2px 8px;background:#2563eb;color:#fff;border:0;border-radius:3px;cursor:pointer;font-size:11px;">Editar</button>
+              <button onclick="excluirUsuario('${u.usuario}')" style="padding:2px 8px;background:#dc2626;color:#fff;border:0;border-radius:3px;cursor:pointer;font-size:11px;">×</button>
+            </span>
+          </div>
+        `).join('');
+      } catch (_) {}
+    }
+    function mostrarFormEditar(usuario, perfil, nome) {
+      const el = document.getElementById('usuariosList');
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:8px;background:#1e293b;border-radius:6px;margin-top:4px;';
+      div.id = 'editUsuarioForm';
+      div.innerHTML = `
+        <div style="font-size:11px;font-weight:700;margin-bottom:4px;">Editando: ${usuario}</div>
+        <input type="text" id="editNome" value="${nome}" placeholder="Nome" style="width:100%;padding:5px 6px;margin-bottom:4px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <input type="password" id="editSenha" placeholder="Nova senha (deixar vazio = manter)" style="width:100%;padding:5px 6px;margin-bottom:4px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;box-sizing:border-box;">
+        <select id="editPerfil" style="width:100%;padding:5px;margin-bottom:4px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:12px;">
+          <option value="operador" ${perfil==='operador'?'selected':''}>Operador</option>
+          <option value="admin" ${perfil==='admin'?'selected':''}>Admin</option>
+        </select>
+        <div style="display:flex;gap:4px;">
+          <button onclick="atualizarUsuario('${usuario}')" style="flex:1;padding:5px;background:#22c55e;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px;font-weight:600;">Salvar</button>
+          <button onclick="document.getElementById('editUsuarioForm').remove()" style="flex:1;padding:5px;background:#475569;color:#fff;border:0;border-radius:4px;cursor:pointer;font-size:11px;">Cancelar</button>
+        </div>
+      `;
+      el.prepend(div);
+    }
+    async function criarUsuarioAction() {
+      const usuario = document.getElementById('novoUsuario').value.trim();
+      const senha = document.getElementById('novaSenha').value;
+      const nome = document.getElementById('novoNome').value.trim() || usuario;
+      const perfil = document.getElementById('novoPerfil').value;
+      const msg = document.getElementById('usuariosMsg');
+      if (!usuario || !senha) { msg.textContent = 'Preencha usuario e senha'; return; }
+      const token = getToken();
+      try {
+        const r = await fetch('/api/auth/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify({ usuario, senha, nome, perfil })
+        });
+        const data = await r.json();
+        if (data.ok) {
+          document.getElementById('novoUsuario').value = '';
+          document.getElementById('novaSenha').value = '';
+          document.getElementById('novoNome').value = '';
+          msg.textContent = '✓ Usuário criado';
+          msg.style.color = '#22c55e';
+          carregarUsuariosLista();
+        } else {
+          msg.textContent = data.error;
+          msg.style.color = '#ef4444';
+        }
+      } catch (_) { msg.textContent = 'Erro de rede'; msg.style.color = '#ef4444'; }
+    }
+    async function atualizarUsuario(usuario) {
+      const dados = {};
+      const senha = document.getElementById('editSenha').value;
+      if (senha) dados.senha = senha;
+      dados.perfil = document.getElementById('editPerfil').value;
+      dados.nome = document.getElementById('editNome').value.trim();
+      const token = getToken();
+      try {
+        const r = await fetch('/api/auth/usuarios/' + encodeURIComponent(usuario), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify(dados)
+        });
+        const data = await r.json();
+        const msg = document.getElementById('usuariosMsg');
+        if (data.ok) {
+          msg.textContent = '✓ Usuário atualizado';
+          msg.style.color = '#22c55e';
+          document.getElementById('editUsuarioForm')?.remove();
+          carregarUsuariosLista();
+        } else {
+          msg.textContent = data.error;
+          msg.style.color = '#ef4444';
+        }
+      } catch (_) {}
+    }
+    async function excluirUsuario(usuario) {
+      if (!confirm(`Excluir usuario "${usuario}"?`)) return;
+      const token = getToken();
+      try {
+        const r = await fetch('/api/auth/usuarios/' + encodeURIComponent(usuario), {
+          method: 'DELETE',
+          headers: { 'X-Noc-Token': token }
+        });
+        const data = await r.json();
+        const msg = document.getElementById('usuariosMsg');
+        if (data.ok) {
+          msg.textContent = '✓ Usuário removido';
+          msg.style.color = '#22c55e';
+          carregarUsuariosLista();
+        } else {
+          msg.textContent = data.error;
+          msg.style.color = '#ef4444';
+        }
+      } catch (_) {}
+    }
+    document.getElementById('btnCriarUsuario').addEventListener('click', criarUsuarioAction);
+
+    async function fazerLogin() {
+      const user = document.getElementById('loginUser').value.trim();
+      const pass = document.getElementById('loginPass').value;
+      const errEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      if (!user || !pass) { errEl.textContent = 'Preencha usuario e senha'; errEl.style.display = 'block'; return; }
+      errEl.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Entrando...';
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario: user, senha: pass })
+        });
+        const j = await r.json();
+        if (!j.ok) { errEl.textContent = j.error || 'Falha no login'; errEl.style.display = 'block'; return; }
+        sessionStorage.setItem('nocToken', j.token);
+        sessionStorage.setItem('nocPerfil', j.perfil);
+        sessionStorage.setItem('nocNome', j.nome);
+        usuarioSessao = { perfil: j.perfil, nome: j.nome };
+        document.getElementById('loginOverlay').classList.add('hidden');
+        aplicarRestricoesPerfil();
+        if (j.perfil === 'admin') carregarUsuariosLista();
+      } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
+      finally { btn.disabled = false; btn.textContent = 'Entrar'; }
+    }
+    
+    document.getElementById('logoutBtn').addEventListener('click', async () => {
+      const token = sessionStorage.getItem('nocToken');
+      if (token) {
+        try { await fetch('/api/auth/logout', { method: 'POST', headers: { 'X-Noc-Token': token } }); } catch (_) {}
+      }
+      sessionStorage.clear();
+      usuarioSessao = null;
+      document.getElementById('loginOverlay').classList.remove('hidden');
+      document.getElementById('loginUser').value = '';
+      document.getElementById('loginPass').value = '';
+      document.getElementById('loginError').style.display = 'none';
+    });
+
+    // Boot
+    (async () => {
+      const ok = await verificarSessao();
+      if (ok) {
+        document.getElementById('loginOverlay').classList.add('hidden');
+        aplicarRestricoesPerfil();
+        if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
+      }
+    })();
+
+    // Expor funções globais
+    window.selecionarEquipe = selecionarEquipe;
+    window.mostrarFormEditar = mostrarFormEditar;
+    window.atualizarUsuario = atualizarUsuario;
+    window.excluirUsuario = excluirUsuario;
+    window.aplicarFiltroPontos = aplicarFiltroPontos;
+    window.fecharModalChat = fecharModalChat;
+    window.abrirModalChat = abrirModalChat;
+    window.enviarMsgModal = enviarMsgModal;
+    window.enviarArquivoModal = enviarArquivoModal;
+    window.fazerLogin = fazerLogin;
+  </script>
+</body>
+</html>

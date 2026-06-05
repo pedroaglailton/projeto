@@ -621,6 +621,7 @@
       window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
       window.mapPronto = false;
       window.map.on('load', () => { window.mapPronto = true; });
+      initClima();
 
       (async () => {
         const ok = await verificarSessao();
@@ -780,13 +781,16 @@
       }
     }
 
-    map.on('style.load', () => {
-      applyRainEffect(currentRainIntensity);
-    });
-    map.on('load', () => {
-      setTimeout(atualizarClima, 2000);
-      weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
-    });
+    // map.on registrado dentro do window.onload via initClima()
+    function initClima() {
+      window.map.on('style.load', () => {
+        applyRainEffect(currentRainIntensity);
+      });
+      window.map.on('load', () => {
+        setTimeout(atualizarClima, 2000);
+        weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
+      });
+    }
 
 
     // =========================================================================

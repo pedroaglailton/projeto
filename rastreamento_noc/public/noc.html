@@ -361,6 +361,23 @@
     .pin-marker.stale .pin-body { opacity:0.45; }
     .pin-marker.stale .pin-label { opacity:0.45; }
 
+    /* ── Popup do Mapbox — sobrescreve estilos padrão ── */
+    .mapboxgl-popup-content {
+      background: #1e293b !important;
+      color: #e2e8f0 !important;
+      border: 1px solid #334155 !important;
+      border-radius: 8px !important;
+      padding: 10px 14px !important;
+      font-size: 13px !important;
+      font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+      min-width: 180px;
+    }
+    .mapboxgl-popup-content b { color: #7dd3fc; }
+    .mapboxgl-popup-tip { border-top-color: #1e293b !important; border-bottom-color: #1e293b !important; }
+    .mapboxgl-popup-close-button { color: #94a3b8 !important; font-size: 18px !important; }
+    .mapboxgl-popup-close-button:hover { color: #fff !important; background: transparent !important; }
+
     /* ── Indicador de clima no topo ── */
     .weather-indicator { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#94a3b8; margin-left:10px; }
     .weather-indicator .w-icon { font-size:16px; }
@@ -668,7 +685,12 @@
           this._popup.setHTML(this._popupHtml);
         }
       }
-      openPopup() { if (this._popup) this._mk.togglePopup(); return this; }
+      openPopup() {
+        if (this._popup) {
+          if (!this._popup.isOpen()) this._mk.togglePopup();
+        }
+        return this;
+      }
       bindTooltip(text, opts) { this._tooltipText = text; return this; }
       setTooltipContent(text) { this._tooltipText = text; return this; }
       unbindTooltip() { this._tooltipText = ''; return this; }

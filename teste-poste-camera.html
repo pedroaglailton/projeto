@@ -31,9 +31,20 @@
       zoom: 12,
       center: [-38.5267, -3.7319],
       pitch: 45,
-      style: 'mapbox://styles/mapbox/standard'
+      style: 'mapbox://styles/mapbox/light-v11'
     });
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Esconde os POIs/markers 3D azuis do Mapbox (depois do style carregar)
+    map.on('style.load', () => {
+      const style = map.getStyle();
+      for (const layer of style.layers) {
+        const id = (layer.id || '').toLowerCase();
+        if (id.includes('poi') || id.includes('landmark') || id.includes('transit')) {
+          try { map.setLayoutProperty(layer.id, 'visibility', 'none'); } catch {}
+        }
+      }
+    });
 
     // ── Carrega pontos do arquivo JSON e renderiza via symbol layer ──
     // A symbol layer usa icon-size interpolado com exponential 2, que
@@ -47,9 +58,9 @@
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
         const amostra = pontos.slice(0, 100);
 
-        // Carrega a imagem do poste como icone
+        // Carrega a imagem do poste como icone (cache-busting: ?v=2)
         const image = await new Promise((resolve, reject) => {
-          map.loadImage('poste.png', (err, img) => {
+          map.loadImage('poste.png?v=2', (err, img) => {
             if (err) return reject(err);
             resolve(img);
           });

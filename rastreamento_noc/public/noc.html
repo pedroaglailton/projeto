@@ -701,80 +701,93 @@
     }
 
     // =========================================================================
-    // Clima dinâmico — CPTEC/INPE (Fortaleza)
+    // Clima dinâmico — Open-Meteo (Fortaleza) — sem CORS, sem chave
     // =========================================================================
     const WEATHER_LAT = -3.7319;
     const WEATHER_LNG = -38.5267;
     let weatherTimer = null;
     let weatherCache = null;
+    let currentRainIntensity = 0;
 
-    function getWeatherCondition(tempo) {
-      // Códigos CPTEC: ec=ensolarado, c=nublado, pn=parcialmente nublado,
-      // ch=chuva, cv=chuva fraca, cm=chuva moderada, ct=chuva intensa
-      const code = String(tempo || '').toLowerCase();
-      if (['ch', 'cv', 'cm', 'ct'].includes(code)) return 'rain';
-      if (code === 'c') return 'cloud';
-      if (['pn', 'ec', 'cs'].includes(code)) return 'clear';
-      return 'clear';
+    function applyRainEffect(intensity) {
+      if (!map.getStyle()) return;
+      try {
+        if (intensity <= 0) {
+          try { map.setRain(null); } catch(_) {}
+          map.setConfigProperty('basemap', 'lightPreset', 'day');
+        } else {
+          map.setRain({
+            density: intensity * 0.8,
+            intensity: 0.8 + intensity * 0.4,
+            color: '#a8adbc',
+            opacity: 0.4 + intensity * 0.3,
+            vignette: intensity,
+            'vignette-color': '#464646',
+            direction: [0, 75],
+            'droplet-size': [2.5, 18.0],
+            'distortion-strength': 0.6,
+            'center-thinning': 0
+          });
+          map.setConfigProperty('basemap', 'lightPreset', intensity > 0.5 ? 'dawn' : 'dusk');
+        }
+      } catch(e) { console.warn('[clima] erro ao aplicar efeito:', e); }
     }
 
     async function atualizarClima() {
       try {
-        const url = `http://servicos.cptec.inpe.br/XML/cidade/7dias/${WEATHER_LAT}/${WEATHER_LNG}/previsaoLatLon.xml`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LNG}&current_weather=true&hourly=precipitation,weathercode&timezone=America/Fortaleza&forecast_days=1`;
         const resp = await fetch(url);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const xml = await resp.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(xml, 'text/xml');
-        const tempoEl = doc.querySelector('previsao[dia="hoje"] tempo, previsao tempo');
-        const maxEl = doc.querySelector('previsao maxima');
-        const minEl = doc.querySelector('previsao minima');
-        const tempo = tempoEl?.textContent || '';
-        const maxT = maxEl?.textContent || '';
-        const minT = minEl?.textContent || '';
+        const data = await resp.json();
 
-        const cond = getWeatherCondition(tempo);
-        weatherCache = { cond, tempo, max: maxT, min: minT };
+        let precipitation = 0;
+        const temperatura = data.current_weather?.temperature ?? '--';
+        if (data.hourly?.precipitation && data.hourly.time) {
+          const now = new Date();
+          const currentHourStr = now.toISOString().slice(0, 13) + ':00';
+          const idx = data.hourly.time.indexOf(currentHourStr);
+          if (idx !== -1 && data.hourly.precipitation[idx] !== undefined) {
+            precipitation = data.hourly.precipitation[idx];
+          }
+        }
 
-        // Atualiza indicador no topo
+        let cond, icon, label, rainIntensity;
+        if (precipitation <= 0.2) {
+          cond = 'clear'; icon = '☀️'; label = 'Sol'; rainIntensity = 0;
+        } else if (precipitation <= 2) {
+          cond = 'rain'; icon = '💧'; label = 'Garoa'; rainIntensity = 0.3;
+        } else if (precipitation <= 8) {
+          cond = 'rain'; icon = '🌦️'; label = 'Chuva mod.'; rainIntensity = 0.6;
+        } else {
+          cond = 'rain'; icon = '⛈️'; label = 'Chuva forte'; rainIntensity = 0.9;
+        }
+
+        weatherCache = { cond, precipitation, temperatura };
+        currentRainIntensity = rainIntensity;
+
         const wIcon = document.getElementById('weatherIndicator').querySelector('.w-icon');
         const wDesc = document.getElementById('weatherDesc');
-        const icones = { rain: '🌧️', cloud: '☁️', clear: '☀️' };
-        const labels = { rain: 'Chuva', cloud: 'Nublado', clear: 'Sol' };
-        wIcon.textContent = icones[cond] || '⏳';
-        wDesc.textContent = `${labels[cond] || tempo} ${minT}°C~${maxT}°C`;
+        wIcon.textContent = icon;
+        wDesc.textContent = `${label} ${Math.round(temperatura)}°C (${precipitation.toFixed(1)}mm)`;
 
-        // Aplica efeito no mapa (se o estilo standard estiver carregado)
-        if (window.mapPronto && map.getStyle()?.name?.includes('Standard')) {
-          try {
-            if (cond === 'rain') {
-              map.setConfigProperty('basemap', 'lightPreset', 'dawn');
-              map.setRain({
-                density: 0.5, intensity: 1.0, color: '#a8adbc', opacity: 0.7,
-                vignette: 1.0, 'vignette-color': '#464646', direction: [0, 80],
-                'droplet-size': [2.6, 18.2], 'distortion-strength': 0.7, 'center-thinning': 0
-              });
-            } else if (cond === 'cloud') {
-              try { map.setRain(null); } catch(_) {}
-              map.setConfigProperty('basemap', 'lightPreset', 'dusk');
-            } else {
-              try { map.setRain(null); } catch(_) {}
-              map.setConfigProperty('basemap', 'lightPreset', 'day');
-            }
-          } catch (e) { console.warn('[clima] erro ao aplicar efeito:', e); }
+        if (window.mapPronto) {
+          applyRainEffect(rainIntensity);
         }
       } catch (e) {
         console.warn('[clima] falha ao buscar:', e);
         const wDesc = document.getElementById('weatherDesc');
-        wDesc.textContent = 'clima indisponível';
+        wDesc.textContent = 'clima indisponivel';
       }
     }
 
-    // Inicia clima após mapa carregar
+    map.on('style.load', () => {
+      applyRainEffect(currentRainIntensity);
+    });
     map.on('load', () => {
       setTimeout(atualizarClima, 2000);
-      weatherTimer = setInterval(atualizarClima, 30 * 60 * 1000); // a cada 30min
+      weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
     });
+
 
     // =========================================================================
     // Overlay de ruas do KML de Fortaleza — cor neutra única

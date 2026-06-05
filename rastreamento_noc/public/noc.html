@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOC — Rastreamento em Tempo Real</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
@@ -349,7 +349,22 @@
     .login-logo { font-size:48px;margin-bottom:8px; }
     .login-title { font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;letter-spacing:2px;color:#e2e8f0; }
     .login-sub { font-size:13px;color:#64748b;margin-top:4px; }
-  </style>
+
+    /* ── Pino teardrop (Google Maps style) ── */
+    .pin-marker { position:relative; width:0; height:0; display:flex; flex-direction:column; align-items:center; cursor:pointer; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.35)); z-index:1; }
+    .pin-marker .pin-sombra { position:absolute; bottom:0; left:50%; transform:translateX(-50%); width:28px; height:8px; border-radius:50%; background:rgba(0,0,0,0.3); filter:blur(4px); z-index:0; }
+    .pin-marker svg.pin-body { position:absolute; bottom:2px; left:50%; transform:translateX(-50%); width:32px; height:42px; z-index:1; overflow:visible; }
+    .pin-marker .pin-num { position:absolute; bottom:24px; left:50%; transform:translateX(-50%); width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; font-family:system-ui,sans-serif; color:#fff; z-index:2; text-shadow:0 1px 2px rgba(0,0,0,0.3); background:rgba(255,255,255,0.2); box-shadow:inset 0 1px 3px rgba(255,255,255,0.25); }
+    .pin-marker .pin-num::after { content:''; position:absolute; top:3px; left:4px; width:8px; height:4px; border-radius:50%; background:rgba(255,255,255,0.4); transform:rotate(-25deg); }
+    .pin-marker .pin-label { position:absolute; bottom:-22px; left:50%; transform:translateX(-50%); font-family:system-ui,sans-serif; font-size:9px; font-weight:600; color:rgba(255,255,255,0.8); background:rgba(0,0,0,0.45); padding:1px 6px; border-radius:4px; white-space:nowrap; backdrop-filter:blur(4px); z-index:1; pointer-events:none; }
+    .pin-marker.stale .pin-body { opacity:0.45; }
+    .pin-marker.stale .pin-label { opacity:0.45; }
+
+    /* ── Indicador de clima no topo ── */
+    .weather-indicator { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#94a3b8; margin-left:10px; }
+    .weather-indicator .w-icon { font-size:16px; }
+    .weather-indicator .w-temp { font-weight:600; color:#e2e8f0; }
+    .weather-indicator .w-desc { font-size:11px; }
 </head>
 <body>
   <div id="nocApp">
@@ -363,6 +378,7 @@
     <button id="logoutBtn" style="padding:4px 10px;background:transparent;border:1px solid #475569;border-radius:4px;color:#94a3b8;font-size:11px;cursor:pointer;margin-right:10px;">Sair</button>
     <span class="stats" id="stats">— equipes</span>
     <span class="stats secondary" id="statsPontos">Planejados: 0 | Visitados: 0 | Pendentes: 0</span>
+    <span class="weather-indicator" id="weatherIndicator"><span class="w-icon">⏳</span><span class="w-desc" id="weatherDesc">carregando clima…</span></span>
     <button class="toggle-sidebar" id="toggleSidebarRight" title="Abrir/fechar equipes" style="margin-left:8px;">☰</button>
   </div>
 
@@ -555,7 +571,7 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
   <script>
     // =========================================================================
     // Autenticacao (login)
@@ -595,24 +611,172 @@
       if (ok) {
         document.getElementById('loginOverlay').classList.add('hidden');
         aplicarRestricoesPerfil();
-        map.invalidateSize();
+        if (!mapPronto) { map.on('load', () => map.resize()); } else { map.resize(); }
         if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
       }
     })();
     // =========================================================================
-    // Setup do mapa — OpenStreetMap padrão (claro)
+    // Token Mapbox
     // =========================================================================
-    const map = L.map('map', {
-      zoomControl: true,
-      attributionControl: true,
-      maxZoom: 19,
-      preferCanvas: true
-    }).setView([-3.7319, -38.5267], 12);
+    mapboxgl.accessToken = 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g';
 
-    const darkTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    }).addTo(map);
+    // =========================================================================
+    // Setup do mapa — Mapbox GL JS 3D
+    // =========================================================================
+    const map = new mapboxgl.Map({
+      container: 'map',
+      zoom: 12,
+      center: [-38.5267, -3.7319],
+      pitch: 60,
+      bearing: 0,
+      style: 'mapbox://styles/mapbox/standard'
+    });
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    let mapPronto = false;
+    map.on('load', () => { mapPronto = true; });
+
+    // ── Wrapper MapboxMarker (interface compatível com L.marker) ──
+    class MapboxMarker {
+      constructor(lat, lng, equipeId, stale, forceColor) {
+        this._el = criarPinoTeardrop(equipeId, stale, forceColor);
+        this._popupHtml = '';
+        this._tooltipText = '';
+        this._equipeId = equipeId;
+        this._stale = stale;
+        this._forceColor = forceColor;
+        this._clickFn = null;
+        this._mk = new mapboxgl.Marker({ element: this._el, anchor: 'bottom' })
+          .setLngLat([lng, lat]);
+        this._mk._wrapper = this;
+      }
+      addTo(map) { this._mk.addTo(map); return this; }
+      setLatLng(ll) {
+        let lat, lng;
+        if (Array.isArray(ll)) { lat = ll[0]; lng = ll[1]; }
+        else { lat = ll.lat; lng = ll.lng; }
+        this._mk.setLngLat([lng, lat]); return this;
+      }
+      getLatLng() { const l = this._mk.getLngLat(); return { lat: l.lat, lng: l.lng }; }
+      bindPopup(html) { this._popupHtml = html; this._updatePopup(); return this; }
+      setPopupContent(html) { this._popupHtml = html; this._updatePopup(); return this; }
+      _updatePopup() {
+        if (this._popupHtml) {
+          if (!this._popup) {
+            this._popup = new mapboxgl.Popup({ offset: 45, closeButton: true });
+            this._mk.setPopup(this._popup);
+          }
+          this._popup.setHTML(this._popupHtml);
+        }
+      }
+      openPopup() { if (this._popup) this._mk.togglePopup(); return this; }
+      bindTooltip(text, opts) { this._tooltipText = text; return this; }
+      setTooltipContent(text) { this._tooltipText = text; return this; }
+      unbindTooltip() { this._tooltipText = ''; return this; }
+      getTooltip() { return { getContent: () => this._tooltipText }; }
+      on(event, fn) {
+        if (event === 'click') {
+          this._clickFn = fn;
+          this._el.addEventListener('click', (e) => { e.stopPropagation(); fn({ target: this }); });
+        }
+        return this;
+      }
+      getElement() { return this._mk.getElement(); }
+      // Reconstrói o elemento visual com nova cor/estado
+      setIcon(newState) {
+        // newState é ignorado — reconstroi baseado no estado atual conhecido
+        const novoEl = criarPinoTeardrop(this._equipeId, this._stale, this._forceColor);
+        this._el.replaceWith(novoEl);
+        this._el = novoEl;
+        this._mk.setElement(novoEl);
+        if (this._clickFn) {
+          novoEl.addEventListener('click', (e) => { e.stopPropagation(); this._clickFn({ target: this }); });
+        }
+        this._updatePopup();
+        return this;
+      }
+      setStale(s) { this._stale = s; this.setIcon(); }
+      setLoggedOut(lo) {
+        this._forceColor = lo ? '#dc2626' : null;
+        this._stale = false;
+        this.setIcon();
+      }
+    }
+
+    // =========================================================================
+    // Clima dinâmico — CPTEC/INPE (Fortaleza)
+    // =========================================================================
+    const WEATHER_LAT = -3.7319;
+    const WEATHER_LNG = -38.5267;
+    let weatherTimer = null;
+    let weatherCache = null;
+
+    function getWeatherCondition(tempo) {
+      // Códigos CPTEC: ec=ensolarado, c=nublado, pn=parcialmente nublado,
+      // ch=chuva, cv=chuva fraca, cm=chuva moderada, ct=chuva intensa
+      const code = String(tempo || '').toLowerCase();
+      if (['ch', 'cv', 'cm', 'ct'].includes(code)) return 'rain';
+      if (code === 'c') return 'cloud';
+      if (['pn', 'ec', 'cs'].includes(code)) return 'clear';
+      return 'clear';
+    }
+
+    async function atualizarClima() {
+      try {
+        const url = `http://servicos.cptec.inpe.br/XML/cidade/7dias/${WEATHER_LAT}/${WEATHER_LNG}/previsaoLatLon.xml`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const xml = await resp.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, 'text/xml');
+        const tempoEl = doc.querySelector('previsao[dia="hoje"] tempo, previsao tempo');
+        const maxEl = doc.querySelector('previsao maxima');
+        const minEl = doc.querySelector('previsao minima');
+        const tempo = tempoEl?.textContent || '';
+        const maxT = maxEl?.textContent || '';
+        const minT = minEl?.textContent || '';
+
+        const cond = getWeatherCondition(tempo);
+        weatherCache = { cond, tempo, max: maxT, min: minT };
+
+        // Atualiza indicador no topo
+        const wIcon = document.getElementById('weatherIndicator').querySelector('.w-icon');
+        const wDesc = document.getElementById('weatherDesc');
+        const icones = { rain: '🌧️', cloud: '☁️', clear: '☀️' };
+        const labels = { rain: 'Chuva', cloud: 'Nublado', clear: 'Sol' };
+        wIcon.textContent = icones[cond] || '⏳';
+        wDesc.textContent = `${labels[cond] || tempo} ${minT}°C~${maxT}°C`;
+
+        // Aplica efeito no mapa (se o estilo standard estiver carregado)
+        if (mapPronto && map.getStyle()?.name?.includes('Standard')) {
+          try {
+            if (cond === 'rain') {
+              map.setConfigProperty('basemap', 'lightPreset', 'dawn');
+              map.setRain({
+                density: 0.5, intensity: 1.0, color: '#a8adbc', opacity: 0.7,
+                vignette: 1.0, 'vignette-color': '#464646', direction: [0, 80],
+                'droplet-size': [2.6, 18.2], 'distortion-strength': 0.7, 'center-thinning': 0
+              });
+            } else if (cond === 'cloud') {
+              try { map.setRain(null); } catch(_) {}
+              map.setConfigProperty('basemap', 'lightPreset', 'dusk');
+            } else {
+              try { map.setRain(null); } catch(_) {}
+              map.setConfigProperty('basemap', 'lightPreset', 'day');
+            }
+          } catch (e) { console.warn('[clima] erro ao aplicar efeito:', e); }
+        }
+      } catch (e) {
+        console.warn('[clima] falha ao buscar:', e);
+        const wDesc = document.getElementById('weatherDesc');
+        wDesc.textContent = 'clima indisponível';
+      }
+    }
+
+    // Inicia clima após mapa carregar
+    map.on('load', () => {
+      setTimeout(atualizarClima, 2000);
+      weatherTimer = setInterval(atualizarClima, 30 * 60 * 1000); // a cada 30min
+    });
 
     // =========================================================================
     // Overlay de ruas do KML de Fortaleza — cor neutra única
@@ -622,9 +786,11 @@
     let roadsOpacity = 0.6;
     let roadData = null;
     let roadDataLoaded = false;
+    const ROADS_SOURCE = 'roads-source';
+    const ROADS_LAYER = 'roads-layer';
 
-    function getRoadStyle() {
-      return { color: '#bbbbbb', weight: 0.8, opacity: roadsOpacity, interactive: false };
+    function getRoadPaint() {
+      return { 'line-color': '#bbbbbb', 'line-width': 0.8, 'line-opacity': roadsOpacity };
     }
 
     async function fetchGzip(url) {
@@ -768,36 +934,38 @@
 
     document.getElementById('btnRoads').addEventListener('click', () => {
       roadsVisible = !roadsVisible;
-      if (roadsLayer) {
-        if (roadsVisible) { roadsLayer.addTo(map); roadsLayer.bringToBack(); }
-        else              { map.removeLayer(roadsLayer); }
+      if (map.getLayer(ROADS_LAYER)) {
+        map.setLayoutProperty(ROADS_LAYER, 'visibility', roadsVisible ? 'visible' : 'none');
       }
       atualizarBtnRoads();
     });
 
     document.getElementById('roadsOpacity').addEventListener('input', (e) => {
       roadsOpacity = parseFloat(e.target.value) / 100;
-      if (roadsLayer) {
-        roadsLayer.eachLayer(l => {
-          if (l.setStyle) l.setStyle({ color: '#bbbbbb', weight: 0.8, opacity: roadsOpacity });
-        });
+      if (map.getLayer(ROADS_LAYER)) {
+        map.setPaintProperty(ROADS_LAYER, 'line-opacity', roadsOpacity);
       }
     });
 
     function renderRoadsLayer() {
-      if (roadsLayer) map.removeLayer(roadsLayer);
+      if (map.getLayer(ROADS_LAYER)) { map.removeLayer(ROADS_LAYER); }
+      if (map.getSource(ROADS_SOURCE)) { map.removeSource(ROADS_SOURCE); }
       if (!roadData) return;
       const ais = document.getElementById('aisFilter').value;
-      roadsLayer = L.geoJSON(roadData, {
-        style: getRoadStyle,
-        interactive: false,
-        filter: (feat) => !ais || feat.properties.ais === ais
+      let data = roadData;
+      if (ais) {
+        data = { ...roadData, features: roadData.features.filter(f => f.properties.ais === ais) };
+      }
+      map.addSource(ROADS_SOURCE, { type: 'geojson', data });
+      map.addLayer({
+        id: ROADS_LAYER, type: 'line', source: ROADS_SOURCE,
+        paint: getRoadPaint(),
+        layout: { visibility: roadsVisible ? 'visible' : 'none' }
       });
-      if (roadsVisible) { roadsLayer.addTo(map); roadsLayer.bringToBack(); }
     }
 
     document.getElementById('aisFilter').addEventListener('change', () => {
-      renderRoadsLayer();
+      if (roadDataLoaded) renderRoadsLayer();
     });
 
     setTimeout(carregarRoads, 3000);
@@ -813,12 +981,10 @@
     // Trilha e paradas desativadas — movimento puro do carro
     const trilhasHoje = new Map();
     const paradasHoje = new Map();
-    const trilhasLayer = L.layerGroup(); // não adicionado ao mapa
-    const paradasLayer = L.layerGroup(); // não adicionado ao mapa
-    let pontosLayer = L.layerGroup().addTo(map);
+    let pontosLayerInitialized = false;
     const pontosPlanejados = [];
     const pontosVisitados = new Set();
-    const pontosMarkers = new Map();
+    const pontosFeatureIds = new Map(); // pontoId -> feature id no source Mapbox
     const alertaAproximacao = new Map();
     const equipesProximas = new Map();
     const equipeValidacao = new Map();
@@ -830,24 +996,11 @@
     const STALE_MS = 90 * 1000;
 
     // =========================================================================
-    // Ícone de seta direcional — mais clean que o carro top-down
+    // Pino teardrop (Google Maps style)
     // =========================================================================
-    function carSVG(color = '#ffffff') {
-      const id = color.replace(/[^a-zA-Z0-9]/g, '');
-      return `<svg class="car-svg" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <filter id="cs${id}" x="-40%" y="-20%" width="180%" height="150%">
-            <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="rgba(0,0,0,0.4)"/>
-          </filter>
-        </defs>
-        <circle cx="20" cy="30" r="17" fill="${color}" opacity="0.15"/>
-        <circle cx="20" cy="30" r="10" fill="${color}" filter="url(#cs${id})"/>
-        <polygon points="20,4 28,22 23,22 23,36 17,36 17,22 12,22" fill="#fff" filter="url(#cs${id})"/>
-      </svg>`;
-    }
-
-    const EQUIPE_COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f43f5e'];
+    const EQUIPE_COLORS = ['#4285F4', '#34A853', '#F97316', '#9B59B6', '#EC4899', '#06B6D4', '#F43F5E'];
     const equipeColorMap = new Map();
+    let pinIdCounter = 0;
 
     function getEquipeColor(equipeId) {
       if (!equipeColorMap.has(equipeId)) {
@@ -858,15 +1011,44 @@
       return equipeColorMap.get(equipeId);
     }
 
-    function carIcon(equipeId, stale = false, forceColor = null) {
-      const color = forceColor || (stale ? '#64748b' : getEquipeColor(equipeId));
-      const cls = stale ? ' car-marker-stale' : (forceColor ? ' car-marker-logged-out' : '');
-      return L.divIcon({
-        className: '',
-        html: `<div class="car-marker${cls}" id="car-${equipeId.replace(/[^a-z0-9]/gi,'-')}">${carSVG(color)}</div>`,
-        iconSize: [36, 54],
-        iconAnchor: [18, 27],
-      });
+    function criarPinoTeardrop(equipeId, stale = false, forceColor = null) {
+      const cor = forceColor || (stale ? '#64748b' : getEquipeColor(equipeId));
+      const num = equipeId.replace(/[^0-9]/g, '').slice(0, 3) || '?';
+      const idx = pinIdCounter++;
+      const container = document.createElement('div');
+      container.className = 'pin-marker' + (stale ? ' stale' : '');
+
+      const sombra = document.createElement('div');
+      sombra.className = 'pin-sombra';
+      container.appendChild(sombra);
+
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'pin-body');
+      svg.setAttribute('viewBox', '0 0 32 42');
+      svg.innerHTML = `
+        <defs>
+          <linearGradient id="pg-${idx}" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${cor}" stop-opacity="1"/>
+            <stop offset="85%" stop-color="${cor}" stop-opacity="1"/>
+            <stop offset="100%" stop-color="${cor}" stop-opacity="0.5"/>
+          </linearGradient>
+          <filter id="ps-${idx}">
+            <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-opacity="0.25"/>
+          </filter>
+        </defs>
+        <path d="M16 2C10 2 5 7 5 13c0 8 11 26 11 26s11-18 11-26c0-6-5-11-11-11z"
+              fill="url(#pg-${idx})" filter="url(#ps-${idx})"/>
+        <path d="M16 6c-3.5 0-6 2.8-6 6.3 0 4 6 12 6 12s6-8 6-12c0-3.5-2.5-6.3-6-6.3z"
+              fill="rgba(255,255,255,0.2)" opacity="0.4"/>
+      `;
+      container.appendChild(svg);
+
+      const numDiv = document.createElement('div');
+      numDiv.className = 'pin-num';
+      numDiv.textContent = num;
+      container.appendChild(numDiv);
+
+      return container;
     }
 
     function bearing(a, b) {
@@ -916,17 +1098,10 @@
         const ease = easeOutCubic(t);
         const lat = lerp(pred.de.lat, pred.para.lat, ease);
         const lng = lerp(pred.de.lng, pred.para.lng, ease);
-        marker.setLatLng([lat, lng]);
+        marker.setLatLng({ lat, lng });
 
         // Rotação suave contínua
-        const el = marker.getElement();
-        if (el) {
-          const inner = el.querySelector('.car-marker');
-          if (inner) {
-            const hAtual = headingsAnimados.get(equipeId) || 0;
-            inner.style.transform = `rotate(${hAtual}deg)`;
-          }
-        }
+        const el = marker.getElement ? marker.getElement() : null;
         predicoes.set(equipeId, requestAnimationFrame(tick));
       }
       predicoes.set(equipeId, requestAnimationFrame(tick));
@@ -967,22 +1142,7 @@
 
         const lat = de.lat + dLat * ease;
         const lng = de.lng + dLng * ease;
-        m.setLatLng([lat, lng]);
-
-        const el = m.getElement();
-        if (el) {
-          const inner = el.querySelector('.car-marker');
-          if (inner) {
-            const hEase = easeInOutQuad(k);
-            let prevH = headingsAnimados.get(equipeId) || 0;
-            let diff = heading - prevH;
-            if (diff > 180) diff -= 360;
-            if (diff < -180) diff += 360;
-            const hInterp = prevH + diff * hEase;
-            headingsAnimados.set(equipeId, hInterp);
-            inner.style.transform = `rotate(${hInterp}deg)`;
-          }
-        }
+        m.setLatLng({ lat, lng });
 
         if (k < 1) {
           animacoes.set(m, requestAnimationFrame(passo));
@@ -1012,9 +1172,9 @@
         loggedOutEquipes.delete(regOriginal.equipeId);
         const m = markers.get(regOriginal.equipeId);
         if (m) {
-          m.setIcon(carIcon(regOriginal.equipeId, false));
+          m.setLoggedOut(false);
           m.unbindTooltip();
-          m.bindTooltip(regOriginal.equipeNome, { direction: 'top', offset: [0, -20] });
+          m.bindTooltip(regOriginal.equipeNome);
         }
       }
       // Aplica snap-to-road antes de tudo
@@ -1044,10 +1204,10 @@
 
       if (!markers.has(reg.equipeId)) {
         const snappedFirst = snapToRoad(reg.lat, reg.lng) || { lat: reg.lat, lng: reg.lng };
-        const m = L.marker([snappedFirst.lat, snappedFirst.lng], { icon: carIcon(reg.equipeId, false) })
+        const m = new MapboxMarker(snappedFirst.lat, snappedFirst.lng, reg.equipeId, false, null)
           .addTo(map)
           .bindPopup(txt)
-          .bindTooltip(reg.equipeNome, { direction: 'top', offset: [0, -20] });
+          .bindTooltip(reg.equipeNome);
         m.on('click', () => focusEquipe(reg.equipeId));
         markers.set(reg.equipeId, m);
         posicoesAnimadas.set(reg.equipeId, { lat: snappedFirst.lat, lng: snappedFirst.lng, ts: reg.ts, heading: reg.heading });
@@ -1073,7 +1233,7 @@
 
         m.setPopupContent(txt);
         m.setTooltipContent(reg.equipeNome);
-        m.setIcon(carIcon(reg.equipeId, false));
+        m.setStale(false);
         addPulseRing(m);
         animarMarker(m, ant, { lat: reg.lat, lng: reg.lng }, novoHeading, durMs, reg.equipeId);
         posicoesAnimadas.set(reg.equipeId, { lat: reg.lat, lng: reg.lng, ts: reg.ts, heading: novoHeading });
@@ -1101,29 +1261,92 @@
       return ok ? melhor : null;
     }
 
-    function stylePontoPlanejado(visitado) {
+    function estiloPonto(visitado) {
       return {
-        radius: visitado ? 5 : 4,
-        color: visitado ? '#15803d' : '#334155',
-        weight: 1,
+        radius: visitado ? 6 : 5,
+        strokeColor: visitado ? '#15803d' : '#334155',
+        strokeWidth: 1,
         fillColor: visitado ? '#22c55e' : '#38bdf8',
         fillOpacity: visitado ? 0.9 : 0.45
       };
     }
 
-    function aplicarFiltroPontos() {
+    let pontosSourceId = 'pontos-source';
+    let pontosLayerId = 'pontos-layer';
+    let pontosLabelsLayerId = 'pontos-labels';
+
+    function initPontosLayer() {
+      if (pontosLayerInitialized) return;
+      if (!map.getSource(pontosSourceId)) {
+        map.addSource(pontosSourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({
+          id: pontosLayerId, type: 'circle', source: pontosSourceId,
+          paint: {
+            'circle-radius': ['get', 'r'], 'circle-color': ['get', 'fc'],
+            'circle-opacity': ['get', 'fo'], 'circle-stroke-width': ['get', 'sw'],
+            'circle-stroke-color': ['get', 'sc'], 'circle-stroke-opacity': 1
+          }
+        });
+        map.addLayer({
+          id: pontosLabelsLayerId, type: 'symbol', source: pontosSourceId,
+          layout: {
+            'text-field': ['get', 'nome'],
+            'text-size': 10, 'text-offset': [0, -1.5],
+            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold']
+          },
+          paint: { 'text-color': '#e2e8f0', 'text-halo-color': 'rgba(0,0,0,0.7)', 'text-halo-width': 1.5 }
+        });
+      }
+      pontosLayerInitialized = true;
+    }
+
+    function renderPontosLayer() {
+      initPontosLayer();
       const sel = document.getElementById('filtroCidade');
       const filtro = sel ? sel.value : 'TODAS';
-      pontosLayer.clearLayers();
-      if (!document.getElementById('togglePontos').checked) return;
+      const checked = document.getElementById('togglePontos').checked;
+      const features = [];
+      pontosFeatureIds.clear();
       for (const p of pontosPlanejados) {
+        if (!checked) break;
         const ok = filtro === 'TODAS' || (p.cidade || 'SEM CIDADE') === filtro;
-        if (ok) {
-          const mk = pontosMarkers.get(p.id);
-          if (mk) pontosLayer.addLayer(mk);
-        }
+        if (!ok) continue;
+        const visitado = pontosVisitados.has(p.id);
+        const st = estiloPonto(visitado);
+        const fid = 'p_' + p.id;
+        pontosFeatureIds.set(p.id, fid);
+        features.push({
+          type: 'Feature', id: fid,
+          geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+          properties: {
+            r: st.radius, fc: st.fillColor, fo: st.fillOpacity,
+            sw: st.strokeWidth, sc: st.strokeColor,
+            nome: String(p.nome || ('PONTO ' + p.id)).slice(0, 20),
+            popup: `<b>${p.nome || ('PONTO ' + p.id)}</b><br>${p.cidade || ''}`
+          }
+        });
       }
+      map.getSource(pontosSourceId).setData({ type: 'FeatureCollection', features });
+
+      // Remove popups antigos e adiciona novos
+      map.off('click', pontosLayerId, pontosClickHandler);
+      if (features.length) {
+        pontosClickHandler = (e) => {
+          if (e.features && e.features[0]) {
+            const pop = e.features[0].properties.popup;
+            if (pop) new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
+          }
+        };
+        map.on('click', pontosLayerId, pontosClickHandler);
+      }
+
+      map.setLayoutProperty(pontosLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
+      map.setLayoutProperty(pontosLabelsLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
+      atualizarStatsPontos();
     }
+    let pontosClickHandler = null;
+
+    const aplicarFiltroPontos = renderPontosLayer;
 
     function popularFiltroCidades() {
       const sel = document.getElementById('filtroCidade');
@@ -1151,16 +1374,11 @@
     function marcarVisitaPorPosicao(reg) {}
 
     function marcarPontoColetadoPorId(pontoId, pontoNome, distM) {
-      // Marca verde pelo ID exato identificado pelo servidor via GPS
       for (const p of pontosPlanejados) {
         if (pontosVisitados.has(p.id)) continue;
         if (String(p.id) !== String(pontoId)) continue;
         pontosVisitados.add(p.id);
-        const mk = pontosMarkers.get(p.id);
-        if (mk) {
-          mk.setStyle(stylePontoPlanejado(true));
-          mk.bindPopup(`<b>${p.nome || p.id}</b><br>✅ Coletado<br>${distM ? `${distM}m do ponto` : ''}<br>${p.cidade || ''}`);
-        }
+        renderPontosLayer();
         atualizarStatsPontos();
         console.log(`[NOC] Ponto #${pontoId} "${pontoNome}" marcado verde (${distM}m)`);
         return;
@@ -1170,9 +1388,9 @@
     function marcarPontoColetado(pontoNumero) {
       if (!pontoNumero) return;
       const pn = String(pontoNumero).trim().toUpperCase();
+      let mudou = false;
       for (const p of pontosPlanejados) {
         if (pontosVisitados.has(p.id)) continue;
-        // Compara por id, numero, nome — tudo normalizado em maiúsculas
         const match =
           String(p.id).trim().toUpperCase()      === pn ||
           String(p.numero  || '').trim().toUpperCase() === pn ||
@@ -1180,11 +1398,11 @@
           String(p.pontoNumero || '').trim().toUpperCase() === pn;
         if (!match) continue;
         pontosVisitados.add(p.id);
-        const mk = pontosMarkers.get(p.id);
-        if (mk) mk.setStyle(stylePontoPlanejado(true));
-        atualizarStatsPontos();
+        mudou = true;
         console.log('[NOC] Ponto marcado como coletado:', pn, '→ id', p.id);
       }
+      if (mudou) renderPontosLayer();
+      atualizarStatsPontos();
     }
 
     function tocarAlarmeProximidade() {
@@ -1291,24 +1509,17 @@
         const r = await fetch('/pontos_planejados.json');
         const j = await r.json();
         const lista = Array.isArray(j.pontos) ? j.pontos : [];
-        const markers = [];
         for (const p of lista) {
           if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) continue;
           p.cidade = (p.cidade || 'SEM CIDADE').toString().trim();
           pontosPlanejados.push(p);
-          const mk = L.circleMarker([p.lat, p.lng], stylePontoPlanejado(false))
-            .bindPopup(`<b>${p.nome || ('PONTO ' + p.id)}</b><br>${p.cidade}`);
-          markers.push(mk);
-          pontosMarkers.set(p.id, mk);
         }
-        for (const mk of markers) pontosLayer.addLayer(mk);
+        if (mapPronto) { renderPontosLayer(); }
+        else { map.on('load', () => renderPontosLayer()); }
         popularFiltroCidades();
-        aplicarFiltroPontos();
         atualizarStatsPontos();
       } catch (_) {}
     }
-
-    function corPorEquipe(id) { return getEquipeColor(id); }
 
     // =========================================================================
     // Trilha GPS - VERSÃO CORRIGIDA (SEM FILTROS AGRESSIVOS)
@@ -1317,17 +1528,15 @@
 
     function adicionarPontoTrilhaHoje(reg) {
       const id = reg.equipeId;
-      const pt = [reg.lat, reg.lng];
       const ponto = { lat: reg.lat, lng: reg.lng, ts: Number(reg.ts) || Date.now() };
       const trilhaIdAtual = trilhaAtivaPorEquipe.get(id);
       const tAtual = trilhaIdAtual ? trilhasHoje.get(trilhaIdAtual) : null;
-      const SALTO_GPS_M = 500; // 500m
+      const SALTO_GPS_M = 500;
       const VELOCIDADE_MAX_KMH = 150;
 
       if (!tAtual) {
         const trilhaId = id + '#' + Date.now();
-        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 4, opacity: 0.9 }).addTo(trilhasLayer);
-        trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
+        trilhasHoje.set(trilhaId, { pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
         recalcularParadasEquipe(id);
         return;
@@ -1340,22 +1549,16 @@
 
       if (d > SALTO_GPS_M || velocidade > VELOCIDADE_MAX_KMH) {
         const trilhaId = id + '#' + Date.now();
-        const polyline = L.polyline([pt], { color: corPorEquipe(id), weight: 3, opacity: 0.8, dashArray: '4,6' }).addTo(trilhasLayer);
-        trilhasHoje.set(trilhaId, { polyline, latlngs: [pt], pontos: [ponto], equipeId: id });
+        trilhasHoje.set(trilhaId, { pontos: [ponto], equipeId: id });
         trilhaAtivaPorEquipe.set(id, trilhaId);
         return;
       }
 
-      tAtual.latlngs.push(pt);
       tAtual.pontos.push(ponto);
-      tAtual.polyline.setLatLngs(tAtual.latlngs);
-      tAtual.polyline.bringToFront();
       recalcularParadasEquipe(id);
     }
 
     function limparParadasEquipe(id) {
-      const atuais = paradasHoje.get(id) || [];
-      for (const mk of atuais) paradasLayer.removeLayer(mk);
       paradasHoje.set(id, []);
     }
 
@@ -1375,28 +1578,26 @@
         const d = distMetros(todosPontos[ini], todosPontos[i]);
         if (d > DIST_STOP_M) {
           const dur = todosPontos[i - 1].ts - todosPontos[ini].ts;
-          if (dur >= STOP_MIN_MS) criarMarcadorParada(id, todosPontos[ini], dur);
+          if (dur >= STOP_MIN_MS) {
+            const min = Math.round(dur / 60000);
+            paradasHoje.get(id)?.push({ lat: todosPontos[ini].lat, lng: todosPontos[ini].lng, min, ts: todosPontos[ini].ts });
+          }
           ini = i;
         }
       }
       const durFinal = todosPontos[todosPontos.length - 1].ts - todosPontos[ini].ts;
-      if (durFinal >= STOP_MIN_MS) criarMarcadorParada(id, todosPontos[ini], durFinal);
+      if (durFinal >= STOP_MIN_MS) {
+        const min = Math.round(durFinal / 60000);
+        paradasHoje.get(id)?.push({ lat: todosPontos[ini].lat, lng: todosPontos[ini].lng, min, ts: todosPontos[ini].ts });
+      }
     }
 
-    function criarMarcadorParada(equipeId, p, durMs) {
-      const min = Math.round(durMs / 60000);
-      const mk = L.circleMarker([p.lat, p.lng], { radius: 8, color: '#b91c1c', weight: 2, fillColor: '#ef4444', fillOpacity: 0.85 })
-        .bindPopup(`<b>${equipeId}</b><br>Parada > 20 min<br>Tempo: ${min} min<br>${new Date(p.ts).toLocaleTimeString('pt-BR')}`);
-      mk.addTo(paradasLayer);
-      const arr = paradasHoje.get(equipeId) || [];
-      arr.push(mk);
-      paradasHoje.set(equipeId, arr);
-    }
+    function criarMarcadorParada(equipeId, p, durMs) { /* armazenado em memória apenas */ }
 
     function focusEquipe(equipeId) {
       equipeSelecionada = equipeId;
       const m = markers.get(equipeId);
-      if (m) { map.setView(m.getLatLng(), 16, { animate: true }); m.openPopup(); }
+      if (m) { const ll = m.getLatLng(); map.flyTo({ center: [ll.lng, ll.lat], zoom: 16, duration: 1500 }); m.openPopup(); }
       renderEquipesList();
     }
 
@@ -1436,7 +1637,7 @@
         </div>`;
         li.onclick = () => focusEquipe(id);
         ul.appendChild(li);
-        if (stale) m.setIcon(carIcon(id, true));
+        if (stale) m.setStale(true);
       }
       document.getElementById('stats').textContent = `${lista.length} equipe(s)`;
       atualizarStatsPontos();
@@ -1508,9 +1709,9 @@
             loggedOutEquipes.add(msg.data.equipeId);
             const m = markers.get(msg.data.equipeId);
             if (m) {
-              m.setIcon(carIcon(msg.data.equipeId, false, '#dc2626'));
+              m.setLoggedOut(true);
               m.unbindTooltip();
-              m.bindTooltip('🔴 ' + (msg.data.equipeNome || 'Equipe') + ' (deslogada)', { direction: 'top', offset: [0, -20] });
+              m.bindTooltip('🔴 ' + (msg.data.equipeNome || 'Equipe') + ' (deslogada)');
             }
             showLogoutToast('🔴 ' + (msg.data.equipeNome || 'Equipe') + ' deslogou do sistema');
             renderEquipesList();
@@ -1962,15 +2163,7 @@
 
     document.getElementById('btnLimparPlayback').addEventListener('click', limparPlayback);
 
-    function limparPlayback() {
-      if (playbackLayer) {
-        playbackLayer.clearLayers();
-        map.removeLayer(playbackLayer);
-        playbackLayer = null;
-      }
-      document.getElementById('playbackInfo').classList.remove('visible');
-      document.getElementById('playbackInfo').innerHTML = '';
-    }
+    // limparPlayback agora definido junto com desenharPlayback
 
     function haversine(a, b) {
       const R = 6371;
@@ -1982,6 +2175,26 @@
       return 2 * R * Math.asin(Math.sqrt(h));
     }
 
+    let pbLayerIds = []; // IDs das layers do playback para limpeza
+    const PB_SOURCE_PREFIX = 'pb-source-';
+    const PB_LINE_PREFIX = 'pb-line-';
+    const PB_CIRCLE_SOURCE = 'pb-circle-source';
+    const PB_CIRCLE_LAYER = 'pb-circle-layer';
+
+    function limparPlayback() {
+      for (const id of pbLayerIds) {
+        if (map.getLayer(id)) map.removeLayer(id);
+        const src = id.replace('pb-line-', 'pb-source-');
+        if (map.getSource(src)) map.removeSource(src);
+      }
+      if (map.getLayer(PB_CIRCLE_LAYER)) map.removeLayer(PB_CIRCLE_LAYER);
+      if (map.getSource(PB_CIRCLE_SOURCE)) map.removeSource(PB_CIRCLE_SOURCE);
+      pbLayerIds = [];
+      playbackLayer = null;
+      document.getElementById('playbackInfo').classList.remove('visible');
+      document.getElementById('playbackInfo').innerHTML = '';
+    }
+
     function desenharPlayback(posicoes, data, equipeId) {
       if (!posicoes || !posicoes.length) {
         const info = document.getElementById('playbackInfo');
@@ -1989,16 +2202,16 @@
         info.innerHTML = `<span class="label">Nenhuma posição em</span> <span class="val">${data}</span>`;
         return;
       }
-      const grupo = L.layerGroup().addTo(map);
       const porEquipe = new Map();
       for (const p of posicoes) {
         if (!porEquipe.has(p.equipeId)) porEquipe.set(p.equipeId, []);
         porEquipe.get(p.equipeId).push(p);
       }
-      const SALTO_GPS_M = 500; // 500m
+      const SALTO_GPS_M = 500;
       const VELOCIDADE_MAX_KMH = 150;
       const bounds = [];
-      let i = 0;
+      let ptIdx = 0;
+
       for (const [id, pontos] of porEquipe) {
         const cor = getEquipeColor(id);
         const segmentos = [];
@@ -2013,18 +2226,61 @@
         }
         if (segAtual.length > 1) segmentos.push(segAtual);
         segmentos.forEach((seg, idx) => {
-          L.polyline(seg.map(p => [p.lat, p.lng]), { color: cor, weight: 4, opacity: 0.75, dashArray: idx > 0 ? '4,6' : null }).addTo(grupo);
+          const srcId = PB_SOURCE_PREFIX + ptIdx;
+          const layerId = PB_LINE_PREFIX + ptIdx;
+          const coords = seg.map(p => [p.lng, p.lat]);
+          map.addSource(srcId, {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+          });
+          map.addLayer({
+            id: layerId, type: 'line', source: srcId,
+            paint: { 'line-color': cor, 'line-width': 4, 'line-opacity': 0.75 },
+            layout: idx > 0 ? { 'line-dasharray': [4, 6] } : {}
+          });
+          pbLayerIds.push(layerId);
+          ptIdx++;
         });
         const inicio = pontos[0], fim = pontos[pontos.length - 1];
-        L.circleMarker([inicio.lat, inicio.lng], { radius: 7, color: '#22c55e', weight: 2, fillColor: '#22c55e', fillOpacity: 0.9 })
-          .bindPopup(`<b>${id}</b><br>Início: ${new Date(inicio.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
-        L.circleMarker([fim.lat, fim.lng], { radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.9 })
-          .bindPopup(`<b>${id}</b><br>Fim: ${new Date(fim.ts).toLocaleTimeString('pt-BR')}`).addTo(grupo);
-        bounds.push(...pontos.map(p => [p.lat, p.lng]));
-        i++;
+        bounds.push([inicio.lat, inicio.lng], [fim.lat, fim.lng]);
       }
-      if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
-      playbackLayer = grupo;
+
+      // Círculos de início/fim
+      const circleFeatures = [];
+      for (const [id, pontos] of porEquipe) {
+        const inicio = pontos[0], fim = pontos[pontos.length - 1];
+        circleFeatures.push({
+          type: 'Feature', geometry: { type: 'Point', coordinates: [inicio.lng, inicio.lat] },
+          properties: { tipo: 'inicio', equipe: id, ts: new Date(inicio.ts).toLocaleTimeString('pt-BR'), radius: 7, color: '#22c55e', opacity: 0.9, sw: 2, sc: '#22c55e' }
+        });
+        circleFeatures.push({
+          type: 'Feature', geometry: { type: 'Point', coordinates: [fim.lng, fim.lat] },
+          properties: { tipo: 'fim', equipe: id, ts: new Date(fim.ts).toLocaleTimeString('pt-BR'), radius: 7, color: '#ef4444', opacity: 0.9, sw: 2, sc: '#ef4444' }
+        });
+      }
+      map.addSource(PB_CIRCLE_SOURCE, { type: 'geojson', data: { type: 'FeatureCollection', features: circleFeatures } });
+      map.addLayer({
+        id: PB_CIRCLE_LAYER, type: 'circle', source: PB_CIRCLE_SOURCE,
+        paint: {
+          'circle-radius': ['get', 'radius'], 'circle-color': ['get', 'color'],
+          'circle-opacity': ['get', 'opacity'], 'circle-stroke-width': ['get', 'sw'],
+          'circle-stroke-color': ['get', 'sc']
+        }
+      });
+      pbLayerIds.push(PB_CIRCLE_LAYER);
+      map.on('click', PB_CIRCLE_LAYER, (e) => {
+        if (e.features && e.features[0]) {
+          const p = e.features[0].properties;
+          new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(`<b>${p.equipe}</b><br>${p.tipo}: ${p.ts}`).addTo(map);
+        }
+      });
+
+      if (bounds.length) {
+        const lngs = bounds.map(b => b[1]), lats = bounds.map(b => b[0]);
+        map.fitBounds([[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]], { padding: 40, maxDuration: 1500 });
+      }
+      playbackLayer = { clear: limparPlayback };
+
       const filtro = equipeId ? porEquipe.get(equipeId) : null;
       let dist = 0;
       if (filtro) for (let k = 1; k < filtro.length; k++) dist += haversine(filtro[k-1], filtro[k]);
@@ -2201,7 +2457,7 @@
         usuarioSessao = { perfil: j.perfil, nome: j.nome };
         document.getElementById('loginOverlay').classList.add('hidden');
         aplicarRestricoesPerfil();
-        map.invalidateSize();
+        if (mapPronto) map.resize();
         if (j.perfil === 'admin') carregarUsuariosLista();
       } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
       finally { btn.disabled = false; btn.textContent = 'Entrar'; }

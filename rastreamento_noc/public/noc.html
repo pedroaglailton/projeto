@@ -679,15 +679,15 @@
       _updatePopup() {
         if (this._popupHtml) {
           if (!this._popup) {
-            this._popup = new mapboxgl.Popup({ offset: 45, closeButton: true });
-            this._mk.setPopup(this._popup);
+            this._popup = new mapboxgl.Popup({ offset: 45, closeButton: true, maxWidth: '280px' });
           }
           this._popup.setHTML(this._popupHtml);
         }
       }
       openPopup() {
-        if (this._popup) {
-          if (!this._popup.isOpen()) this._mk.togglePopup();
+        if (this._popup && this._map) {
+          const ll = this._mk.getLngLat();
+          this._popup.setLngLat(ll).addTo(this._map);
         }
         return this;
       }
@@ -699,7 +699,11 @@
         if (event === 'click') {
           this._clickFn = fn;
           // Usa _handleClick como método fixo para poder remover/reusar
-          this._handleClick = (e) => { e.stopPropagation(); fn({ target: this }); };
+          this._handleClick = (e) => {
+            e.stopPropagation();
+            this.openPopup();
+            fn({ target: this });
+          };
           this._el.addEventListener('click', this._handleClick);
         }
         return this;

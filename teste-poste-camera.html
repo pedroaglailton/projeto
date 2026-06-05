@@ -28,7 +28,7 @@
 
     const map = new mapboxgl.Map({
       container: 'map',
-      zoom: 12,
+      zoom: 16,
       center: [-38.5267, -3.7319],
       pitch: 45,
       style: 'mapbox://styles/mapbox/light-v11'
@@ -58,14 +58,16 @@
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
         const amostra = pontos.slice(0, 100);
 
-        // Carrega a imagem do poste como icone (cache-busting: ?v=2)
+        // Carrega a imagem do poste como icone (cache-busting: ?v=3)
         const image = await new Promise((resolve, reject) => {
-          map.loadImage('poste.png?v=2', (err, img) => {
+          map.loadImage('poste.png?v=3', (err, img) => {
             if (err) return reject(err);
+            console.log('[poste] imagem carregada:', img.width, 'x', img.height);
             resolve(img);
           });
         });
         if (!map.hasImage('poste-15m')) map.addImage('poste-15m', image);
+        console.log('[poste] icone registrado, zoom inicial:', map.getZoom());
 
         // Source com os pontos
         map.addSource('postes', {

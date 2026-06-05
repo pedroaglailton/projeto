@@ -166,71 +166,122 @@
       // ── PTZ Hikvision ──
       const ptzBaseY = bracoY + h * 0.025;
 
-      // 1. Sunshield/visor (parte preta inclinada no topo)
+      // 1. Sunshield/visor (curvo, estilo Hikvision)
       ctx.fillStyle = '#1a1a2e';
       ctx.beginPath();
-      ctx.moveTo(supX - w * 0.12, ptzBaseY + 1);
-      ctx.lineTo(supX + w * 0.14, ptzBaseY + 1);
-      ctx.lineTo(supX + w * 0.16, ptzBaseY - h * 0.02);
-      ctx.lineTo(supX - w * 0.10, ptzBaseY - h * 0.025);
+      ctx.moveTo(supX - w * 0.10, ptzBaseY + 2);
+      ctx.lineTo(supX + w * 0.16, ptzBaseY + 2);
+      ctx.quadraticCurveTo(supX + w * 0.18, ptzBaseY - h * 0.015, supX + w * 0.14, ptzBaseY - h * 0.025);
+      ctx.lineTo(supX - w * 0.08, ptzBaseY - h * 0.03);
+      ctx.quadraticCurveTo(supX - w * 0.13, ptzBaseY - h * 0.01, supX - w * 0.10, ptzBaseY + 2);
       ctx.closePath();
       ctx.fill();
 
-      // 2. Corpo principal da PTZ (branco Hikvision)
-      const corpoW = w * 0.24;
+      // sombra do sunshield no corpo
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      ctx.fillRect(supX - w * 0.11, ptzBaseY + 2, w * 0.27, 4);
+
+      // 2. Corpo principal (branco, formato Hikvision)
+      const corpoW = w * 0.26;
       const corpoH = h * 0.07;
       const corpoX = supX - corpoW / 2;
-      const corpoY = ptzBaseY + 1;
+      const corpoY = ptzBaseY + 2;
 
       const gradCorpo = ctx.createLinearGradient(corpoX, 0, corpoX + corpoW, 0);
-      gradCorpo.addColorStop(0, '#d1d5db');
-      gradCorpo.addColorStop(0.3, '#f3f4f6');
-      gradCorpo.addColorStop(0.7, '#e5e7eb');
-      gradCorpo.addColorStop(1, '#9ca3af');
+      gradCorpo.addColorStop(0, '#cbd5e1');
+      gradCorpo.addColorStop(0.25, '#f8fafc');
+      gradCorpo.addColorStop(0.6, '#f1f5f9');
+      gradCorpo.addColorStop(1, '#94a3b8');
       ctx.fillStyle = gradCorpo;
       ctx.fillRect(corpoX, corpoY, corpoW, corpoH);
       ctx.strokeStyle = '#6b7280';
       ctx.lineWidth = 0.5;
       ctx.strokeRect(corpoX, corpoY, corpoW, corpoH);
 
-      // faixa escura no corpo (detalhe Hikvision)
-      ctx.fillStyle = '#374151';
-      ctx.fillRect(corpoX + corpoW * 0.05, corpoY + corpoH * 0.3, corpoW * 0.15, corpoH * 0.4);
+      // detalhe frontal (painel Hikvision)
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(corpoX + corpoW * 0.08, corpoY + 2, corpoW * 0.18, corpoH - 4);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 0.3;
+      ctx.strokeRect(corpoX + corpoW * 0.08, corpoY + 2, corpoW * 0.18, corpoH - 4);
 
-      // 3. Anel/base do domo
-      ctx.fillStyle = '#9ca3af';
-      ctx.fillRect(corpoX - 1, corpoY + corpoH - 2, corpoW + 2, 4);
+      // fendas de ventilação
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 0.4;
+      for (let i = 0; i < 3; i++) {
+        const vy = corpoY + corpoH * 0.3 + i * 3;
+        ctx.beginPath();
+        ctx.moveTo(corpoX + corpoW * 0.45, vy);
+        ctx.lineTo(corpoX + corpoW * 0.6, vy);
+        ctx.stroke();
+      }
 
-      // 4. Domo (cúpula) - esfera preta translúcida
+      // 3. Anel/base do domo (com IR LEDs)
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(corpoX - 2, corpoY + corpoH - 2, corpoW + 4, 4);
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(corpoX - 1, corpoY + corpoH - 1, corpoW + 2, 2);
+
+      // IR LEDs ao redor do anel
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      for (let i = 0; i < 5; i++) {
+        const lx = corpoX + 3 + i * (corpoW - 6) / 4;
+        ctx.beginPath();
+        ctx.arc(lx, corpoY + corpoH, 1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 4. Domo (cúpula semitransparente)
       const domoX = supX;
       const domoY = corpoY + corpoH + 2;
-      const domoR = w * 0.10;
+      const domoR = w * 0.11;
 
-      const gradDomo = ctx.createRadialGradient(domoX - domoR * 0.2, domoY - domoR * 0.1, domoR * 0.05, domoX, domoY + 2, domoR);
-      gradDomo.addColorStop(0, 'rgba(255,255,255,0.25)');
-      gradDomo.addColorStop(0.2, 'rgba(150,180,210,0.15)');
-      gradDomo.addColorStop(0.5, 'rgba(20,30,50,0.7)');
-      gradDomo.addColorStop(1, 'rgba(5,10,20,0.95)');
+      // camada externa do domo (gradiente esférico)
+      const gradDomo = ctx.createRadialGradient(
+        domoX - domoR * 0.25, domoY - domoR * 0.15, domoR * 0.05,
+        domoX, domoY + 3, domoR
+      );
+      gradDomo.addColorStop(0, 'rgba(255,255,255,0.2)');
+      gradDomo.addColorStop(0.1, 'rgba(180,200,230,0.1)');
+      gradDomo.addColorStop(0.4, 'rgba(30,50,80,0.5)');
+      gradDomo.addColorStop(0.75, 'rgba(10,20,40,0.8)');
+      gradDomo.addColorStop(1, 'rgba(3,7,15,0.95)');
 
       ctx.fillStyle = gradDomo;
       ctx.beginPath();
       ctx.ellipse(domoX, domoY, domoR, domoR * 0.7, 0, Math.PI, 0);
       ctx.fill();
 
-      // reflexo do domo
-      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      // borda do domo
+      ctx.strokeStyle = 'rgba(100,120,140,0.3)';
+      ctx.lineWidth = 0.5;
       ctx.beginPath();
-      ctx.ellipse(domoX - domoR * 0.25, domoY - domoR * 0.15, domoR * 0.2, domoR * 0.25, -0.3, 0, Math.PI * 2);
+      ctx.ellipse(domoX, domoY, domoR, domoR * 0.7, 0, Math.PI, 0);
+      ctx.stroke();
+
+      // reflexo principal
+      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+      ctx.beginPath();
+      ctx.ellipse(domoX - domoR * 0.25, domoY - domoR * 0.1, domoR * 0.2, domoR * 0.3, -0.3, 0, Math.PI * 2);
       ctx.fill();
 
-      // LED na base
-      ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 3;
-      ctx.fillStyle = '#ef4444';
+      // reflexo secundário pequeno
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
       ctx.beginPath();
-      ctx.arc(corpoX + corpoW - 4, corpoY + 4, 1.5, 0, Math.PI * 2);
+      ctx.ellipse(domoX + domoR * 0.2, domoY + domoR * 0.05, domoR * 0.08, domoR * 0.12, 0.3, 0, Math.PI * 2);
       ctx.fill();
-      ctx.shadowBlur = 0;
+
+      // lente visível dentro do domo (círculo escuro)
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath();
+      ctx.arc(domoX - 1, domoY + 2, domoR * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+
+      // brilho da lente
+      ctx.fillStyle = 'rgba(100,150,255,0.08)';
+      ctx.beginPath();
+      ctx.arc(domoX - 2, domoY + 1, domoR * 0.15, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     map.on('load', async () => {

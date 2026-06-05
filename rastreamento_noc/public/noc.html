@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOC — Rastreamento em Tempo Real</title>
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
@@ -572,9 +573,6 @@
   </div>
 
 
-  <script>document.title = 'PRE-MAPBOX ' + (typeof mapboxgl)</script>
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
-  <script>document.title = 'POS-MAPBOX ' + (typeof mapboxgl)</script>
   <script>
     // =========================================================================
     // Autenticacao (login)
@@ -608,36 +606,32 @@
       if (nomeEl) nomeEl.textContent = `👤 ${nome} (${perfil})`;
     }
 
-    // Boot: verifica sessao ou mostra login
-    (async () => {
-      const ok = await verificarSessao();
-      if (ok) {
-        document.getElementById('loginOverlay').classList.add('hidden');
-        aplicarRestricoesPerfil();
-        if (!mapPronto) { window.map.on('load', () => window.map.resize()); } else { window.map.resize(); }
-        if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
-      }
-    })();
-    // =========================================================================
-    // Token Mapbox
-    // =========================================================================
-    mapboxgl.accessToken = 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g';
+    // Boot: verifica sessao ou mostra login + Setup do mapa (dentro de onload igual ma.html)
+    window.onload = () => {
+      window.map = new mapboxgl.Map({
+        accessToken: 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g',
+        container: 'map',
+        zoom: 12,
+        center: [-38.5267, -3.7319],
+        pitch: 60,
+        bearing: 0,
+        hash: true,
+        style: 'mapbox://styles/mapbox/standard'
+      });
+      window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      window.mapPronto = false;
+      window.map.on('load', () => { window.mapPronto = true; });
 
-    // =========================================================================
-    // Setup do mapa — Mapbox GL JS
-    // =========================================================================
-    window.map = new mapboxgl.Map({
-      container: 'map',
-      zoom: 12,
-      center: [-38.5267, -3.7319],
-      pitch: 60,
-      bearing: 0,
-      hash: true,
-      style: 'mapbox://styles/mapbox/standard'
-    });
-    window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    let mapPronto = false;
-    window.map.on('load', () => { mapPronto = true; });
+      (async () => {
+        const ok = await verificarSessao();
+        if (ok) {
+          document.getElementById('loginOverlay').classList.add('hidden');
+          aplicarRestricoesPerfil();
+          if (!window.mapPronto) { window.map.on('load', () => window.map.resize()); } else { window.map.resize(); }
+          if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
+        }
+      })();
+    };
 
     // ── Wrapper MapboxMarker (interface compatível com L.marker) ──
     class MapboxMarker {
@@ -751,7 +745,7 @@
         wDesc.textContent = `${labels[cond] || tempo} ${minT}°C~${maxT}°C`;
 
         // Aplica efeito no mapa (se o estilo standard estiver carregado)
-        if (mapPronto && map.getStyle()?.name?.includes('Standard')) {
+        if (window.mapPronto && map.getStyle()?.name?.includes('Standard')) {
           try {
             if (cond === 'rain') {
               map.setConfigProperty('basemap', 'lightPreset', 'dawn');
@@ -1518,7 +1512,7 @@
           p.cidade = (p.cidade || 'SEM CIDADE').toString().trim();
           pontosPlanejados.push(p);
         }
-        if (mapPronto) { renderPontosLayer(); }
+        if (window.mapPronto) { renderPontosLayer(); }
         else { map.on('load', () => renderPontosLayer()); }
         popularFiltroCidades();
         atualizarStatsPontos();
@@ -2461,7 +2455,7 @@
         usuarioSessao = { perfil: j.perfil, nome: j.nome };
         document.getElementById('loginOverlay').classList.add('hidden');
         aplicarRestricoesPerfil();
-        if (mapPronto) map.resize();
+        if (window.mapPronto) map.resize();
         if (j.perfil === 'admin') carregarUsuariosLista();
       } catch (e) { errEl.textContent = 'Erro de conexao'; errEl.style.display = 'block'; }
       finally { btn.disabled = false; btn.textContent = 'Entrar'; }

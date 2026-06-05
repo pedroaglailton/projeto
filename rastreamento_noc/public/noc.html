@@ -188,6 +188,10 @@
     .alert-modal .main { font-size: 20px; font-weight: 800; color: #111827; }
     .alert-modal .sub { font-size: 14px; color: #6b7280; margin-top: 6px; }
     .alert-modal .icon { font-size: 36px; margin-bottom: 6px; }
+    .alert-modal.coletando { border-color: #f59e0b; box-shadow: 0 12px 48px rgba(245,158,11,0.4); }
+    .alert-modal.coletando .title { color: #b45309; }
+    .alert-modal.concluido { border-color: #16a34a; box-shadow: 0 12px 48px rgba(22,163,74,0.4); }
+    .alert-modal.concluido .title { color: #15803d; }
 
     /* Token box */
     .token-box {
@@ -1612,6 +1616,35 @@
       }, 20000);
     }
 
+    function mostrarModalAtividade(tipo, equipeNome, pontoNumero, mensagem) {
+      const modal = document.getElementById('proximidadeModal');
+      if (!modal) return;
+      modal.classList.remove('coletando', 'concluido');
+      const isColetando = tipo === 'coletando';
+      const variantClass = isColetando ? 'coletando' : 'concluido';
+      modal.classList.add(variantClass);
+      const titleEl = modal.querySelector('.title');
+      const iconEl = modal.querySelector('.icon');
+      if (isColetando) {
+        if (titleEl) titleEl.textContent = 'EQUIPE COLETANDO DADOS DO PONTO';
+        if (iconEl) iconEl.textContent = '📋';
+      } else {
+        if (titleEl) titleEl.textContent = 'PONTO CONCLUÍDO';
+        if (iconEl) iconEl.textContent = '✅';
+      }
+      const subTxt = pontoNumero ? `Ponto ${pontoNumero}` : '';
+      document.getElementById('proximidadeMain').textContent = equipeNome;
+      document.getElementById('proximidadeSub').textContent = subTxt + (mensagem ? (subTxt ? ' · ' + mensagem : mensagem) : '');
+      modal.classList.add('visible');
+      document.getElementById('alertBackdrop').classList.add('visible');
+      if (modalTimer) clearTimeout(modalTimer);
+      modalTimer = setTimeout(() => {
+        modal.classList.remove('visible');
+        document.getElementById('alertBackdrop').classList.remove('visible');
+        modal.classList.remove('coletando', 'concluido');
+      }, 8000);
+    }
+
     function atualizarStatsPontos() {
       const total = pontosPlanejados.length;
       const visitados = pontosVisitados.size;
@@ -1821,6 +1854,15 @@
             } else if (msg.data.pontoNumero) {
               // Fallback: tenta casar pelo nome digitado
               marcarPontoColetado(msg.data.pontoNumero);
+            }
+          }
+          if (msg.type === 'atividade' && msg.data) {
+            const tipo = msg.data.tipo;
+            if (tipo === 'coletando' || tipo === 'concluido') {
+              const equipeNome = msg.data.nome || msg.data.equipeId || 'Equipe';
+              const pontoNumero = msg.data.pontoNumero || '';
+              const mensagem = msg.data.mensagem || '';
+              mostrarModalAtividade(tipo, equipeNome, pontoNumero, mensagem);
             }
           }
           if (msg.type === 'team-logout' && msg.data) {

@@ -54,94 +54,98 @@
       map.setPitch(pitch);
     });
 
-    function desenharPoste3D(ctx, w, h) {
-      // sombra do poste no chão
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    function desenharPosteRealista(ctx, w, h) {
+      // ── Poste cônico de 15m (mais largo na base) ──
+      const baseL = w * 0.18;   // largura na base
+      const topoL = w * 0.08;   // largura no topo
+      const posteH = h * 0.78;  // altura do poste (78% do ícone)
+      const posteY = h - h * 0.10;  // base do poste
+
+      // gradiente metálico (aço galvanizado)
+      const gradMetal = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
+      gradMetal.addColorStop(0, '#64748b');
+      gradMetal.addColorStop(0.25, '#cbd5e1');
+      gradMetal.addColorStop(0.5, '#f1f5f9');
+      gradMetal.addColorStop(0.75, '#94a3b8');
+      gradMetal.addColorStop(1, '#475569');
+
+      // desenha poste cônico como polígono
+      ctx.fillStyle = gradMetal;
       ctx.beginPath();
-      ctx.ellipse(w * 0.48, h * 0.88, w * 0.25, w * 0.08, 0, 0, Math.PI * 2);
+      ctx.moveTo(w * 0.5 - baseL / 2, posteY);
+      ctx.lineTo(w * 0.5 - topoL / 2, posteY - posteH);
+      ctx.lineTo(w * 0.5 + topoL / 2, posteY - posteH);
+      ctx.lineTo(w * 0.5 + baseL / 2, posteY);
+      ctx.closePath();
       ctx.fill();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
 
-      // poste (com gradiente lateral para efeito 3D)
-      const gradPoste = ctx.createLinearGradient(0, 0, w * 0.45, 0);
-      gradPoste.addColorStop(0, '#475569');
-      gradPoste.addColorStop(0.3, '#94a3b8');
-      gradPoste.addColorStop(0.7, '#cbd5e1');
-      gradPoste.addColorStop(1, '#334155');
-      ctx.fillStyle = gradPoste;
-      ctx.fillRect(w * 0.38, h * 0.30, w * 0.14, h * 0.60);
+      // ── Base / flange ──
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(w * 0.5 - baseL / 2 - 4, posteY - 2, baseL + 8, 6);
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(w * 0.5 - baseL / 2 - 2, posteY, baseL + 4, 2);
 
-      // suporte braço
-      const gradBraco = ctx.createLinearGradient(0, 0, w * 0.50, 0);
-      gradBraco.addColorStop(0, '#64748b');
-      gradBraco.addColorStop(0.5, '#94a3b8');
-      gradBraco.addColorStop(1, '#475569');
-      ctx.fillStyle = gradBraco;
-      ctx.fillRect(w * 0.25, h * 0.28, w * 0.50, h * 0.06);
+      // parafusos da base
+      ctx.fillStyle = '#1e293b';
+      [
+        [w * 0.5 - baseL / 2 - 2, posteY + 1],
+        [w * 0.5 + baseL / 2 + 2, posteY + 1]
+      ].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); });
 
-      // corpo da camera (caixa 3D)
-      const cx = w * 0.22, cy = h * 0.12, cw = w * 0.56, ch = h * 0.20;
-      // face frontal
-      const gradCam = ctx.createLinearGradient(cx, cy, cx + cw, cy);
-      gradCam.addColorStop(0, '#0ea5e9');
-      gradCam.addColorStop(0.3, '#38bdf8');
-      gradCam.addColorStop(0.7, '#7dd3fc');
+      // ── Braço articulado (suporte da câmera) ──
+      const bracoY = posteY - posteH + 4;
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.5, bracoY);
+      ctx.lineTo(w * 0.5 + w * 0.20, bracoY - 6);
+      ctx.stroke();
+
+      // ── Câmera no topo do braço ──
+      const camX = w * 0.5 + w * 0.20;
+      const camY = bracoY - 6;
+      const camW = w * 0.18;
+      const camH = h * 0.10;
+
+      // corpo da câmera (caixa retangular)
+      const gradCam = ctx.createLinearGradient(camX - camW / 2, camY, camX + camW / 2, camY);
+      gradCam.addColorStop(0, '#0c4a6e');
+      gradCam.addColorStop(0.3, '#0ea5e9');
+      gradCam.addColorStop(0.6, '#38bdf8');
       gradCam.addColorStop(1, '#0284c7');
       ctx.fillStyle = gradCam;
-      ctx.fillRect(cx, cy, cw, ch);
-      ctx.strokeStyle = '#0c4a6e';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(cx, cy, cw, ch);
-
-      // topo da camera (face superior - perspectiva)
-      ctx.fillStyle = '#0284c7';
-      ctx.beginPath();
-      ctx.moveTo(cx + cw * 0.1, cy);
-      ctx.lineTo(cx + cw * 0.9, cy);
-      ctx.lineTo(cx + cw, cy - ch * 0.25);
-      ctx.lineTo(cx + cw * 0.2, cy - ch * 0.25);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#0c4a6e';
+      ctx.fillRect(camX - camW / 2, camY - camH / 2, camW, camH);
+      ctx.strokeStyle = '#082f49';
       ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.strokeRect(camX - camW / 2, camY - camH / 2, camW, camH);
 
-      // lateral direita da camera
-      ctx.fillStyle = '#0369a1';
-      ctx.beginPath();
-      ctx.moveTo(cx + cw, cy);
-      ctx.lineTo(cx + cw, cy + ch);
-      ctx.lineTo(cx + cw * 1.1, cy + ch * 0.75);
-      ctx.lineTo(cx + cw * 1.1, cy - ch * 0.25);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = '#0c4a6e';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      // lente (círculo com brilho)
-      const lx = cx + cw * 0.42, ly = cy + ch * 0.5, lr = ch * 0.32;
-      const gradLente = ctx.createRadialGradient(lx - lr * 0.2, ly - lr * 0.2, lr * 0.05, lx, ly, lr);
-      gradLente.addColorStop(0, '#ffffff');
-      gradLente.addColorStop(0.3, '#7dd3fc');
-      gradLente.addColorStop(0.7, '#0369a1');
+      // lente
+      const lr = camH * 0.30;
+      const gradLente = ctx.createRadialGradient(camX, camY - 1, 1, camX, camY, lr);
+      gradLente.addColorStop(0, '#fff');
+      gradLente.addColorStop(0.2, '#7dd3fc');
+      gradLente.addColorStop(0.6, '#0369a1');
       gradLente.addColorStop(1, '#0c4a6e');
       ctx.fillStyle = gradLente;
       ctx.beginPath();
-      ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+      ctx.arc(camX, camY, lr, 0, Math.PI * 2);
       ctx.fill();
 
       // brilho da lente
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.beginPath();
-      ctx.arc(lx - lr * 0.2, ly - lr * 0.25, lr * 0.25, 0, Math.PI * 2);
+      ctx.arc(camX - lr * 0.2, camY - lr * 0.25, lr * 0.3, 0, Math.PI * 2);
       ctx.fill();
 
       // LED vermelho
-      ctx.fillStyle = '#ef4444';
       ctx.shadowColor = '#ef4444';
-      ctx.shadowBlur = 3;
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = '#ef4444';
       ctx.beginPath();
-      ctx.arc(cx + cw * 0.85, cy + ch * 0.25, ch * 0.08, 0, Math.PI * 2);
+      ctx.arc(camX + camW / 2 - 5, camY - camH / 2 + 5, 2.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
     }
@@ -154,7 +158,7 @@
         canvas.width = size;
         canvas.height = size;
         const ctx = canvas.getContext('2d');
-        desenharPoste3D(ctx, size, size);
+        desenharPosteRealista(ctx, size, size);
 
         const img = new Image();
         await new Promise((resolve, reject) => {

@@ -606,35 +606,32 @@
       if (nomeEl) nomeEl.textContent = `👤 ${nome} (${perfil})`;
     }
 
-    // Boot: verifica sessao ou mostra login
-    (async () => {
-      const ok = await verificarSessao();
-      if (ok) {
-        document.getElementById('loginOverlay').classList.add('hidden');
-        aplicarRestricoesPerfil();
-        if (!mapPronto) { map.on('load', () => map.resize()); } else { map.resize(); }
-        if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
-      }
-    })();
-    // =========================================================================
-    // Token Mapbox
-    // =========================================================================
-    mapboxgl.accessToken = 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g';
+    // Boot: verifica sessao ou mostra login + Setup do mapa (dentro de onload igual ma.html)
+    window.onload = () => {
+      window.map = new mapboxgl.Map({
+        accessToken: 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g',
+        container: 'map',
+        zoom: 12,
+        center: [-38.5267, -3.7319],
+        pitch: 60,
+        bearing: 0,
+        hash: true,
+        style: 'mapbox://styles/mapbox/standard'
+      });
+      window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      let mapPronto = false;
+      window.map.on('load', () => { mapPronto = true; });
 
-    // =========================================================================
-    // Setup do mapa — Mapbox GL JS 3D
-    // =========================================================================
-    window.map = new mapboxgl.Map({
-      container: 'map',
-      zoom: 12,
-      center: [-38.5267, -3.7319],
-      pitch: 60,
-      bearing: 0,
-      style: 'mapbox://styles/mapbox/standard'
-    });
-    window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    let mapPronto = false;
-    map.on('load', () => { mapPronto = true; });
+      (async () => {
+        const ok = await verificarSessao();
+        if (ok) {
+          document.getElementById('loginOverlay').classList.add('hidden');
+          aplicarRestricoesPerfil();
+          if (!mapPronto) { window.map.on('load', () => window.map.resize()); } else { window.map.resize(); }
+          if ((usuarioSessao?.perfil || '') === 'admin') carregarUsuariosLista();
+        }
+      })();
+    };
 
     // ── Wrapper MapboxMarker (interface compatível com L.marker) ──
     class MapboxMarker {

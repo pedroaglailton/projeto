@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Teste: Câmeras via symbol layer</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; }
+    #map { width: 100%; height: 100vh; }
+    #info {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: #1e293be0; backdrop-filter: blur(6px);
+      border: 1px solid #334155; border-radius: 10px;
+      padding: 10px 18px; font-size: 13px; z-index: 999;
+      text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,.5);
+      pointer-events: none;
+    }
+    #legend {
+      position: fixed; top: 16px; right: 60px; z-index: 999;
+      background: #1e293be0; backdrop-filter: blur(6px);
+      border: 1px solid #334155; border-radius: 8px;
+      padding: 10px 14px; font-size: 12px; color: #94a3b8;
+    }
+    #legend span { display: flex; align-items: center; gap: 6px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="legend">
+    <span>📷 <b id="contador">0</b> câmeras</span>
+    <span style="font-size:10px;color:#64748b">zoom 14+ aparece</span>
+  </div>
+  <div id="info">🔍 Dê zoom em Fortaleza para ver as câmeras</div>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g';
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      zoom: 11,
+      center: [-38.5267, -3.7319],
+      pitch: 0,
+      style: 'mapbox://styles/mapbox/standard'
+    });
+    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    let pontosCount = 0;
+
+    map.on('load', async () => {
+      // ── 1. Cria o ícone de câmera como SVG inline ──
+      const canvas = document.createElement('canvas');
+      canvas.width = 36;
+      canvas.height = 48;
+      const ctx = canvas.getContext('2d');
+
+      // poste
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(15, 20, 6, 28);
+
+      // base
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(11, 44, 14, 4);
+
+      // suporte
+      ctx.fillStyle = '#64748b';
+      ctx.fillRect(11, 19, 14, 3);
+
+      // corpo da camera
+      const grad = ctx.createRadialGradient(14, 26, 2, 16, 26, 10);
+      grad.addColorStop(0, '#5eead4');
+      grad.addColorStop(1, '#0ea5e9');
+      ctx.fillStyle = grad;
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2;
+      ctx.fillRect(8, 20, 20, 14);
+      ctx.strokeRect(8, 20, 20, 14);
+
+      // lente
+      const grad2 = ctx.createRadialGradient(16, 26, 1, 16, 26, 5);
+      grad2.addColorStop(0, '#fff');
+      grad2.addColorStop(0.4, '#7dd3fc');
+      grad2.addColorStop(1, '#0369a1');
+      ctx.fillStyle = grad2;
+      ctx.beginPath();
+      ctx.arc(16, 26, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // brilho da lente
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.arc(14, 24, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // ── 2. Adiciona a imagem ao estilo do mapa ──
+      map.addImage('camera-icon', canvas, { pixelRatio: 2 });
+
+      // ── 3. Carrega os pontos ──
+      const resp = await fetch('/pontos_planejados.json');
+      const data = await resp.json();
+      const pontos = Array.isArray(data.pontos) ? data.pontos : [];
+
+      const features = pontos.map(p => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: {
+          id: p.id,
+          nome: p.nome || ('Ponto ' + p.id),
+          cidade: p.cidade || ''
+        }
+      }));
+
+      map.addSource('cameras', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features },
+        cluster: false,
+        maxzoom: 22
+      });
+
+      // ── 4. Camada de círculos (zoom baixo) ──
+      map.addLayer({
+        id: 'cameras-circle',
+        type: 'circle',
+        source: 'cameras',
+        minzoom: 10,
+        maxzoom: 13.9,
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'],
+            10, 2,
+            13, 6
+          ],
+          'circle-color': '#38bdf8',
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'],
+            10, 0,
+            11, 0.6,
+            13, 1
+          ],
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#0284c7'
+        }
+      });
+
+      // ── 5. Camada de ícones de câmera (zoom alto) ──
+      map.addLayer({
+        id: 'cameras-icon',
+        type: 'symbol',
+        source: 'cameras',
+        minzoom: 13,
+        layout: {
+          'icon-image': 'camera-icon',
+          'icon-size': ['interpolate', ['linear'], ['zoom'],
+            13, 0.3,
+            14, 0.5,
+            16, 0.8,
+            18, 1.0
+          ],
+          'icon-anchor': 'bottom',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true
+        }
+      });
+
+      // ── 6. Labels dos pontos (zoom alto) ──
+      map.addLayer({
+        id: 'cameras-label',
+        type: 'symbol',
+        source: 'cameras',
+        minzoom: 15,
+        layout: {
+          'text-field': ['get', 'nome'],
+          'text-size': 10,
+          'text-offset': [0, -1.5],
+          'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+          'text-optional': true
+        },
+        paint: {
+          'text-color': '#e2e8f0',
+          'text-halo-color': 'rgba(0,0,0,0.8)',
+          'text-halo-width': 2
+        }
+      });
+
+      // ── 7. Popup ao clicar ──
+      map.on('click', 'cameras-icon', (e) => {
+        const p = e.features[0].properties;
+        new mapboxgl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(`<b>${p.nome}</b><br>${p.cidade}<br><span style="font-size:11px;color:#94a3b8">${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}</span>`)
+          .addTo(map);
+      });
+      map.on('click', 'cameras-circle', (e) => {
+        const p = e.features[0].properties;
+        new mapboxgl.Popup()
+          .setLngLat(e.lngLat)
+          .setHTML(`<b>${p.nome}</b><br>${p.cidade}`)
+          .addTo(map);
+      });
+      map.on('mouseenter', 'cameras-icon', () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', 'cameras-icon', () => map.getCanvas().style.cursor = '');
+      map.on('mouseenter', 'cameras-circle', () => map.getCanvas().style.cursor = 'pointer');
+      map.on('mouseleave', 'cameras-circle', () => map.getCanvas().style.cursor = '');
+
+      pontosCount = features.length;
+      document.getElementById('contador').textContent = pontosCount;
+      document.getElementById('info').textContent = `✅ ${pontosCount} câmeras carregadas`;
+    });
+  </script>
+</body>
+</html>

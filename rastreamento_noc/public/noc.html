@@ -683,15 +683,22 @@
       getElement() { return this._mk.getElement(); }
       // Reconstrói o elemento visual com nova cor/estado
       setIcon(newState) {
-        // newState é ignorado — reconstroi baseado no estado atual conhecido
+        // setElement não existe no Mapbox GL JS v3 — recria o marker inteiro
+        const lngLat = this._mk.getLngLat();
+        const map = this._mk._map;
+        this._mk.remove();
+
         const novoEl = criarPinoTeardrop(this._equipeId, this._stale, this._forceColor);
-        this._el.replaceWith(novoEl);
         this._el = novoEl;
-        this._mk.setElement(novoEl);
+        this._mk = new mapboxgl.Marker({ element: novoEl, anchor: 'bottom' })
+          .setLngLat(lngLat);
+        this._mk._wrapper = this;
+
         if (this._clickFn) {
           novoEl.addEventListener('click', (e) => { e.stopPropagation(); this._clickFn({ target: this }); });
         }
         this._updatePopup();
+        if (map) this._mk.addTo(map);
         return this;
       }
       setStale(s) { this._stale = s; this.setIcon(); }

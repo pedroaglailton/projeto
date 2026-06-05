@@ -623,7 +623,7 @@
     // =========================================================================
     // Setup do mapa — Mapbox GL JS 3D
     // =========================================================================
-    const map = new mapboxgl.Map({
+    window.map = new mapboxgl.Map({
       container: 'map',
       zoom: 12,
       center: [-38.5267, -3.7319],
@@ -631,7 +631,7 @@
       bearing: 0,
       style: 'mapbox://styles/mapbox/standard'
     });
-    map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
     let mapPronto = false;
     map.on('load', () => { mapPronto = true; });
 

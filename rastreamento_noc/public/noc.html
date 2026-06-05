@@ -1352,6 +1352,11 @@
           paint: { 'text-color': '#e2e8f0', 'text-halo-color': 'rgba(0,0,0,0.7)', 'text-halo-width': 1.5 }
         });
       }
+      if (!map.__pontosCursorBound) {
+        map.on('mouseenter', pontosLayerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', pontosLayerId, () => { map.getCanvas().style.cursor = ''; });
+        map.__pontosCursorBound = true;
+      }
       pontosLayerInitialized = true;
     }
 
@@ -1381,10 +1386,10 @@
         const tags = [];
         if (p.ais) tags.push(`<span style="background:#1e40af;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">${p.ais}</span>`);
         if (p.categoria) tags.push(`<span style="background:#475569;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${p.categoria}</span>`);
-        const popupHtml = `<div style="font-family:'DM Sans',sans-serif;min-width:160px;">
-          <b style="font-size:13px;color:#0f172a;">${p.nome || ('PONTO ' + p.id)}</b>
+        const popupHtml = `<div style="font-family:'DM Sans',sans-serif;min-width:160px;color:#e2e8f0;">
+          <b style="font-size:13px;color:#fff;">${p.nome || ('PONTO ' + p.id)}</b>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${tags.join(' ') || ''}</div>
-          <div style="margin-top:4px;font-size:11px;color:#475569;">${p.cidade || ''}${p.lat && p.lng ? ' · ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) : ''}</div>
+          <div style="margin-top:4px;font-size:11px;color:#94a3b8;">${p.cidade || ''}${p.lat && p.lng ? ' · ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) : ''}</div>
         </div>`;
         features.push({
           type: 'Feature', id: fid,

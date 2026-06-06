@@ -213,6 +213,30 @@ function addMensagem(equipeId, equipeNome, direcao, texto, tipo = 'alerta', arqu
   mensagens.push(msg);
   salvarMensagens();
   broadcast({ type: 'mensagem', data: msg });
+
+  // Push automatico: NOC -> tecnico. Tecnico -> NOC nao dispara push
+  // (NOC usa o painel noc.html com WebSocket; se virar PWA tbm, dah pra
+  // adicionar subscribe "noc" no futuro).
+  if (direcao === 'noc' && pushSubscriptions.some(s => s.equipeId === equipeId)) {
+    const isRapida = tipo === 'predefinida';
+    const preview = String(texto || '').slice(0, 100);
+    const payload = {
+      title: (isRapida ? '⚡ ' : '💬 ') + (equipeNome || equipeId),
+      body: preview,
+      tag: 'chat-' + equipeId,
+      renotify: true,
+      vibrate: isRapida ? [100, 50, 100] : [200, 100, 200],
+      data: {
+        url: './index.html',
+        equipeId,
+        tipo
+      }
+    };
+    sendPushToSubscriptions(payload, equipeId).catch(err =>
+      console.warn('[push] auto-msg noc->tecnico failed:', err.message)
+    );
+  }
+
   return msg;
 }
 

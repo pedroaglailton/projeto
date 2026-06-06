@@ -189,9 +189,11 @@ self.addEventListener('push', event => {
     body: payload.body,
     icon: './app-icon.svg',
     badge: './app-icon.svg',
-    vibrate: [100, 50, 100],
-    tag: 'preventiva-notification',
-    renotify: true,
+    vibrate: Array.isArray(payload.vibrate) && payload.vibrate.length
+      ? payload.vibrate
+      : [100, 50, 100],
+    tag: payload.tag || 'preventiva-notification',
+    renotify: payload.renotify !== false,
     requireInteraction: false,
     data: payload.data || {},
     actions: [

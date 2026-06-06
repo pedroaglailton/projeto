@@ -20,6 +20,49 @@ const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, au
 // ============================================================================
 let pontosPlanejados = [];
 
+// Normaliza lat/lng: detecta a escala (1e3..1e15) e corrige o sinal.
+// O JSON original tem escalas mistas (1e5, 1e6, 1e8, 1e15) e as vezes
+// sinal trocado. Aqui centralizamos a logica do V3.
+const NORM_K_ORDEM = [6, 5, 15, 7, 8, 3, 4, 9, 10, 11, 12, 13, 14];
+function normalizarCoordPar(latRaw, lngRaw) {
+  const toN = (v) => { if (v == null || v === '') return null; const d = Number(v); return Number.isFinite(d) ? d : null; };
+  const lat = toN(latRaw), lng = toN(lngRaw);
+  if (lat === null || lng === null) return null;
+  const aLat = Math.abs(lat), aLng = Math.abs(lng);
+  if (aLat < 100 && aLng < 100) {
+    // ja esta em decimal degrees
+    let sLat = lat, sLng = lng;
+    if (sLat > 0) sLat = -sLat;
+    if (sLng > 0) sLng = -sLng;
+    return { lat: sLat, lng: sLng };
+  }
+  // Tenta mesmo k para lat e lng primeiro (caso comum)
+  for (const k of NORM_K_ORDEM) {
+    const latN = lat / Math.pow(10, k);
+    const lngN = lng / Math.pow(10, k);
+    if (Math.abs(latN) >= 1 && Math.abs(latN) <= 34 && Math.abs(lngN) >= 30 && Math.abs(lngN) <= 75) {
+      let sLat = latN, sLng = lngN;
+      if (sLat > 0) sLat = -sLat;
+      if (sLng > 0) sLng = -sLng;
+      return { lat: sLat, lng: sLng };
+    }
+  }
+  // Tenta k diferentes para lat e lng
+  for (const kLat of NORM_K_ORDEM) {
+    const latN = lat / Math.pow(10, kLat);
+    if (Math.abs(latN) < 1 || Math.abs(latN) > 34) continue;
+    for (const kLng of NORM_K_ORDEM) {
+      const lngN = lng / Math.pow(10, kLng);
+      if (Math.abs(lngN) < 30 || Math.abs(lngN) > 75) continue;
+      let sLat = latN, sLng = lngN;
+      if (sLat > 0) sLat = -sLat;
+      if (sLng > 0) sLng = -sLng;
+      return { lat: sLat, lng: sLng };
+    }
+  }
+  return null;
+}
+
 function carregarPontosPlanejados() {
   try {
     const filePath = path.join(pwaRoot || __dirname, 'pontos_planejados.json');
@@ -27,9 +70,19 @@ function carregarPontosPlanejados() {
       console.warn('[pontos] pontos_planejados.json nao encontrado em', filePath);
       return;
     }
-    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    pontosPlanejados = Array.isArray(data.pontos) ? data.pontos : [];
-    console.log(`[pontos] ${pontosPlanejados.length} ponto(s) carregado(s)`);
+    let raw = fs.readFileSync(filePath, 'utf8');
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); // strip BOM
+    const data = JSON.parse(raw);
+    // Aceita tanto {pontos:[...]} quanto array direto
+    const listaBruta = Array.isArray(data) ? data : (Array.isArray(data.pontos) ? data.pontos : []);
+    pontosPlanejados = [];
+    let semCoord = 0;
+    for (const p of listaBruta) {
+      const norm = normalizarCoordPar(p.lat, p.lng);
+      if (!norm) { semCoord++; continue; }
+      pontosPlanejados.push({ ...p, lat: norm.lat, lng: norm.lng });
+    }
+    console.log(`[pontos] ${pontosPlanejados.length} ponto(s) carregado(s)${semCoord ? ` (${semCoord} sem coordenada normalizavel)` : ''}`);
   } catch (err) {
     console.warn('[pontos] erro ao carregar pontos_planejados.json:', err.message);
   }
@@ -351,6 +404,35 @@ app.use('/api', (req, res, next) => {
 app.get('/sw.js',         (_req, res, next) => { res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); next(); });
 app.get('/manifest.json', (_req, res, next) => { res.setHeader('Cache-Control', 'no-cache'); next(); });
 app.get('/index.html',    (_req, res, next) => { res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); next(); });
+
+// ============================================================================
+// Rota dedicada para servir pontos_planejados.json no formato que
+// o noc.html espera ({pontos: [...]}), com lat/lng ja normalizados.
+// IMPORTANTE: vem ANTES do express.static para interceptar a URL.
+// ============================================================================
+app.get('/pontos_planejados.json', (_req, res) => {
+  try {
+    const filePath = path.join(pwaRoot || __dirname, 'pontos_planejados.json');
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ ok: false, error: 'pontos_planejados.json nao encontrado' });
+    }
+    let raw = fs.readFileSync(filePath, 'utf8');
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1); // strip BOM
+    const data = JSON.parse(raw);
+    const listaBruta = Array.isArray(data) ? data : (Array.isArray(data.pontos) ? data.pontos : []);
+    const pontos = listaBruta.map(p => {
+      const norm = normalizarCoordPar(p.lat, p.lng);
+      return {
+        ...p,
+        lat: norm ? norm.lat : p.lat,
+        lng: norm ? norm.lng : p.lng
+      };
+    });
+    res.json({ ok: true, total: pontos.length, pontos });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 // Arquivos estaticos
 app.use(express.static(pwaRoot));

@@ -1092,13 +1092,14 @@
                 <span id="gpsDot" style="width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.3);flex-shrink:0;transition:background 0.4s;"></span>
                 <span id="gpsLabel" style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.5px;color:rgba(255,255,255,0.45);transition:color 0.4s;text-transform:uppercase;"></span>
             </div>
-             <button class="theme-toggle" onclick="logoutConta()" title="Sair da conta" id="btnSair" style="position:relative;padding:6px 10px;background:#dc2626;">
+			 <button class="theme-toggle" onclick="logoutConta()" title="Sair da conta" id="btnSair" style="position:relative;padding:6px 10px;background:#dc2626;">
                 <span style="font-size:11px;font-weight:700;color:#fff;line-height:1;letter-spacing:.5px;">SAIR</span>
             </button>
             <button class="theme-toggle" onclick="abrirChat()" title="Mensagens" id="btnChat" style="position:relative;">
                 <i class="material-icons">chat</i>
                 <span id="chatBadge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#ef4444;box-shadow:0 0 4px #ef4444;"></span>
-            </button>           
+            </button>
+           
             <button class="theme-toggle" onclick="abrirConfigModal()" title="Configurações" id="btnConfig" style="position:relative;">
                 <i class="material-icons">settings</i>
                 <span id="configBadge" style="display:none;position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#f59e0b;box-shadow:0 0 4px #f59e0b;"></span>
@@ -5124,6 +5125,18 @@
                         return;
                     }
                     const reg = await navigator.serviceWorker.ready;
+
+                    // Remove subscription antiga (chave VAPID pode ter mudado no servidor)
+                    statusEl.textContent = 'Verificando subscription existente...';
+                    try {
+                        const subExistente = await reg.pushManager.getSubscription();
+                        if (subExistente) {
+                            await subExistente.unsubscribe();
+                            pushSubscriptionObj = null;
+                        }
+                    } catch (_) { /* ignora — tenta assinar mesmo assim */ }
+
+                    statusEl.textContent = 'Registrando notificações...';
                     const sub = await reg.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(key)

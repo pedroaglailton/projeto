@@ -2044,6 +2044,18 @@
         let pontoProximoAtual = null;
         const PROX_CHECK_INTERVAL = 12000;
 
+        // Extrai o numero inicial do nome do ponto para usar no form.
+        // "01 - Av. Torres de Melo ..." -> "01"
+        // "12B - Rua da Integração"      -> "12B"
+        // "GALPÃO" / "POSTE 45211"        -> primeiras 10 chars
+        function extrairNumeroInicial(nome) {
+            if (!nome) return '';
+            const s = String(nome).trim();
+            const m = s.match(/^(\d+[A-Za-z]?)\b/);
+            if (m) return m[1].toUpperCase();
+            return s.slice(0, 10).toUpperCase();
+        }
+
         async function verificarPontoProximo(lat, lng) {
             const agora = Date.now();
             if (agora - ultimoProxCheck < PROX_CHECK_INTERVAL) return;
@@ -3100,19 +3112,19 @@
                             const numEl = document.getElementById('numeroPonto');
                             const confirmar = confirm(`📍 Ponto #${p.id} — ${p.nome}\nDistância: ${p.distancia}m\n${p.jaFeito ? '✅ Já foi feito hoje' : '⏳ Pendente'}\n\nÉ este o ponto?`);
                             if (confirmar) {
-                                numEl.value = String(p.id);
+                                numEl.value = extrairNumeroInicial(p.nome);
                                 // Preenche cidade se disponível
                                 const cidadeEl = document.getElementById('ck_cidade_nome');
                                 if (cidadeEl && p.cidade && p.cidade !== 'SEM CIDADE') {
                                     cidadeEl.value = p.cidade;
                                 }
-                                showToast(`Ponto #${p.id} selecionado (${p.distancia}m)`, 'success');
+                                showToast(`Ponto ${extrairNumeroInicial(p.nome)} selecionado (${p.distancia}m)`, 'success');
                             } else {
                                 numEl.value = '';
                                 numEl.focus();
                             }
                         } else if (pontoProximoAtual) {
-                            showToast(`Ponto mais próximo: #${pontoProximoAtual.id} — ${pontoProximoAtual.distancia}m (fora do raio de 25m)`, 'info');
+                            showToast(`Ponto mais próximo: ${extrairNumeroInicial(pontoProximoAtual.nome)} — ${pontoProximoAtual.distancia}m (fora do raio de 25m)`, 'info');
                         }
                     });
                     showToast('Localização capturada!', 'success');

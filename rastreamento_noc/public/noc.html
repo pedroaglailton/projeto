@@ -460,6 +460,7 @@
         <select id="filtroCategoria" style="margin-top:6px;">
           <option value="TODAS">Todas as categorias</option>
         </select>
+        <button onclick="fitPontos()" style="margin-top:6px;width:100%;padding:8px;background:#0ea5e9;color:#fff;border:0;border-radius:4px;font-weight:600;cursor:pointer;font-size:12px;">📐 Enquadrar pontos no mapa</button>
       </div>
 
       <div class="section admin-only">
@@ -824,10 +825,26 @@
     function initClima() {
       window.map.on('style.load', () => {
         applyRainEffect(currentRainIntensity);
+        // Esconde os POIs 3D azuis do Mapbox (landmarks, transit, etc.)
+        const st = window.map.getStyle();
+        for (const layer of (st && st.layers) || []) {
+          const id = (layer.id || '').toLowerCase();
+          if (id.includes('poi') || id.includes('landmark') || id.includes('transit')) {
+            try { window.map.setLayoutProperty(layer.id, 'visibility', 'none'); } catch {}
+          }
+        }
       });
       window.map.on('load', () => {
         setTimeout(atualizarClima, 2000);
         weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
+        // Carrega imagem do poste (cache-bust v=4) e registra como icone
+        window.map.loadImage('/poste.png?v=4', (err, image) => {
+          if (err) { console.error('[NOC] Erro ao carregar poste.png', err); return; }
+          if (!window.map.hasImage('poste-camera')) {
+            window.map.addImage('poste-camera', image);
+            console.log('[NOC] icone poste-camera registrado', image.width, 'x', image.height);
+          }
+        });
       });
     }
 
@@ -1334,35 +1351,45 @@
       if (pontosLayerInitialized) return;
       if (!map.getSource(pontosSourceId)) {
         map.addSource(pontosSourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        // Layer symbol com poste.png — escala 15m reais (exponential 2)
         map.addLayer({
-          id: pontosLayerId, type: 'circle', source: pontosSourceId,
-          paint: {
-            'circle-radius': [
-              'interpolate', ['linear'], ['zoom'],
-              10, ['*', ['get', 'r'], 1.2],
-              13, ['*', ['get', 'r'], 2.5],
-              16, ['*', ['get', 'r'], 5],
-              19, ['*', ['get', 'r'], 10]
-            ],
-            'circle-color': ['get', 'fc'],
-            'circle-opacity': ['get', 'fo'],
-            'circle-stroke-width': [
-              'interpolate', ['linear'], ['zoom'],
-              10, ['get', 'sw'],
-              16, ['*', ['get', 'sw'], 2],
-              19, ['*', ['get', 'sw'], 4]
-            ],
-            'circle-stroke-color': ['get', 'sc'], 'circle-stroke-opacity': 1
+          id: pontosLayerId, type: 'symbol', source: pontosSourceId,
+          layout: {
+            'icon-image': 'poste-camera',
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-size': [
+              'interpolate', ['exponential', 2], ['zoom'],
+              10, 0.0005, 12, 0.002,
+              14, 0.0083, 15, 0.0166,
+              16, 0.033, 17, 0.066,
+              18, 0.133, 19, 0.265, 20, 0.530
+            ]
           }
         });
+        // Labels: aparecem a partir de z=14 (poste >= ~6px)
         map.addLayer({
           id: pontosLabelsLayerId, type: 'symbol', source: pontosSourceId,
           layout: {
             'text-field': ['get', 'nome'],
-            'text-size': 10, 'text-offset': [0, -1.5],
-            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold']
+            'text-size': ['interpolate', ['linear'], ['zoom'], 13, 0, 15, 10],
+            'text-offset': [0, -1.5],
+            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
+            'text-allow-overlap': false
           },
           paint: { 'text-color': '#e2e8f0', 'text-halo-color': 'rgba(0,0,0,0.7)', 'text-halo-width': 1.5 }
+        });
+        // Badge verde para pontos visitados (camada separada)
+        map.addLayer({
+          id: 'pontos-visitados-badge', type: 'circle', source: pontosSourceId,
+          filter: ['==', ['get', 'visitado'], true],
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 4, 18, 8],
+            'circle-color': '#22c55e',
+            'circle-stroke-color': '#fff',
+            'circle-stroke-width': 2
+          }
         });
       }
       if (!map.__pontosCursorBound) {
@@ -1411,7 +1438,8 @@
             r: st.radius, fc: st.fillColor, fo: st.fillOpacity,
             sw: st.strokeWidth, sc: st.strokeColor,
             nome: String(p.nome || ('PONTO ' + p.id)).slice(0, 20),
-            popup: popupHtml
+            popup: popupHtml,
+            visitado: !!visitado
           }
         });
       }
@@ -1431,9 +1459,26 @@
 
       map.setLayoutProperty(pontosLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
       map.setLayoutProperty(pontosLabelsLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
+      map.setLayoutProperty('pontos-visitados-badge', 'visibility', checked && features.length ? 'visible' : 'none');
       atualizarStatsPontos();
     }
     let pontosClickHandler = null;
+
+    // Enquadra o mapa nos pontos atualmente filtrados
+    function fitPontos() {
+      if (!map || !map.getSource) return;
+      const src = map.getSource(pontosSourceId);
+      if (!src) return;
+      const data = src._data;
+      if (!data || !data.features || data.features.length === 0) {
+        console.warn('[NOC] nenhum ponto para enquadrar');
+        return;
+      }
+      const bounds = new mapboxgl.LngLatBounds();
+      for (const f of data.features) bounds.extend(f.geometry.coordinates);
+      map.fitBounds(bounds, { padding: 60, maxZoom: 17, duration: 800 });
+    }
+    window.fitPontos = fitPontos;
 
     const aplicarFiltroPontos = renderPontosLayer;
     window.aplicarFiltroPontos = renderPontosLayer;

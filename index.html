@@ -653,12 +653,12 @@
             background: #ffffff;
             border-top: 2px solid #e2e8f0;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: space-around;
-            padding-left: 8px;
-            padding-right: 8px;
+            padding-left: 2px;
+            padding-right: 2px;
             z-index: 1000;
-            box-shadow: 0 -4px 16px rgba(0,0,0,0.1);
+            box-shadow: 0 -4px 20px rgba(0,87,184,0.12);
         }
 
         .nav-item {
@@ -666,39 +666,67 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 3px;
+            gap: 2px;
             text-decoration: none;
             color: #94a3b8;
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 700;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             text-transform: uppercase;
-            padding: 8px 20px;
-            border-radius: 12px;
-            transition: all 0.2s;
+            padding: 6px 2px 4px;
+            border-radius: 0;
+            transition: all 0.18s;
             position: relative;
+            flex: 1;
+            min-width: 0;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .nav-item .material-icons { font-size: 24px; transition: all 0.2s; }
-
-        .nav-item.active {
-            color: #0057b8;
+        .nav-item .material-icons {
+            font-size: 22px;
+            transition: all 0.18s;
         }
+
+        .nav-item span {
+            font-size: 9px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            line-height: 1.1;
+        }
+
+        .nav-item:active { background: rgba(0,87,184,0.06); }
+
+        .nav-item.active { color: #0057b8; }
 
         .nav-item.active .material-icons {
             color: #0057b8;
+            transform: translateY(-1px);
         }
 
         .nav-item.active::before {
             content: '';
             position: absolute;
             top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 36px;
+            left: 15%;
+            right: 15%;
             height: 3px;
-            background: #0057b8;
-            border-radius: 0 0 3px 3px;
+            background: linear-gradient(90deg, #0057b8, #0284c7);
+            border-radius: 0 0 4px 4px;
+        }
+
+        .nav-icon-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 8px 2px;
+            border-radius: 12px;
+            transition: all 0.18s;
+        }
+
+        .nav-item.active .nav-icon-wrap {
+            background: rgba(0,87,184,0.1);
         }
 
         /* ===== SECTIONS ===== */
@@ -984,159 +1012,46 @@
         }
 
         @media (max-width: 768px) {
-            .navbar {
-                height: 54px;
-                padding: 0 10px;
-            }
-
-            .brand-icon {
-                width: 28px;
-                height: 28px;
-            }
-
-            .brand-text {
-                font-size: 15px;
-                letter-spacing: 1px;
-            }
-
-            .brand-title {
-                max-width: 160px;
-            }
-
-            #gpsLabel {
-                display: none;
-            }
-
-            #dateDisplay {
-                display: none !important;
-            }
-
-            .container {
-                max-width: 100%;
-                padding: 10px 10px calc(var(--nav-h) + 10px);
-            }
-
-            .info-bar {
-                padding: 10px 12px;
-            }
-
-            #checklistContainer,
-            #editChecklistContainer {
-                grid-template-columns: 1fr !important;
-            }
-
-            .bottom-nav {
-                padding: 0 4px;
-            }
-
-            .nav-item {
-                padding: 8px 8px;
-                min-width: 58px;
-            }
-
-            .nav-item span {
-                font-size: 9px;
-                letter-spacing: 0.3px;
-            }
+            .navbar { height: 54px; padding: 0 10px; }
+            .brand-icon { width: 28px; height: 28px; }
+            .brand-text { font-size: 15px; letter-spacing: 1px; }
+            .brand-title { max-width: 160px; }
+            #gpsLabel { display: none; }
+            #dateDisplay { display: none !important; }
+            .container { max-width: 100%; padding: 10px 10px calc(var(--nav-h) + 10px); }
+            .info-bar { padding: 10px 12px; }
+            #checklistContainer, #editChecklistContainer { grid-template-columns: 1fr !important; }
         }
 
         @media (max-width: 480px) {
-            .navbar > div:last-child {
-                gap: 3px !important;
-            }
-
-            .brand-icon {
-                display: none !important;
-            }
-
-            .brand-text {
-                font-size: 11px;
-                letter-spacing: 0.3px;
-            }
-
-            .brand-title {
-                max-width: 90px;
-            }
-
-            #gpsStatus {
-                display: none !important;
-            }
-
-            #dateDisplay {
-                display: none !important;
-            }
-
-            .navbar .theme-toggle {
-                padding: 3px 5px !important;
-            }
-
-            .navbar .theme-toggle .material-icons {
-                font-size: 17px !important;
-            }
-
-            #btnSair {
-                padding: 3px 5px !important;
-            }
-
-            #btnSair span {
-                font-size: 9px !important;
-                letter-spacing: 0.3px !important;
-            }
+            .navbar > div:last-child { gap: 4px !important; }
+            .brand-icon { display: none !important; }
+            .brand-text { font-size: 12px; letter-spacing: 0.3px; }
+            .brand-title { max-width: 100px; }
+            #gpsStatus { display: none !important; }
+            #dateDisplay { display: none !important; }
+            .navbar .theme-toggle { padding: 5px 6px !important; }
+            .navbar .theme-toggle .material-icons { font-size: 18px !important; }
+            #btnSair { padding: 5px 8px !important; }
+            #btnSair span { font-size: 10px !important; }
+            .nav-item .material-icons { font-size: 20px; }
+            .nav-item span { font-size: 8px; }
+            .nav-icon-wrap { padding: 3px 6px 2px; }
         }
 
-        /* Chat panel mobile */
-        @media (max-width: 480px) {
-            #chatPanel > div:last-child {
-                padding: 8px 10px !important;
-                gap: 6px !important;
-            }
-
-            #chatPanel input {
-                font-size: 16px !important;
-                padding: 10px 12px !important;
-            }
-
-            #chatPanel [style*="padding:12px;font-size:16px"] {
-                padding: 8px !important;
-                font-size: 14px !important;
-            }
-
-            #chatPanel [style*="padding:12px 18px"] {
-                padding: 10px 12px !important;
-                font-size: 13px !important;
-            }
+        @media (max-width: 360px) {
+            .nav-item span { display: none; }
+            .nav-item { justify-content: center; }
+            .nav-icon-wrap { padding: 6px; }
+            .nav-item .material-icons { font-size: 22px; }
         }
 
         @media (max-width: 420px) {
-            .brand-text {
-                font-size: 13px;
-                letter-spacing: 0.5px;
-            }
-
-            #dateDisplay {
-                font-size: 11px !important;
-            }
-
-            .card-header {
-                font-size: 13px;
-                letter-spacing: 1px;
-                padding: 10px 12px;
-            }
-
-            .card-body {
-                padding: 12px;
-            }
-
-            .form-control,
-            select {
-                font-size: 14px;
-                padding: 10px 11px;
-            }
-
-            .btn {
-                font-size: 14px;
-                padding: 12px 14px;
-            }
+            .brand-text { font-size: 13px; letter-spacing: 0.5px; }
+            .card-header { font-size: 13px; letter-spacing: 1px; padding: 10px 12px; }
+            .card-body { padding: 12px; }
+            .form-control, select { font-size: 14px; padding: 10px 11px; }
+            .btn { font-size: 14px; padding: 12px 14px; }
         }
     </style>
 </head>
@@ -1554,28 +1469,28 @@
 
     <!-- ===== BOTTOM NAV ===== -->
     <nav class="bottom-nav">
-        <a href="#" class="nav-item active" onclick="showSection('ponto', this); return false;">
-            <i class="material-icons">add_location_alt</i>
+        <a href="#" class="nav-item active" onclick="showSection('ponto', this); return false;" title="Registrar Ponto">
+            <div class="nav-icon-wrap"><i class="material-icons">add_location_alt</i></div>
             <span>Ponto</span>
         </a>
-        <a href="#" class="nav-item" onclick="showSection('pontos', this); return false;">
-            <i class="material-icons">list_alt</i>
+        <a href="#" class="nav-item" onclick="showSection('pontos', this); return false;" title="Lista de Pontos">
+            <div class="nav-icon-wrap"><i class="material-icons">format_list_bulleted</i></div>
             <span>Pontos</span>
         </a>
-        <a href="#" class="nav-item" onclick="showSection('mapa', this); iniciarMapa(); return false;">
-            <i class="material-icons">location_on</i>
+        <a href="#" class="nav-item" onclick="showSection('mapa', this); iniciarMapa(); return false;" title="Mapa">
+            <div class="nav-icon-wrap"><i class="material-icons">map</i></div>
             <span>Mapa</span>
         </a>
-        <a href="#" class="nav-item" onclick="showSection('historico', this); renderHistorico(); return false;">
-            <i class="material-icons">history</i>
+        <a href="#" class="nav-item" onclick="showSection('historico', this); renderHistorico(); return false;" title="Histórico">
+            <div class="nav-icon-wrap"><i class="material-icons">history</i></div>
             <span>Histórico</span>
         </a>
-        <a href="#" class="nav-item" onclick="showSection('finalizar', this); return false;">
-            <i class="material-icons">done_all</i>
+        <a href="#" class="nav-item" onclick="showSection('finalizar', this); return false;" title="Finalizar Dia">
+            <div class="nav-icon-wrap"><i class="material-icons">task_alt</i></div>
             <span>Finalizar</span>
         </a>
-        <a href="#" class="nav-item" onclick="showSection('troca', this); renderizarTrocas(); return false;">
-            <i class="material-icons">swap_horiz</i>
+        <a href="#" class="nav-item" onclick="showSection('troca', this); renderizarTrocas(); return false;" title="Troca de Câmera">
+            <div class="nav-icon-wrap"><i class="material-icons">cameraswitch</i></div>
             <span>Troca</span>
         </a>
     </nav>
@@ -2043,18 +1958,6 @@
         let ultimoProxCheck = 0;
         let pontoProximoAtual = null;
         const PROX_CHECK_INTERVAL = 12000;
-
-        // Extrai o numero inicial do nome do ponto para usar no form.
-        // "01 - Av. Torres de Melo ..." -> "01"
-        // "12B - Rua da Integração"      -> "12B"
-        // "GALPÃO" / "POSTE 45211"        -> primeiras 10 chars
-        function extrairNumeroInicial(nome) {
-            if (!nome) return '';
-            const s = String(nome).trim();
-            const m = s.match(/^(\d+[A-Za-z]?)\b/);
-            if (m) return m[1].toUpperCase();
-            return s.slice(0, 10).toUpperCase();
-        }
 
         async function verificarPontoProximo(lat, lng) {
             const agora = Date.now();
@@ -3112,19 +3015,19 @@
                             const numEl = document.getElementById('numeroPonto');
                             const confirmar = confirm(`📍 Ponto #${p.id} — ${p.nome}\nDistância: ${p.distancia}m\n${p.jaFeito ? '✅ Já foi feito hoje' : '⏳ Pendente'}\n\nÉ este o ponto?`);
                             if (confirmar) {
-                                numEl.value = extrairNumeroInicial(p.nome);
+                                numEl.value = String(p.id);
                                 // Preenche cidade se disponível
                                 const cidadeEl = document.getElementById('ck_cidade_nome');
                                 if (cidadeEl && p.cidade && p.cidade !== 'SEM CIDADE') {
                                     cidadeEl.value = p.cidade;
                                 }
-                                showToast(`Ponto ${extrairNumeroInicial(p.nome)} selecionado (${p.distancia}m)`, 'success');
+                                showToast(`Ponto #${p.id} selecionado (${p.distancia}m)`, 'success');
                             } else {
                                 numEl.value = '';
                                 numEl.focus();
                             }
                         } else if (pontoProximoAtual) {
-                            showToast(`Ponto mais próximo: ${extrairNumeroInicial(pontoProximoAtual.nome)} — ${pontoProximoAtual.distancia}m (fora do raio de 25m)`, 'info');
+                            showToast(`Ponto mais próximo: #${pontoProximoAtual.id} — ${pontoProximoAtual.distancia}m (fora do raio de 25m)`, 'info');
                         }
                     });
                     showToast('Localização capturada!', 'success');
@@ -4749,23 +4652,59 @@
     </div>
 
     <!-- ===== CHAT PANEL ===== -->
-    <div id="chatPanel" style="display:none;position:fixed;inset:0;z-index:99998;background:var(--bg-primary,#0f172a);flex-direction:column;">
-        <div style="display:flex;align-items:center;padding:10px 16px;background:var(--accent,#0057b8);color:#fff;gap:12px;flex-shrink:0;">
-            <button onclick="fecharChat()" style="background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:#fff;width:36px;height:36px;font-size:20px;cursor:pointer;">←</button>
-            <div style="font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;letter-spacing:1px;text-transform:uppercase;flex:1;">Mensagens</div>
-            <span id="chatEquipeNome" style="font-size:12px;opacity:0.8;font-weight:600;"></span>
+    <div id="chatPanel" style="display:none;position:fixed;inset:0;z-index:99998;background:var(--bg-primary,#f0f4f8);flex-direction:column;">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0));background:#0057b8;color:#fff;gap:10px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+            <button onclick="fecharChat()" style="background:rgba(255,255,255,0.18);border:none;border-radius:10px;color:#fff;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+                <i class="material-icons" style="font-size:22px;">arrow_back</i>
+            </button>
+            <div style="flex:1;min-width:0;">
+                <div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;line-height:1.1;">Mensagens NOC</div>
+                <div id="chatEquipeNome" style="font-size:11px;opacity:0.75;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+            </div>
+            <button onclick="carregarMensagens()" style="background:rgba(255,255,255,0.18);border:none;border-radius:10px;color:#fff;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Atualizar">
+                <i class="material-icons" style="font-size:20px;">refresh</i>
+            </button>
         </div>
-        <div id="chatMessages" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;scroll-behavior:smooth;">
+        <!-- Mensagens -->
+        <div id="chatMessages" style="flex:1;overflow-y:auto;padding:14px 12px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;">
             <div style="text-align:center;color:var(--text-muted,#6b7280);font-size:13px;padding:40px 0;" id="chatEmpty">Carregando mensagens...</div>
         </div>
-        <div style="display:flex;gap:8px;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0));background:var(--bg-card,#1c2128);border-top:1px solid var(--border,#30363d);flex-shrink:0;">
-            <input type="file" id="chatFileInput" accept="image/*" style="display:none" onchange="enviarArquivoResposta(this, true)">
-            <button onclick="document.getElementById('chatFileInput').click()" style="background:var(--bg-card,#1c2128);color:var(--text-muted,#6b7280);border:1px solid var(--border,#30363d);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;line-height:1;" title="Tirar foto">📷</button>
-            <input type="file" id="chatVideoInput" accept="video/*" capture="environment" style="display:none" onchange="enviarArquivoResposta(this, false)">
-            <button onclick="document.getElementById('chatVideoInput').click()" style="background:var(--bg-card,#1c2128);color:var(--text-muted,#6b7280);border:1px solid var(--border,#30363d);border-radius:10px;padding:12px;font-size:16px;cursor:pointer;line-height:1;" title="Gravar video">🎬</button>
-            <input type="text" id="chatInput" placeholder="Digite sua resposta..." style="flex:1;padding:12px 14px;border:2px solid var(--border,#30363d);border-radius:10px;font-size:15px;background:var(--bg-primary,#0f172a);color:var(--text-primary,#fff);outline:none;"
-                   onkeydown="if(event.key==='Enter')enviarResposta()">
-            <button onclick="enviarResposta()" style="background:var(--accent,#0057b8);color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;">Enviar</button>
+        <!-- Preview de arquivo -->
+        <div id="chatPreviewBox" style="display:none;padding:8px 12px;background:var(--bg-card,#fff);border-top:1px solid var(--border,#e2e8f0);">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <img id="chatPreviewImg" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:2px solid #bfdbfe;display:none;">
+                <div id="chatPreviewNome" style="flex:1;font-size:12px;font-weight:600;color:var(--text-secondary,#374151);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                <button onclick="cancelarPreviewChat()" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#b91c1c;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                    <i class="material-icons" style="font-size:16px;">close</i>
+                </button>
+                <button onclick="confirmarEnvioArquivoChat()" style="background:#0057b8;border:none;border-radius:8px;color:#fff;padding:0 12px;height:32px;font-size:12px;font-weight:700;cursor:pointer;">Enviar</button>
+            </div>
+        </div>
+        <!-- Input bar -->
+        <div style="display:flex;align-items:flex-end;gap:6px;padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom,0));background:var(--bg-card,#fff);border-top:2px solid var(--border,#e2e8f0);flex-shrink:0;">
+            <!-- Câmera direta -->
+            <input type="file" id="chatCameraInput" accept="image/*" capture="environment" style="display:none" onchange="prepararArquivoChat(this)">
+            <button onclick="document.getElementById('chatCameraInput').click()" title="Câmera"
+                style="background:#0057b8;color:#fff;border:none;border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 2px 6px rgba(0,87,184,0.3);">
+                <i class="material-icons" style="font-size:20px;">photo_camera</i>
+            </button>
+            <!-- Galeria / arquivo -->
+            <input type="file" id="chatFileInput" accept="image/*,video/*" style="display:none" onchange="prepararArquivoChat(this)">
+            <button onclick="document.getElementById('chatFileInput').click()" title="Galeria"
+                style="background:var(--bg-elevated,#f8fafc);color:#0057b8;border:1.5px solid #bfdbfe;border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;">
+                <i class="material-icons" style="font-size:20px;">attach_file</i>
+            </button>
+            <!-- Texto -->
+            <textarea id="chatInput" placeholder="Digite sua mensagem..." rows="1"
+                style="flex:1;padding:10px 12px;border:1.5px solid #bfdbfe;border-radius:12px;font-size:15px;background:var(--bg-primary,#f0f4f8);color:var(--text-primary,#0f172a);outline:none;resize:none;font-family:'DM Sans',sans-serif;line-height:1.4;max-height:100px;overflow-y:auto;"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarResposta();}"
+                oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
+            <!-- Enviar -->
+            <button onclick="enviarResposta()" title="Enviar"
+                style="background:#0057b8;color:#fff;border:none;border-radius:12px;width:42px;height:42px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-shadow:0 2px 6px rgba(0,87,184,0.3);">
+                <i class="material-icons" style="font-size:20px;">send</i>
+            </button>
         </div>
     </div>
 
@@ -5358,15 +5297,51 @@
             }
         }
 
-        async function enviarArquivoResposta(input, comprimir) {
+        // Arquivo pendente de confirmação no preview
+        let _chatArquivoPendente = null;
+
+        function prepararArquivoChat(input) {
             const file = input.files?.[0];
+            if (!file) return;
+            input.value = '';
+            _chatArquivoPendente = file;
+            const box = document.getElementById('chatPreviewBox');
+            const img = document.getElementById('chatPreviewImg');
+            const nome = document.getElementById('chatPreviewNome');
+            const size = file.size > 1048576 ? (file.size/1048576).toFixed(1)+'MB' : Math.round(file.size/1024)+'KB';
+            nome.textContent = file.name + ' (' + size + ')';
+            if (file.type.startsWith('image/')) {
+                img.src = URL.createObjectURL(file);
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+            }
+            box.style.display = 'block';
+        }
+
+        function cancelarPreviewChat() {
+            _chatArquivoPendente = null;
+            document.getElementById('chatPreviewBox').style.display = 'none';
+            const img = document.getElementById('chatPreviewImg');
+            if (img.src) URL.revokeObjectURL(img.src);
+            img.src = '';
+        }
+
+        async function confirmarEnvioArquivoChat() {
+            const file = _chatArquivoPendente;
+            if (!file) return;
+            cancelarPreviewChat();
+            await enviarArquivoResposta(file);
+        }
+
+        async function enviarArquivoResposta(file) {
             if (!file) return;
             const token = getEquipeToken();
             if (!token) { showToast('Configure o token primeiro', 'error'); return; }
-            input.value = '';
+            showToast('Enviando...', 'info');
             try {
                 let arquivo = file;
-                if (comprimir && file.type.startsWith('image/')) {
+                if (file.type.startsWith('image/')) {
                     arquivo = await comprimirImagemChat(file);
                 }
                 const fd = new FormData();
@@ -5377,7 +5352,7 @@
                 const r = await fetch(apiUrl('/api/mensagens'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-Equipe-Token': token },
-                    body: JSON.stringify({ texto: file.name, tipo: 'alerta', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
+                    body: JSON.stringify({ texto: '', tipo: 'resposta', arquivoUrl: upData.url, arquivoTipo: upData.arquivoTipo })
                 });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);

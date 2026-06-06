@@ -56,9 +56,9 @@
         const resp = await fetch('/pontos_planejados.json');
         const data = await resp.json();
         const pontos = Array.isArray(data.pontos) ? data.pontos : [];
-        const amostra = pontos.slice(0, 15);
+        const amostra = pontos; // todas as 1603 cameras
 
-        // Calcula bounds dos primeiros 100 pontos para enquadrar o mapa
+        // Calcula bounds de TODAS as cameras para enquadrar o mapa
         let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
         for (const p of amostra) {
           const lng = Number(p.lng), lat = Number(p.lat);
@@ -70,7 +70,7 @@
         }
         if (isFinite(minLng) && isFinite(minLat)) {
           map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-            padding: 60, maxZoom: 17, duration: 0
+            padding: 60, maxZoom: 11, duration: 0
           });
         }
 
@@ -113,8 +113,8 @@
             'icon-ignore-placement': true,
             'icon-size': [
               'interpolate', ['exponential', 2], ['zoom'],
-              10, 0.0005,
-              12, 0.002,
+              6, 0.008,
+              10, 0.008,
               14, 0.0083,
               15, 0.0166,
               16, 0.033,

@@ -16,9 +16,9 @@ renderlog.txt
 *.log
 backups/
 # Pacotes gerados pelo PWABuilder (iOS Xcode, Windows, Meta)
-PreventivaCE-Google Play package/
-PreventivaCE-iOS-source.zip
-PreventivaCE.zip
+"PreventivaCE - Google Play package/"
+"PreventivaCE-iOS-source.zip"
+"PreventivaCE.zip"
 *.apk
 *.aab
 *.keystore

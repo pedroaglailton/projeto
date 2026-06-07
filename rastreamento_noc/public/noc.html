@@ -674,7 +674,11 @@
           .setLngLat([lng, lat]);
         this._mk._wrapper = this;
       }
-      addTo(map) { this._map = map; this._mk.addTo(map); return this; }
+      addTo(map) {
+        this._map = map;
+        try { this._mk.addTo(map); } catch(e) { console.warn('[marker] addTo falhou:', e.message); }
+        return this;
+      }
       setLatLng(ll) {
         let lat, lng;
         if (Array.isArray(ll)) { lat = ll[0]; lng = ll[1]; }
@@ -758,7 +762,9 @@
     let currentRainIntensity = 0;
 
     function applyRainEffect(intensity) {
-      if (!map.getStyle()) return;
+      if (!window.map || !window.map.getStyle || !window.map.getStyle()) return;
+      // setRain só existe no estilo Standard do Mapbox
+      if (typeof window.map.setRain !== 'function') return;
       try {
         if (intensity <= 0) {
           try { map.setRain(null); } catch(_) {}
@@ -824,6 +830,9 @@
     // map.on registrado dentro do window.onload via initClima()
     function initClima() {
       window.map.on('style.load', () => {
+        const styleName = window.map.getStyle()?.name || 'unknown';
+        const layerCount = window.map.getStyle()?.layers?.length || 0;
+        console.log(`[NOC] style.load — nome: "${styleName}", layers: ${layerCount}, setRain: ${typeof window.map.setRain}`);
         applyRainEffect(currentRainIntensity);
         // Esconde os POIs 3D azuis do Mapbox (landmarks, transit, etc.)
         const st = window.map.getStyle();
@@ -838,10 +847,38 @@
         setTimeout(atualizarClima, 2000);
         weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
         // Carrega imagem do poste (cache-bust v=4) e registra como icone
-        window.map.loadImage('/poste.png?v=5', (err, image) => {
-          if (err) { console.error('[NOC] Erro ao carregar poste.png', err); return; }
+        window.map.loadImage('/noc-static/poste.png?v=4', (err, image) => {
+          if (err) {
+            console.warn('[NOC] poste.png não encontrado — usando ícone fallback SVG');
+            // Fallback: cria ícone de câmera via canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 48; canvas.height = 48;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#0057b8';
+            ctx.beginPath();
+            ctx.roundRect(4, 12, 40, 28, 6);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(24, 26, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#0057b8';
+            ctx.beginPath();
+            ctx.arc(24, 26, 5, 0, Math.PI * 2);
+            ctx.fill();
+            // Triângulo (lente)
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(36, 14); ctx.lineTo(44, 10); ctx.lineTo(44, 18); ctx.closePath();
+            ctx.fill();
+            const fallbackImg = { width: 48, height: 48, data: ctx.getImageData(0, 0, 48, 48).data };
+            if (!window.map.hasImage('poste-camera')) {
+              window.map.addImage('poste-camera', fallbackImg);
+            }
+            return;
+          }
           if (!window.map.hasImage('poste-camera')) {
-            window.map.addImage('poste-camera', image);
+            window.map.addImage('poste-camera', image, { sdf: false });
             console.log('[NOC] icone poste-camera registrado', image.width, 'x', image.height);
           }
         });
@@ -1277,7 +1314,7 @@
       if (!markers.has(reg.equipeId)) {
         const snappedFirst = snapToRoad(reg.lat, reg.lng) || { lat: reg.lat, lng: reg.lng };
         const m = new MapboxMarker(snappedFirst.lat, snappedFirst.lng, reg.equipeId, false, null)
-          .addTo(map)
+          .addTo(window.map || map)
           .bindPopup(txt)
           .bindTooltip(reg.equipeNome);
         m.on('click', () => focusEquipe(reg.equipeId));
@@ -1351,9 +1388,42 @@
       if (pontosLayerInitialized) return;
       if (!map.getSource(pontosSourceId)) {
         map.addSource(pontosSourceId, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        // Layer symbol com poste.png — escala 15m reais (exponential 2)
+
+        // ── Layer 1: círculos azuis (zoom afastado < 15) ──
+        const pontosCircleLayerId = 'pontos-circle-layer';
         map.addLayer({
-          id: pontosLayerId, type: 'symbol', source: pontosSourceId,
+          id: pontosCircleLayerId,
+          type: 'circle',
+          source: pontosSourceId,
+          maxzoom: 15,
+          paint: {
+            'circle-radius': [
+              'interpolate', ['linear'], ['zoom'],
+              10, 3,
+              12, 5,
+              14, 7,
+              14.9, 9
+            ],
+            'circle-color': '#0057b8',
+            'circle-opacity': 0.85,
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-opacity': 0.9
+          }
+        });
+
+        // ── Layer 2: imagem do poste em escala real 15m (zoom próximo ≥ 15) ──
+        // Cálculo: imagem tem 256px de altura = 15m reais
+        // icon-size = (15m / metros_por_pixel_no_zoom) / 256
+        // Para Fortaleza lat=-3.73:
+        //   zoom 15 -> 4.77m/px -> 3.1px -> icon-size 0.0123
+        //   zoom 18 -> 0.60m/px -> 25.2px -> icon-size 0.0983
+        //   zoom 22 -> 0.037m/px -> 403px -> icon-size 1.573
+        map.addLayer({
+          id: pontosLayerId,
+          type: 'symbol',
+          source: pontosSourceId,
+          minzoom: 15,
           layout: {
             'icon-image': 'poste-camera',
             'icon-anchor': 'bottom',
@@ -1361,38 +1431,16 @@
             'icon-ignore-placement': true,
             'icon-size': [
               'interpolate', ['exponential', 2], ['zoom'],
-              10, 0.0005, 12, 0.002,
-              14, 0.0083, 15, 0.0166,
-              16, 0.033, 17, 0.066,
-              18, 0.133, 19, 0.265, 20, 0.530
-            ]
-          }
-        });
-        // Labels: aparecem a partir de z=14 (poste >= ~6px)
-        map.addLayer({
-          id: pontosLabelsLayerId, type: 'symbol', source: pontosSourceId,
-          layout: {
-            'text-field': ['get', 'nome'],
-            'text-size': ['interpolate', ['linear'], ['zoom'], 13, 0, 15, 10],
-            'text-offset': [0, -1.5],
-            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Bold'],
-            'text-allow-overlap': false
-          },
-          paint: { 'text-color': '#e2e8f0', 'text-halo-color': 'rgba(0,0,0,0.7)', 'text-halo-width': 1.5 }
-        });
-        // Badge verde para pontos visitados (camada separada)
-        map.addLayer({
-          id: 'pontos-visitados-badge', type: 'circle', source: pontosSourceId,
-          filter: ['==', ['get', 'visitado'], true],
-          paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 14, 4, 18, 8],
-            'circle-color': '#22c55e',
-            'circle-stroke-color': '#fff',
-            'circle-stroke-width': 2
-          }
-        });
-      }
-      if (!map.__pontosCursorBound) {
+              15, 0.0123,
+              16, 0.0246,
+              17, 0.0492,
+              18, 0.0983,
+              19, 0.1967,
+              20, 0.3933,
+              21, 0.7866,
+              22, 1.5733
+            ],
+
         map.on('mouseenter', pontosLayerId, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', pontosLayerId, () => { map.getCanvas().style.cursor = ''; });
         map.__pontosCursorBound = true;
@@ -2150,73 +2198,6 @@
     let chatAberto = false;
     let todasMensagens = [];
 
-    // =====================================================================
-    // ALERTA SONORO + VIBRAÇÃO — mensagens novas do técnico
-    // =====================================================================
-    let _nocAudioCtx = null;
-    let _nocUltimoAlerta = 0;
-    const _nocMsgAlertadas = new Set();
-
-    function getNocAudioCtx() {
-        if (!_nocAudioCtx) {
-            try { _nocAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {}
-        }
-        return _nocAudioCtx;
-    }
-
-    // Inicializa AudioContext no primeiro gesto
-    document.addEventListener('click', () => getNocAudioCtx(), { once: true });
-
-    function tocarAlertaNoc() {
-        const agora = Date.now();
-        if (agora - _nocUltimoAlerta < 4000) return;
-        _nocUltimoAlerta = agora;
-
-        // Vibração
-        if (navigator.vibrate) navigator.vibrate([200, 80, 200, 80, 400]);
-
-        // Som — tom diferente do técnico (mais grave = NOC distingue facilmente)
-        try {
-            const ctx = getNocAudioCtx();
-            if (!ctx) return;
-            if (ctx.state === 'suspended') ctx.resume();
-
-            // 2 bips ascendentes (técnico enviou = "subiu")
-            [0, 0.3].forEach(offset => {
-                const osc  = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(520, ctx.currentTime + offset);
-                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + offset + 0.2);
-                gain.gain.setValueAtTime(0, ctx.currentTime + offset);
-                gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.03);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.22);
-                osc.start(ctx.currentTime + offset);
-                osc.stop(ctx.currentTime + offset + 0.25);
-            });
-        } catch(_) {}
-    }
-
-    function verificarMsgsNovas(mensagens) {
-        const novas = mensagens.filter(m =>
-            m.direcao === 'tecnico' && !m.lida && !_nocMsgAlertadas.has(m.id)
-        );
-        if (!novas.length) return;
-
-        novas.forEach(m => _nocMsgAlertadas.add(m.id));
-        tocarAlertaNoc();
-
-        // Toast visual no NOC
-        const nome = novas[0].equipeNome || novas[0].equipeId || 'Técnico';
-        const texto = novas[0].arquivoUrl
-            ? (novas[0].arquivoTipo === 'image' ? '📷 Foto recebida' : '📎 Arquivo recebido')
-            : (novas[0].texto || '').substring(0, 60);
-        const count = novas.length > 1 ? ` (+${novas.length - 1} mais)` : '';
-        showLoginToast(`💬 ${nome}: ${texto}${count}`);
-    }
-
     function abrirModalChat() {
       chatAberto = true;
       chatOverlay.classList.add('open');
@@ -2323,7 +2304,7 @@
         let extra = '';
         if (m.arquivoUrl) {
           if (m.arquivoTipo === 'video') extra = `<video src="${m.arquivoUrl}" class="chat-msg-video" controls></video>`;
-          else extra = `<img src="${m.arquivoUrl}" class="chat-msg-img" onclick="abrirFotoGrande('${m.arquivoUrl}')" loading="lazy">`;
+          else extra = `<img src="${m.arquivoUrl}" class="chat-msg-img" onclick="window.open('${m.arquivoUrl}','_blank')" loading="lazy">`;
         }
         html += `<div class="${cls}">
           <span class="label">${label} · ${date}</span>
@@ -2391,27 +2372,6 @@
       } catch (e) { alert('Erro: ' + e.message); }
     }
 
-    function abrirFotoGrande(url) {
-      let ov = document.getElementById('lightboxFoto');
-      if (!ov) {
-        ov = document.createElement('div');
-        ov.id = 'lightboxFoto';
-        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;box-sizing:border-box;';
-        ov.onclick = () => ov.remove();
-        const img = document.createElement('img');
-        img.id = 'lightboxFotoImg';
-        img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
-        ov.appendChild(img);
-        const close = document.createElement('div');
-        close.style.cssText = 'position:absolute;top:12px;right:16px;color:#fff;font-size:32px;font-weight:700;cursor:pointer;user-select:none;line-height:1;';
-        close.textContent = '\u00d7';
-        close.onclick = (e) => { e.stopPropagation(); ov.remove(); };
-        ov.appendChild(close);
-        document.body.appendChild(ov);
-      }
-      document.getElementById('lightboxFotoImg').src = url;
-    }
-
     async function comprimirImagem(file) {
       const img = await new Promise((res, rej) => {
         const i = new Image();
@@ -2443,8 +2403,6 @@
         const j = await r.json();
         if (j.ok) {
           todasMensagens = j.mensagens || [];
-          // Alerta para msgs novas do técnico
-          verificarMsgsNovas(todasMensagens);
           if (chatAberto) {
             renderizarListaEquipes();
             if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);

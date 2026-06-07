@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION a cada release para invalidar caches antigos.
 
-const CACHE_VERSION = 'v2026.06.06-06';
+const CACHE_VERSION = 'v2026.06.07-01';
 const CACHE_CORE    = `preventiva-core-${CACHE_VERSION}`;
 const CACHE_CDN     = `preventiva-cdn-${CACHE_VERSION}`;
 const CACHE_TILES   = `preventiva-tiles-${CACHE_VERSION}`;

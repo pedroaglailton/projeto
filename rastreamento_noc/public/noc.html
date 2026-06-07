@@ -885,10 +885,11 @@
             return;
           }
           if (window.map.hasImage('poste-camera')) {
-            window.map.updateImage('poste-camera', image);
-          } else {
-            window.map.addImage('poste-camera', image, { sdf: false });
+            // Mapbox não permite updateImage com dimensões diferentes;
+            // remove e readiciona (flash rápido, mas aceitável)
+            window.map.removeImage('poste-camera');
           }
+          window.map.addImage('poste-camera', image, { sdf: false });
           console.log('[NOC] icone poste-camera registrado', image.width, 'x', image.height);
         });
       });

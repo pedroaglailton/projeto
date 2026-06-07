@@ -7,7 +7,7 @@
 //
 // Bump CACHE_VERSION a cada release para invalidar caches antigos.
 
-const CACHE_VERSION = 'v2026.06.06-04';
+const CACHE_VERSION = 'v2026.06.06-05';
 const CACHE_CORE    = `preventiva-core-${CACHE_VERSION}`;
 const CACHE_CDN     = `preventiva-cdn-${CACHE_VERSION}`;
 const CACHE_TILES   = `preventiva-tiles-${CACHE_VERSION}`;
@@ -16,7 +16,11 @@ const CORE_ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './app-icon.svg'
+  './app-icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-512-maskable.png',
+  './icons/apple-touch-icon-180.png'
 ];
 
 // Pré-cache de CDNs críticas (para funcionar offline em campo no iOS)

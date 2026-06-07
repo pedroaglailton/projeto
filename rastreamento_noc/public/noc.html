@@ -2150,6 +2150,73 @@
     let chatAberto = false;
     let todasMensagens = [];
 
+    // =====================================================================
+    // ALERTA SONORO + VIBRAÇÃO — mensagens novas do técnico
+    // =====================================================================
+    let _nocAudioCtx = null;
+    let _nocUltimoAlerta = 0;
+    const _nocMsgAlertadas = new Set();
+
+    function getNocAudioCtx() {
+        if (!_nocAudioCtx) {
+            try { _nocAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {}
+        }
+        return _nocAudioCtx;
+    }
+
+    // Inicializa AudioContext no primeiro gesto
+    document.addEventListener('click', () => getNocAudioCtx(), { once: true });
+
+    function tocarAlertaNoc() {
+        const agora = Date.now();
+        if (agora - _nocUltimoAlerta < 4000) return;
+        _nocUltimoAlerta = agora;
+
+        // Vibração
+        if (navigator.vibrate) navigator.vibrate([200, 80, 200, 80, 400]);
+
+        // Som — tom diferente do técnico (mais grave = NOC distingue facilmente)
+        try {
+            const ctx = getNocAudioCtx();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume();
+
+            // 2 bips ascendentes (técnico enviou = "subiu")
+            [0, 0.3].forEach(offset => {
+                const osc  = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, ctx.currentTime + offset);
+                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + offset + 0.2);
+                gain.gain.setValueAtTime(0, ctx.currentTime + offset);
+                gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.22);
+                osc.start(ctx.currentTime + offset);
+                osc.stop(ctx.currentTime + offset + 0.25);
+            });
+        } catch(_) {}
+    }
+
+    function verificarMsgsNovas(mensagens) {
+        const novas = mensagens.filter(m =>
+            m.direcao === 'tecnico' && !m.lida && !_nocMsgAlertadas.has(m.id)
+        );
+        if (!novas.length) return;
+
+        novas.forEach(m => _nocMsgAlertadas.add(m.id));
+        tocarAlertaNoc();
+
+        // Toast visual no NOC
+        const nome = novas[0].equipeNome || novas[0].equipeId || 'Técnico';
+        const texto = novas[0].arquivoUrl
+            ? (novas[0].arquivoTipo === 'image' ? '📷 Foto recebida' : '📎 Arquivo recebido')
+            : (novas[0].texto || '').substring(0, 60);
+        const count = novas.length > 1 ? ` (+${novas.length - 1} mais)` : '';
+        showLoginToast(`💬 ${nome}: ${texto}${count}`);
+    }
+
     function abrirModalChat() {
       chatAberto = true;
       chatOverlay.classList.add('open');
@@ -2355,6 +2422,8 @@
         const j = await r.json();
         if (j.ok) {
           todasMensagens = j.mensagens || [];
+          // Alerta para msgs novas do técnico
+          verificarMsgsNovas(todasMensagens);
           if (chatAberto) {
             renderizarListaEquipes();
             if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);

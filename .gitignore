@@ -14,3 +14,12 @@ erros.txt
 server_*.txt
 renderlog.txt
 *.log
+backups/
+# Pacotes gerados pelo PWABuilder (iOS Xcode, Windows, Meta)
+PreventivaCE-Google Play package/
+PreventivaCE-iOS-source.zip
+PreventivaCE.zip
+*.apk
+*.aab
+*.keystore
+signing-key-info.txt

@@ -828,6 +828,32 @@
       }
     }
 
+    // Cria ícone de câmera via canvas (síncrono) — usado como fallback
+    // imediato antes do loadImage do PNG real terminar.
+    function criarIconePosteFallbackSync() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 48; canvas.height = 48;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0057b8';
+      ctx.beginPath();
+      ctx.roundRect(4, 12, 40, 28, 6);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(24, 26, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0057b8';
+      ctx.beginPath();
+      ctx.arc(24, 26, 5, 0, Math.PI * 2);
+      ctx.fill();
+      // Triângulo (lente)
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(36, 14); ctx.lineTo(44, 10); ctx.lineTo(44, 18); ctx.closePath();
+      ctx.fill();
+      return { width: 48, height: 48, data: ctx.getImageData(0, 0, 48, 48).data };
+    }
+
     // map.on registrado dentro do window.onload via initClima()
     function initClima() {
       window.map.on('style.load', () => {
@@ -847,41 +873,23 @@
       window.map.on('load', () => {
         setTimeout(atualizarClima, 2000);
         weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
-        // Carrega imagem do poste (cache-bust v=4) e registra como icone
+        // Registra ícone fallback SÍNCRONO primeiro (resolve race com initPontosLayer,
+        // que é chamado em outro handler de 'load' e referencia o ícone no addLayer)
+        if (!window.map.hasImage('poste-camera')) {
+          window.map.addImage('poste-camera', criarIconePosteFallbackSync());
+        }
+        // Carrega o PNG real e substitui pelo de melhor qualidade
         window.map.loadImage('/noc-static/poste.png?v=5', (err, image) => {
           if (err) {
-            console.warn('[NOC] poste.png não encontrado — usando ícone fallback SVG');
-            // Fallback: cria ícone de câmera via canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = 48; canvas.height = 48;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#0057b8';
-            ctx.beginPath();
-            ctx.roundRect(4, 12, 40, 28, 6);
-            ctx.fill();
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(24, 26, 9, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#0057b8';
-            ctx.beginPath();
-            ctx.arc(24, 26, 5, 0, Math.PI * 2);
-            ctx.fill();
-            // Triângulo (lente)
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.moveTo(36, 14); ctx.lineTo(44, 10); ctx.lineTo(44, 18); ctx.closePath();
-            ctx.fill();
-            const fallbackImg = { width: 48, height: 48, data: ctx.getImageData(0, 0, 48, 48).data };
-            if (!window.map.hasImage('poste-camera')) {
-              window.map.addImage('poste-camera', fallbackImg);
-            }
+            console.warn('[NOC] poste.png não encontrado — mantendo ícone fallback');
             return;
           }
-          if (!window.map.hasImage('poste-camera')) {
+          if (window.map.hasImage('poste-camera')) {
+            window.map.updateImage('poste-camera', image);
+          } else {
             window.map.addImage('poste-camera', image, { sdf: false });
-            console.log('[NOC] icone poste-camera registrado', image.width, 'x', image.height);
           }
+          console.log('[NOC] icone poste-camera registrado', image.width, 'x', image.height);
         });
       });
     }

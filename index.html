@@ -5372,6 +5372,27 @@
             }
         }
 
+        function abrirFotoGrande(url) {
+            let ov = document.getElementById('lightboxFoto');
+            if (!ov) {
+                ov = document.createElement('div');
+                ov.id = 'lightboxFoto';
+                ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;box-sizing:border-box;';
+                ov.onclick = () => ov.remove();
+                const img = document.createElement('img');
+                img.id = 'lightboxFotoImg';
+                img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+                ov.appendChild(img);
+                const close = document.createElement('div');
+                close.style.cssText = 'position:absolute;top:12px;right:16px;color:#fff;font-size:32px;font-weight:700;cursor:pointer;user-select:none;line-height:1;';
+                close.textContent = '\u00d7';
+                close.onclick = (e) => { e.stopPropagation(); ov.remove(); };
+                ov.appendChild(close);
+                document.body.appendChild(ov);
+            }
+            document.getElementById('lightboxFotoImg').src = url;
+        }
+
         function renderizarMensagens(lista) {
             const container = document.getElementById('chatMessages');
             if (!lista.length) {
@@ -5386,7 +5407,7 @@
                 let extra = '';
                 if (m.arquivoUrl) {
                     if (m.arquivoTipo === 'video') extra = '<video src="' + m.arquivoUrl + '" style="max-width:100%;border-radius:8px;margin-top:4px;max-height:300px;" controls></video>';
-                    else extra = '<img src="' + m.arquivoUrl + '" style="max-width:100%;border-radius:8px;margin-top:4px;cursor:pointer;max-height:300px;" onclick="window.open(\'' + m.arquivoUrl + '\',\'_blank\')" loading="lazy">';
+                    else extra = '<img src="' + m.arquivoUrl + '" style="max-width:100%;border-radius:8px;margin-top:4px;cursor:pointer;max-height:300px;" onclick="abrirFotoGrande(\'' + m.arquivoUrl + '\')" loading="lazy">';
                 }
                 html += '<div style="display:flex;flex-direction:column;align-items:' + (isNoc ? 'flex-start' : 'flex-end') + ';">';
                 html += '<div style="max-width:85%;padding:10px 14px;border-radius:14px;font-size:14px;line-height:1.4;' +

@@ -847,7 +847,7 @@
         setTimeout(atualizarClima, 2000);
         weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
         // Carrega imagem do poste (cache-bust v=4) e registra como icone
-        window.map.loadImage('/noc-static/poste.png?v=4', (err, image) => {
+        window.map.loadImage('/noc-static/poste.png?v=5', (err, image) => {
           if (err) {
             console.warn('[NOC] poste.png não encontrado — usando ícone fallback SVG');
             // Fallback: cria ícone de câmera via canvas
@@ -2200,6 +2200,73 @@
     let chatAberto = false;
     let todasMensagens = [];
 
+    // =====================================================================
+    // ALERTA SONORO + VIBRAÇÃO — mensagens novas do técnico
+    // =====================================================================
+    let _nocAudioCtx = null;
+    let _nocUltimoAlerta = 0;
+    const _nocMsgAlertadas = new Set();
+
+    function getNocAudioCtx() {
+        if (!_nocAudioCtx) {
+            try { _nocAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {}
+        }
+        return _nocAudioCtx;
+    }
+
+    // Inicializa AudioContext no primeiro gesto
+    document.addEventListener('click', () => getNocAudioCtx(), { once: true });
+
+    function tocarAlertaNoc() {
+        const agora = Date.now();
+        if (agora - _nocUltimoAlerta < 4000) return;
+        _nocUltimoAlerta = agora;
+
+        // Vibração
+        if (navigator.vibrate) navigator.vibrate([200, 80, 200, 80, 400]);
+
+        // Som — tom diferente do técnico (mais grave = NOC distingue facilmente)
+        try {
+            const ctx = getNocAudioCtx();
+            if (!ctx) return;
+            if (ctx.state === 'suspended') ctx.resume();
+
+            // 2 bips ascendentes (técnico enviou = "subiu")
+            [0, 0.3].forEach(offset => {
+                const osc  = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(520, ctx.currentTime + offset);
+                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + offset + 0.2);
+                gain.gain.setValueAtTime(0, ctx.currentTime + offset);
+                gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + offset + 0.03);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + offset + 0.22);
+                osc.start(ctx.currentTime + offset);
+                osc.stop(ctx.currentTime + offset + 0.25);
+            });
+        } catch(_) {}
+    }
+
+    function verificarMsgsNovas(mensagens) {
+        const novas = mensagens.filter(m =>
+            m.direcao === 'tecnico' && !m.lida && !_nocMsgAlertadas.has(m.id)
+        );
+        if (!novas.length) return;
+
+        novas.forEach(m => _nocMsgAlertadas.add(m.id));
+        tocarAlertaNoc();
+
+        // Toast visual no NOC
+        const nome = novas[0].equipeNome || novas[0].equipeId || 'Técnico';
+        const texto = novas[0].arquivoUrl
+            ? (novas[0].arquivoTipo === 'image' ? '📷 Foto recebida' : '📎 Arquivo recebido')
+            : (novas[0].texto || '').substring(0, 60);
+        const count = novas.length > 1 ? ` (+${novas.length - 1} mais)` : '';
+        showLoginToast(`💬 ${nome}: ${texto}${count}`);
+    }
+
     function abrirModalChat() {
       chatAberto = true;
       chatOverlay.classList.add('open');
@@ -2306,7 +2373,7 @@
         let extra = '';
         if (m.arquivoUrl) {
           if (m.arquivoTipo === 'video') extra = `<video src="${m.arquivoUrl}" class="chat-msg-video" controls></video>`;
-          else extra = `<img src="${m.arquivoUrl}" class="chat-msg-img" onclick="window.open('${m.arquivoUrl}','_blank')" loading="lazy">`;
+          else extra = `<img src="${m.arquivoUrl}" class="chat-msg-img" onclick="abrirFotoGrande('${m.arquivoUrl}')" loading="lazy">`;
         }
         html += `<div class="${cls}">
           <span class="label">${label} · ${date}</span>
@@ -2374,6 +2441,27 @@
       } catch (e) { alert('Erro: ' + e.message); }
     }
 
+    function abrirFotoGrande(url) {
+      let ov = document.getElementById('lightboxFoto');
+      if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'lightboxFoto';
+        ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:20px;box-sizing:border-box;';
+        ov.onclick = () => ov.remove();
+        const img = document.createElement('img');
+        img.id = 'lightboxFotoImg';
+        img.style.cssText = 'max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);';
+        ov.appendChild(img);
+        const close = document.createElement('div');
+        close.style.cssText = 'position:absolute;top:12px;right:16px;color:#fff;font-size:32px;font-weight:700;cursor:pointer;user-select:none;line-height:1;';
+        close.textContent = '\u00d7';
+        close.onclick = (e) => { e.stopPropagation(); ov.remove(); };
+        ov.appendChild(close);
+        document.body.appendChild(ov);
+      }
+      document.getElementById('lightboxFotoImg').src = url;
+    }
+
     async function comprimirImagem(file) {
       const img = await new Promise((res, rej) => {
         const i = new Image();
@@ -2405,6 +2493,8 @@
         const j = await r.json();
         if (j.ok) {
           todasMensagens = j.mensagens || [];
+          // Alerta para msgs novas do técnico
+          verificarMsgsNovas(todasMensagens);
           if (chatAberto) {
             renderizarListaEquipes();
             if (msgEquipeAtual) renderizarConversa(msgEquipeAtual);

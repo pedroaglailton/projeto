@@ -1197,7 +1197,7 @@
                                 </div>
                             </div>
                             <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display:none;" onchange="previewFoto(event)">
-                            <button class="btn btn-outline" onclick="document.getElementById('fotoInput').click()" id="btnFoto" style="gap:8px;">
+                            <button class="btn btn-outline" onclick="captureFoto('fotoInput')" id="btnFoto" style="gap:8px;">
                                 <i class="material-icons">photo_camera</i> Tirar / Escolher Foto
                             </button>
                         </div>
@@ -1422,7 +1422,7 @@
                     <div class="form-group" style="margin-top:10px;">
                         <label>Fotos da Troca</label>
                         <input type="file" id="trocaFotos" accept="image/*" capture="environment" style="display:none;" onchange="previewTrocaFotos(event)">
-                        <button class="btn btn-outline" type="button" onclick="document.getElementById('trocaFotos').click()" style="gap:8px;">
+                    <button class="btn btn-outline" type="button" onclick="captureFoto('trocaFotos')" style="gap:8px;">
                             <i class="material-icons">photo_camera</i> Tirar / Escolher Foto
                         </button>
                         <div style="font-size:11px;color:#64748b;margin-top:4px;">Tire uma foto por vez e repita para adicionar mais (max. 6).</div>
@@ -1538,6 +1538,7 @@
                 <div class="form-group">
                     <label>Foto do Local</label>
                     <input type="file" id="editFoto" accept="image/*" capture="environment" onchange="previewEditPontoFoto(event)">
+                    <button class="btn btn-outline" type="button" onclick="captureFoto('editFoto')" style="gap:8px;">
                     <div id="editFotoPreview" style="margin-top:8px;display:none;">
                         <img id="editFotoImg" style="width:120px;max-height:100px;object-fit:cover;border-radius:8px;border:2px solid #bfdbfe;">
                         <button onclick="removerEditPontoFoto()" style="margin-left:8px;background:#b91c1c;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;">Remover</button>
@@ -2061,6 +2062,119 @@
             }
         }
 
+        // =================================================================
+        // PERMISSÕES — detectar bloqueio + abrir Configurações do Android
+        // =================================================================
+        // Funciona em TWA (APK) e em PWA (Chrome). Em desktop/iOS, mostra
+        // mensagem instruindo o caminho manual.
+        const TWA_PACKAGE = 'com.onrender.projeto_ujbr.twa';
+
+        // Tenta abrir uma tela de configurações do Android via intent://.
+        // target: 'app' (permissões do PreventivaCE) | 'location' (GPS)
+        function openAndroidSettings(target) {
+            let intent;
+            if (target === 'location') {
+                intent = 'intent:#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end';
+            } else {
+                // Configurações do app (cobre câmera, notificações, localização do app)
+                intent = 'intent:#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;package=' + TWA_PACKAGE + ';S.android.intent.extra.URI=package:' + TWA_PACKAGE + ';end';
+            }
+            // <a> com click programático é o método mais confiável em TWA/PWA
+            const a = document.createElement('a');
+            a.href = intent;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 100);
+            // Fallback: se não for Android, mostra instrução
+            setTimeout(() => {
+                if (typeof showToast === 'function') {
+                    showToast('Se não abriu, vá em Configurações → Apps → PreventivaCE → Permissões', 'info', 6000);
+                }
+            }, 800);
+        }
+
+        // Retorna 'granted' | 'denied' | 'prompt' | 'unsupported'
+        async function checkPerm(name) {
+            if (!navigator.permissions || !navigator.permissions.query) return 'unsupported';
+            try {
+                const r = await navigator.permissions.query({ name });
+                return r.state;
+            } catch (_) {
+                return 'unsupported';
+            }
+        }
+
+        // Modal genérico de permissão bloqueada. Tem botão "Abrir
+        // Configurações" que dispara openAndroidSettings('app').
+        function showPermDialog(opts) {
+            const old = document.getElementById('permDialog');
+            if (old) old.remove();
+            const div = document.createElement('div');
+            div.id = 'permDialog';
+            div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px);';
+            div.innerHTML = '<div style="background:var(--bg-card,#1c2128);color:var(--text-primary,#fff);border-radius:14px;padding:24px;max-width:380px;width:100%;box-shadow:0 20px 50px rgba(0,0,0,0.5);">' +
+                '<div style="font-size:18px;font-weight:600;margin-bottom:10px;">' + escHtml(opts.title) + '</div>' +
+                '<div style="font-size:14px;line-height:1.5;opacity:0.85;margin-bottom:20px;">' + escHtml(opts.body) + '</div>' +
+                '<div style="display:flex;gap:10px;">' +
+                '<button id="permCancel" style="flex:1;padding:12px;background:transparent;border:1px solid var(--border,#30363d);color:var(--text-primary,#fff);border-radius:8px;font-size:14px;cursor:pointer;">Cancelar</button>' +
+                '<button id="permOpen" style="flex:1;padding:12px;background:#0057b8;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">' + escHtml(opts.buttonText || 'Abrir Configurações') + '</button>' +
+                '</div></div>';
+            document.body.appendChild(div);
+            div.querySelector('#permCancel').onclick = () => div.remove();
+            div.querySelector('#permOpen').onclick = () => {
+                div.remove();
+                if (typeof opts.onOpen === 'function') opts.onOpen();
+            };
+        }
+
+        // Mostra modal só 1x por sessão pra cada tipo (evita spam)
+        const _permDialogShown = { gps: false, location: false, camera: false, notifications: false };
+
+        // Wrapper pra abrir input de foto. Checa permissão antes; se
+        // bloqueada, mostra dialog com botão pra Configurações.
+        async function captureFoto(inputId) {
+            const status = await checkPerm('camera');
+            if (status === 'denied' && !_permDialogShown.camera) {
+                _permDialogShown.camera = true;
+                showPermDialog({
+                    title: '📷 Câmera bloqueada',
+                    body: 'O PreventivaCE precisa de acesso à câmera pra tirar fotos. Toque em "Abrir Configurações" e ative a permissão de Câmera.',
+                    onOpen: () => openAndroidSettings('app')
+                });
+                return;
+            }
+            // granted | prompt | unsupported → tenta abrir câmera
+            const el = document.getElementById(inputId);
+            if (el) el.click();
+        }
+
+        // Trata erro de GPS: mostra modal com botão pra ação correta.
+        // Caso 1 (PERMISSION_DENIED) → Configurações do app
+        // Caso 2 (POSITION_UNAVAILABLE) → Configurações de Localização (GPS desligado)
+        // Caso 3 (TIMEOUT) → só toast
+        function tratarErroGeo(err) {
+            if (!err) return;
+            if (err.code === 1 && !_permDialogShown.gps) {
+                _permDialogShown.gps = true;
+                showPermDialog({
+                    title: '📍 GPS bloqueado',
+                    body: 'O PreventivaCE precisa de acesso à Localização pra registrar posições. Toque em "Abrir Configurações" e ative a permissão de Localização.',
+                    onOpen: () => openAndroidSettings('app')
+                });
+            } else if (err.code === 2 && !_permDialogShown.location) {
+                _permDialogShown.location = true;
+                showPermDialog({
+                    title: '📡 GPS desligado no Android',
+                    body: 'A Localização do Android está desligada. Ative-a pra o PreventivaCE conseguir registrar posições em campo.',
+                    buttonText: 'Abrir Localização',
+                    onOpen: () => openAndroidSettings('location')
+                });
+            } else if (typeof showToast === 'function') {
+                showToast(explicaErroGeo(err), 'error');
+            }
+        }
+
         function iniciarAutoTracking() {
             if (!navigator.geolocation) return;
             armarAutoTrackingPorGestoUniversal();
@@ -2085,7 +2199,7 @@
                     console.warn('[auto-tracking] erro:', err);
                     if (err.code === 1 && !autoTrackingPedidoExibido) {
                         autoTrackingPedidoExibido = true;
-                        if (typeof showToast === 'function') showToast(explicaErroGeo(err), 'error');
+                        if (typeof tratarErroGeo === 'function') tratarErroGeo(err);
                     }
                 },
                 { enableHighAccuracy: true, timeout: 20000, maximumAge: 3000 }
@@ -2136,7 +2250,7 @@
                         console.warn('[auto-tracking iOS] permissão:', err);
                         if (!autoTrackingPedidoExibido) {
                             autoTrackingPedidoExibido = true;
-                            if (typeof showToast === 'function') showToast(explicaErroGeo(err), 'error');
+                            if (typeof tratarErroGeo === 'function') tratarErroGeo(err);
                         }
                     },
                     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
@@ -5110,11 +5224,26 @@
                 return;
             }
             if (ativar) {
-                statusEl.textContent = 'Solicitando permissão...';
+                // Se notificacoes ja estao bloqueadas no Android, mostra
+                // dialog com botao pra Configuracoes (requestPermission
+                // retorna 'denied' direto sem prompt se ja bloqueado).
+                const permStatus = await checkPerm('notifications');
+                if (permStatus === 'denied' && !_permDialogShown.notifications) {
+                    _permDialogShown.notifications = true;
+                    statusEl.textContent = 'Notificacoes bloqueadas no Android';
+                    document.getElementById('cfgPushToggle').checked = false;
+                    showPermDialog({
+                        title: '🔔 Notificacoes bloqueadas',
+                        body: 'O PreventivaCE precisa de permissao pra enviar notificacoes de mensagens do NOC. Toque em "Abrir Configuracoes" e ative as Notificacoes.',
+                        onOpen: () => openAndroidSettings('app')
+                    });
+                    return;
+                }
+                statusEl.textContent = 'Solicitando permissao...';
                 try {
                     const permission = await Notification.requestPermission();
                     if (permission !== 'granted') {
-                        statusEl.textContent = 'Permissão negada. Habilite nas configurações do navegador.';
+                        statusEl.textContent = 'Permissao negada. Habilite nas configuracoes do Android.';
                         document.getElementById('cfgPushToggle').checked = false;
                         return;
                     }

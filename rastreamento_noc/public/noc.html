@@ -838,7 +838,7 @@
         setTimeout(atualizarClima, 2000);
         weatherTimer = setInterval(atualizarClima, 10 * 60 * 1000);
         // Carrega imagem do poste (cache-bust v=4) e registra como icone
-        window.map.loadImage('/poste.png?v=4', (err, image) => {
+        window.map.loadImage('/poste.png?v=5', (err, image) => {
           if (err) { console.error('[NOC] Erro ao carregar poste.png', err); return; }
           if (!window.map.hasImage('poste-camera')) {
             window.map.addImage('poste-camera', image);

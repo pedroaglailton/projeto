@@ -3,6 +3,7 @@
   "short_name": "PreventivaCE",
   "description": "Coleta de preventiva em campo com GPS offline",
   "start_url": "./index.html",
+  "id": "/",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0d1117",

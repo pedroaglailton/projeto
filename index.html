@@ -5576,6 +5576,7 @@
 
         function iniciarPollChat() {
             clearInterval(chatPollTimer);
+            // Polling rapido (3s) so como backup pro WebSocket
             chatPollTimer = setInterval(async () => {
                 if (!chatAberto) return;
                 const token = getEquipeToken();
@@ -5596,7 +5597,7 @@
                         }
                     }
                 } catch (_) {}
-            }, 8000);
+            }, 3000);
         }
 
         // IDs de mensagens do NOC já alertadas (evita repetir o alerta)
@@ -5660,7 +5661,81 @@
         }
 
         // Poll para badge de nao lidas (mesmo com chat fechado)
-        setInterval(verificarNaoLidas, 30000);
+        setInterval(verificarNaoLidas, 15000);
+
+        // =====================================================================
+        // WebSocket — alerta em <100ms quando NOC manda msg
+        // =====================================================================
+        // O polling (8s no chatPollTimer) vira apenas backup em caso de
+        // desconexao. Com WS, tocarAlertaMensagem() dispara IMEDIATO.
+        let _wsReconnectTimer = null;
+        function connectWs() {
+            const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${proto}://${location.host}`;
+            let ws;
+            try { ws = new WebSocket(wsUrl); } catch (_) { return; }
+            ws.onopen = () => {
+                console.log('[WS] conectado');
+            };
+            ws.onmessage = (ev) => {
+                try {
+                    const msg = JSON.parse(ev.data);
+                    if (msg.type === 'mensagem' && msg.data) {
+                        // Filtra: so alerta se a msg eh PARA minha equipe E do NOC
+                        const minhaEquipe = localStorage.getItem('preventiva_equipeId');
+                        if (msg.data.direcao === 'noc' && msg.data.equipeId === minhaEquipe) {
+                            // Marca como alertada
+                            if (!_msgAlertadas.has(msg.data.id)) {
+                                _msgAlertadas.add(msg.data.id);
+                                tocarAlertaMensagem();
+                                // Atualiza badge
+                                if (!chatAberto) {
+                                    document.getElementById('chatBadge').style.display = 'block';
+                                }
+                                // Notificacao do sistema (se perm granted e chat fechado)
+                                if (!chatAberto && Notification.permission === 'granted') {
+                                    const m = msg.data;
+                                    const titulo = 'Mensagem do NOC';
+                                    const corpo = m.texto
+                                        ? m.texto.substring(0, 100)
+                                        : (m.arquivoTipo === 'image' ? '📷 Foto recebida' : '📎 Arquivo recebido');
+                                    try {
+                                        new Notification(titulo, {
+                                            body: corpo,
+                                            icon: '/icons/icon-192.png',
+                                            badge: '/icons/icon-192.png',
+                                            tag: 'noc-msg',
+                                            renotify: true,
+                                            silent: false
+                                        });
+                                    } catch (_) {}
+                                }
+                            }
+                            // Se chat aberto, atualiza em tempo real
+                            if (chatAberto) {
+                                carregarMensagens();
+                            }
+                        }
+                    }
+                } catch (e) { console.warn('[WS] msg invalida:', e); }
+            };
+            ws.onclose = () => {
+                console.log('[WS] desconectado, reconectando em 3s...');
+                clearTimeout(_wsReconnectTimer);
+                _wsReconnectTimer = setTimeout(connectWs, 3000);
+            };
+            ws.onerror = () => { try { ws.close(); } catch (_) {} };
+        }
+        // Conecta so se o usuario tiver logado (equipeId conhecido)
+        if (localStorage.getItem('preventiva_equipeId')) {
+            connectWs();
+        }
+        // Reconecta quando a pagina volta a ficar visivel
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && localStorage.getItem('preventiva_equipeId')) {
+                connectWs();
+            }
+        });
 
         // =====================================================================
         // BACKGROUND SYNC — mensagens do Service Worker

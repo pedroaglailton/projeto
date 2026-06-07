@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.onrender.projeto_ujbr.twa",
+        "sha256_cert_fingerprints": ["B1:7D:58:7D:B2:78:E3:5C:D4:73:C7:39:FC:52:FB:C7:04:12:F6:9D:6D:78:2B:4C:61:F0:BC:A1:EC:B7:2E:E6"]
+      }
+    }]

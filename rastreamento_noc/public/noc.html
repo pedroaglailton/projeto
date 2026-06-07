@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOC — Rastreamento em Tempo Real</title>
+  <link rel="icon" href="data:,">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
   <style>
@@ -1275,7 +1276,19 @@
       setTimeout(() => ring.remove(), 1200);
     }
 
+    let _pendingUpserts = [];
     function upsert(regOriginal) {
+      // Garante que o mapa esteja pronto antes de criar/atualizar markers.
+      // connectWs() roda no parse do script, então a 1ª mensagem do bootstrap
+      // pode chegar antes de window.onload criar window.map.
+      if (!window.map || typeof window.map.getCanvasContainer !== 'function') {
+        _pendingUpserts.push(regOriginal);
+        return;
+      }
+      if (_pendingUpserts.length) {
+        const fila = _pendingUpserts; _pendingUpserts = [];
+        for (const r of fila) upsert(r);
+      }
       // Se a equipe estava deslogada e voltou, limpa flag
       if (loggedOutEquipes.has(regOriginal.equipeId)) {
         loggedOutEquipes.delete(regOriginal.equipeId);
@@ -1508,8 +1521,12 @@
       }
 
       map.setLayoutProperty(pontosLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
-      map.setLayoutProperty(pontosLabelsLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
-      map.setLayoutProperty('pontos-visitados-badge', 'visibility', checked && features.length ? 'visible' : 'none');
+      if (map.getLayer(pontosLabelsLayerId)) {
+        map.setLayoutProperty(pontosLabelsLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
+      }
+      if (map.getLayer('pontos-visitados-badge')) {
+        map.setLayoutProperty('pontos-visitados-badge', 'visibility', checked && features.length ? 'visible' : 'none');
+      }
       atualizarStatsPontos();
     }
     let pontosClickHandler = null;

@@ -1210,7 +1210,7 @@
     const paradasHoje = new Map();
     let pontosLayerInitialized = false;
     const pontosPlanejados = [];
-    const pontosVisitados = new Set();
+    const pontosVisitados = new Map(); // pontoId -> {equipeNome, ts}
     const pontosFeatureIds = new Map(); // pontoId -> feature id no source Mapbox
     const alertaAproximacao = new Map();
     const equipesProximas = new Map();
@@ -1606,10 +1606,22 @@
         const tags = [];
         if (p.ais) tags.push(`<span style="background:#1e40af;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">${p.ais}</span>`);
         if (p.categoria) tags.push(`<span style="background:#475569;color:#fff;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600;">${p.categoria}</span>`);
+        let visitInfo = '';
+        if (visitado) {
+          const v = pontosVisitados.get(p.id);
+          const tsStr = v && v.ts ? new Date(v.ts).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+          const eq = v && v.equipeNome ? v.equipeNome : '';
+          if (tsStr || eq) {
+            visitInfo = `<div style="margin-top:6px;padding:6px 8px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:6px;font-size:11px;color:#4ade80;">
+              <b>Vistoriado</b>${eq ? '<br>Equipe: ' + eq : ''}${tsStr ? '<br>Data: ' + tsStr : ''}
+            </div>`;
+          }
+        }
         const popupHtml = `<div style="font-family:'DM Sans',sans-serif;min-width:160px;color:#e2e8f0;">
           <b style="font-size:13px;color:#fff;">${p.nome || ('PONTO ' + p.id)}</b>
           <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap;">${tags.join(' ') || ''}</div>
           <div style="margin-top:4px;font-size:11px;color:#94a3b8;">${p.cidade || ''}${p.lat && p.lng ? ' · ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) : ''}</div>
+          ${visitInfo}
         </div>`;
         features.push({
           type: 'Feature', id: fid,
@@ -1753,7 +1765,7 @@
       for (const p of pontosPlanejados) {
         if (pontosVisitados.has(p.id)) continue;
         if (String(p.id) !== String(pontoId)) continue;
-        pontosVisitados.add(p.id);
+        pontosVisitados.set(p.id, { equipeNome: 'Em tempo real', ts: Date.now() });
         renderPontosLayer();
         atualizarStatsPontos();
         console.log(`[NOC] Ponto #${pontoId} "${pontoNome}" marcado verde (${distM}m)`);
@@ -1773,7 +1785,7 @@
           String(p.nome    || '').trim().toUpperCase() === pn ||
           String(p.pontoNumero || '').trim().toUpperCase() === pn;
         if (!match) continue;
-        pontosVisitados.add(p.id);
+        pontosVisitados.set(p.id, { equipeNome: 'Em tempo real', ts: Date.now() });
         mudou = true;
         console.log('[NOC] Ponto marcado como coletado:', pn, '→ id', p.id);
       }
@@ -1940,11 +1952,11 @@
         let adicionados = 0;
         for (const reg of rows) {
           if (reg.pontoId != null && !pontosVisitados.has(reg.pontoId)) {
-            pontosVisitados.add(reg.pontoId);
+            pontosVisitados.set(reg.pontoId, { equipeNome: reg.equipeNome || reg.equipeId, ts: reg.ts });
             adicionados++;
           }
         }
-        console.log('[NOC] carregarVisitadosHoje:', rows.length, 'registros,', adicionados, 'adicionados. Set:', Array.from(pontosVisitados));
+        console.log('[NOC] carregarVisitadosHoje:', rows.length, 'registros,', adicionados, 'adicionados. Map:', pontosVisitados.size);
       } catch (e) { console.warn('[NOC] erro carregarVisitadosHoje:', e); }
     }
 

@@ -1807,7 +1807,27 @@
         popularFiltroCidades();
         popularFiltroAis();
         popularFiltroCategorias();
+        await carregarVisitadosHoje();
+        renderPontosLayer();
         atualizarStatsPontos();
+      } catch (_) {}
+    }
+
+    async function carregarVisitadosHoje() {
+      try {
+        const d = new Date();
+        const hoje = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        const r = await fetch('/api/producao?data=' + hoje);
+        const j = await r.json();
+        const rows = j.rows || [];
+        let adicionados = 0;
+        for (const reg of rows) {
+          if (reg.pontoId && !pontosVisitados.has(reg.pontoId)) {
+            pontosVisitados.add(reg.pontoId);
+            adicionados++;
+          }
+        }
+        if (adicionados) console.log('[NOC] Visitados carregados do servidor:', adicionados);
       } catch (_) {}
     }
 

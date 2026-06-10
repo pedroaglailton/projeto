@@ -477,11 +477,29 @@ app.post('/api/posicao', requireAuth, (req, res) => {
 });
 
 /** Recebe producao do app (coleta de ponto) para auditoria NOC. */
-app.post('/api/producao', requireAuth, async (req, res) => {
+app.post('/api/producao', async (req, res) => {
   const body = req.body || {};
+  let equipeId = null, equipeNome = null;
+
+  // Aceita token de equipe (técnico) OU token NOC (admin)
+  const eqToken = req.get('X-Equipe-Token');
+  const nocToken = req.get('X-Noc-Token');
+  if (eqToken) {
+    const eq = equipesStore.validate(eqToken);
+    if (!eq) return res.status(401).json({ ok: false, error: 'Token de equipe invalido' });
+    equipeId = eq.equipeId;
+    equipeNome = eq.nome;
+  } else if (nocToken) {
+    const sessao = require('./usuarios').validaToken(nocToken);
+    if (!sessao) return res.status(401).json({ ok: false, error: 'Token NOC invalido' });
+    equipeId = 'NOC-' + sessao.usuario;
+    equipeNome = sessao.nome || sessao.usuario;
+  } else {
+    return res.status(401).json({ ok: false, error: 'Token ausente' });
+  }
   const reg = {
-    equipeId: req.equipe.equipeId,
-    equipeNome: req.equipe.nome,
+    equipeId: equipeId,
+    equipeNome: equipeNome,
     pontoNumero: body.pontoNumero ? String(body.pontoNumero).trim() : null,
     cidade: body.cidade ? String(body.cidade).trim() : null,
     ais: body.ais ? String(body.ais).trim() : null,
@@ -533,6 +551,14 @@ app.put('/api/producao/:id', authMiddlewareNoc, async (req, res) => {
   if (ais !== undefined) changes.ais = String(ais).trim();
   if (Object.keys(changes).length === 0) return res.status(400).json({ ok: false, error: 'Nenhum campo para atualizar' });
   const ok = await producaoStore.update(id, changes);
+  res.json({ ok });
+});
+
+/** Remove um registro de producao (NOC admin). */
+app.delete('/api/producao/:id', authMiddlewareNoc, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+  const ok = await producaoStore.remove(id);
   res.json({ ok });
 });
 

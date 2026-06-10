@@ -670,7 +670,7 @@
 
   <!-- Produção Modal -->
   <div class="prod-overlay" id="prodOverlay" onclick="if(event.target===this)fecharModalProducao()">
-    <div class="prod-modal">
+    <div class="prod-modal" style="max-width:95vw;width:1100px;">
       <div class="prod-header">
         <h3>Produção</h3>
         <button onclick="fecharModalProducao()">×</button>
@@ -680,37 +680,36 @@
         <input type="date" id="prodDate" onchange="carregarProducaoModal()">
         <button onclick="carregarProducaoModal()">🔍 Buscar</button>
         <button class="ghost" onclick="exportarProducaoCSV()">📥 CSV</button>
+        <button style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:600;" onclick="abrirNovoRegistro()">+ Novo</button>
         <span id="prodTotal" style="color:#6b7280;font-size:12px;margin-left:auto;"></span>
       </div>
       <div class="prod-body">
         <div class="prod-resumo" id="prodResumo"></div>
-        <div class="prod-table-wrap">
-           <table class="prod-table">
-             <thead>
-               <tr>
-                 <th>Hora</th>
-                 <th>Equipe</th>
-                 <th>Ponto</th>
-                 <th>Nome</th>
-                 <th>Cidade</th>
-                 <th>AIS</th>
-                 <th>Lat</th>
-                 <th>Lng</th>
-                 <th>Ponto ID</th>
-                 <th></th>
-               </tr>
-             </thead>
-             <tbody id="prodTableBody">
-               <tr><td colspan="10" class="prod-empty">Selecione uma data</td></tr>
-             </tbody>
-           </table>
+        <div class="prod-table-wrap" style="max-height:60vh;overflow-y:auto;">
+          <table class="prod-table" style="font-size:12px;">
+            <thead style="position:sticky;top:0;background:#0f172a;z-index:1;">
+              <tr>
+                <th style="min-width:50px;">Hora</th>
+                <th style="min-width:100px;">Equipe</th>
+                <th style="min-width:180px;">Ponto</th>
+                <th style="min-width:180px;">Nome</th>
+                <th style="min-width:80px;">Cidade</th>
+                <th style="min-width:40px;">AIS</th>
+                <th style="min-width:70px;">Lat</th>
+                <th style="min-width:70px;">Lng</th>
+                <th style="min-width:60px;">ID</th>
+                <th style="min-width:80px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="prodTableBody">
+              <tr><td colspan="10" class="prod-empty">Selecione uma data</td></tr>
+            </tbody>
+          </table>
         </div>
+        <div id="prodPaginacao" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 0;border-top:1px solid #1e293b;"></div>
       </div>
     </div>
   </div>
-
-
-  <script>
     // =========================================================================
     // Autenticacao (login)
     // =========================================================================
@@ -3032,6 +3031,9 @@
     // Modal Produção
     // =========================================================================
     let prodDados = [];
+    let prodEditandoId = null;
+    let prodPagina = 1;
+    const prodPorPagina = 25;
 
     function abrirModalProducao() {
       const overlay = document.getElementById('prodOverlay');
@@ -3044,6 +3046,7 @@
 
     function fecharModalProducao() {
       document.getElementById('prodOverlay').classList.remove('open');
+      prodEditandoId = null;
     }
 
     async function carregarProducaoModal() {
@@ -3054,34 +3057,237 @@
       const totalEl = document.getElementById('prodTotal');
       tbody.innerHTML = '<tr><td colspan="10" class="prod-empty">Carregando…</td></tr>';
       resumo.innerHTML = '';
+      prodPagina = 1;
       try {
         const r = await fetch('/api/producao?data=' + data);
         const j = await r.json();
         prodDados = j.rows || [];
-        totalEl.textContent = prodDados.length ? prodDados.length + ' registro(s)' : 'Nenhum registro';
-        const porEquipe = {};
-        for (const reg of prodDados) {
-          const eq = reg.equipeNome || reg.equipeId || 'Desconhecida';
-          if (!porEquipe[eq]) porEquipe[eq] = 0;
-          porEquipe[eq]++;
-        }
-        resumo.innerHTML = '';
-        for (const [eq, count] of Object.entries(porEquipe).sort((a,b) => b[1]-a[1])) {
-          resumo.innerHTML += `<div class="prod-resumo-card"><div class="eq-name">${eq}</div><div class="eq-count">${count}</div><div class="eq-label">ponto(s) coletado(s)</div></div>`;
-        }
-        if (prodDados.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="10" class="prod-empty">Nenhum registro nesta data</td></tr>';
-          return;
-        }
-        tbody.innerHTML = '';
-        for (const reg of prodDados) {
-          const hora = new Date(reg.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${hora}</td><td>${reg.equipeNome || reg.equipeId || '—'}</td><td id="pnum_${reg.id}">${reg.pontoNumero || '—'}</td><td>${reg.pontoNome || '—'}</td><td>${reg.cidade || '—'}</td><td>${reg.ais || '—'}</td><td>${reg.lat ? reg.lat.toFixed(5) : '—'}</td><td>${reg.lng ? reg.lng.toFixed(5) : '—'}</td><td>${reg.pontoId || '—'}</td><td><button onclick="editarPontoNumero(${reg.id})" style="background:#1e40af;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">✏️</button></td>`;
-          tbody.appendChild(tr);
-        }
+        renderProdTabela();
       } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="8" class="prod-empty">Erro ao carregar dados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="prod-empty">Erro ao carregar dados</td></tr>';
+      }
+    }
+
+    function renderProdTabela() {
+      const tbody = document.getElementById('prodTableBody');
+      const resumo = document.getElementById('prodResumo');
+      const totalEl = document.getElementById('prodTotal');
+      const pagDiv = document.getElementById('prodPaginacao');
+      totalEl.textContent = prodDados.length ? prodDados.length + ' registro(s)' : 'Nenhum registro';
+      const porEquipe = {};
+      for (const reg of prodDados) {
+        const eq = reg.equipeNome || reg.equipeId || 'Desconhecida';
+        if (!porEquipe[eq]) porEquipe[eq] = 0;
+        porEquipe[eq]++;
+      }
+      resumo.innerHTML = '';
+      for (const [eq, count] of Object.entries(porEquipe).sort((a,b) => b[1]-a[1])) {
+        resumo.innerHTML += `<div class="prod-resumo-card"><div class="eq-name">${eq}</div><div class="eq-count">${count}</div><div class="eq-label">ponto(s) coletado(s)</div></div>`;
+      }
+      if (prodDados.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="10" class="prod-empty">Nenhum registro nesta data</td></tr>';
+        pagDiv.innerHTML = '';
+        return;
+      }
+      const totalPaginas = Math.ceil(prodDados.length / prodPorPagina);
+      if (prodPagina > totalPaginas) prodPagina = totalPaginas;
+      const inicio = (prodPagina - 1) * prodPorPagina;
+      const fim = inicio + prodPorPagina;
+      const paginated = prodDados.slice(inicio, fim);
+      tbody.innerHTML = '';
+      for (const reg of paginated) {
+        const hora = new Date(reg.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+        const tr = document.createElement('tr');
+        tr.id = 'prodRow_' + reg.id;
+        tr.innerHTML = `
+          <td>${hora}</td>
+          <td>${reg.equipeNome || reg.equipeId || '—'}</td>
+          <td id="prod_pnum_${reg.id}">${reg.pontoNumero || '—'}</td>
+          <td id="prod_pnome_${reg.id}">${reg.pontoNome || '—'}</td>
+          <td id="prod_cid_${reg.id}">${reg.cidade || '—'}</td>
+          <td id="prod_ais_${reg.id}">${reg.ais || '—'}</td>
+          <td>${reg.lat ? reg.lat.toFixed(5) : '—'}</td>
+          <td>${reg.lng ? reg.lng.toFixed(5) : '—'}</td>
+          <td>${reg.pontoId || '—'}</td>
+          <td style="white-space:nowrap;">
+            <button onclick="editarLinhaProd(${reg.id})" title="Editar" style="background:#1e40af;color:#fff;border:none;border-radius:4px;padding:3px 6px;cursor:pointer;font-size:11px;">✏️</button>
+            <button onclick="excluirRegistroProd(${reg.id})" title="Excluir" style="background:#dc2626;color:#fff;border:none;border-radius:4px;padding:3px 6px;cursor:pointer;font-size:11px;">🗑️</button>
+          </td>`;
+        tbody.appendChild(tr);
+      }
+      if (totalPaginas <= 1) { pagDiv.innerHTML = ''; return; }
+      let ph = '';
+      ph += `<button onclick="prodIrPagina(1)" ${prodPagina===1?'disabled':''} style="background:#334155;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">⟪</button>`;
+      ph += `<button onclick="prodIrPagina(${prodPagina-1})" ${prodPagina===1?'disabled':''} style="background:#334155;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">⟵</button>`;
+      const maxVis = 5;
+      let startP = Math.max(1, prodPagina - Math.floor(maxVis/2));
+      let endP = Math.min(totalPaginas, startP + maxVis - 1);
+      if (endP - startP < maxVis - 1) startP = Math.max(1, endP - maxVis + 1);
+      for (let i = startP; i <= endP; i++) {
+        ph += `<button onclick="prodIrPagina(${i})" style="background:${i===prodPagina?'#3b82f6':'#334155'};color:#fff;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:11px;font-weight:${i===prodPagina?'700':'400'};">${i}</button>`;
+      }
+      ph += `<button onclick="prodIrPagina(${prodPagina+1})" ${prodPagina===totalPaginas?'disabled':''} style="background:#334155;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">⟶</button>`;
+      ph += `<button onclick="prodIrPagina(${totalPaginas})" ${prodPagina===totalPaginas?'disabled':''} style="background:#334155;color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;">⟫</button>`;
+      ph += `<span style="color:#6b7280;font-size:11px;margin-left:8px;">Página ${prodPagina} de ${totalPaginas} (${prodDados.length} registros)</span>`;
+      pagDiv.innerHTML = ph;
+    }
+
+    function prodIrPagina(p) {
+      const totalPaginas = Math.ceil(prodDados.length / prodPorPagina);
+      if (p < 1) p = 1;
+      if (p > totalPaginas) p = totalPaginas;
+      prodPagina = p;
+      renderProdTabela();
+    }
+
+    function editarLinhaProd(id) {
+      const reg = prodDados.find(r => r.id === id);
+      if (!reg) return;
+      prodEditandoId = id;
+      const campos = {
+        'prod_pnum_' + id: reg.pontoNumero || '',
+        'prod_pnome_' + id: reg.pontoNome || '',
+        'prod_cid_' + id: reg.cidade || '',
+        'prod_ais_' + id: reg.ais || ''
+      };
+      for (const [cellId, valor] of Object.entries(campos)) {
+        const cell = document.getElementById(cellId);
+        if (cell) {
+          cell.innerHTML = `<input type="text" value="${valor.replace(/"/g,'&quot;')}" style="background:#1e293b;color:#fff;border:1px solid #3b82f6;border-radius:4px;padding:2px 4px;font-size:11px;width:100%;box-sizing:border-box;">`;
+          cell.querySelector('input')._campo = cellId.replace('prod_', '');
+        }
+      }
+      const tr = document.getElementById('prodRow_' + id);
+      if (tr) {
+        const acoesCell = tr.querySelector('td:last-child');
+        acoesCell.innerHTML = `<button onclick="salvarEdicaoProd(${id})" style="background:#22c55e;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;font-weight:700;">Salvar</button> <button onclick="carregarProducaoModal()" style="background:#6b7280;color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:11px;">Cancelar</button>`;
+      }
+    }
+
+    async function salvarEdicaoProd(id) {
+      const tr = document.getElementById('prodRow_' + id);
+      if (!tr) return;
+      const inputs = tr.querySelectorAll('input');
+      const changes = {};
+      const mapCampo = { 'pnum': 'pontoNumero', 'pnome': 'pontoNome', 'cid': 'cidade', 'ais': 'ais' };
+      inputs.forEach(inp => {
+        const campo = inp._campo;
+        if (campo && mapCampo[campo]) {
+          changes[mapCampo[campo]] = inp.value.trim();
+        }
+      });
+      if (Object.keys(changes).length === 0) { carregarProducaoModal(); return; }
+      const token = sessionStorage.getItem('nocToken');
+      try {
+        const r = await fetch('/api/producao/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify(changes)
+        });
+        const j = await r.json();
+        if (j.ok) {
+          showToast('Registro atualizado!', 'success');
+          await carregarProducaoModal();
+        } else {
+          showToast('Erro: ' + (j.error || 'desconhecido'), 'error');
+        }
+      } catch (e) {
+        showToast('Erro de rede', 'error');
+      }
+    }
+
+    async function excluirRegistroProd(id) {
+      if (!confirm('Excluir este registro de produção?')) return;
+      const token = sessionStorage.getItem('nocToken');
+      try {
+        const r = await fetch('/api/producao/' + id, {
+          method: 'DELETE',
+          headers: { 'X-Noc-Token': token }
+        });
+        const j = await r.json();
+        if (j.ok) {
+          showToast('Registro excluído!', 'success');
+          await carregarProducaoModal();
+        } else {
+          showToast('Erro: ' + (j.error || 'desconhecido'), 'error');
+        }
+      } catch (e) {
+        showToast('Erro de rede', 'error');
+      }
+    }
+
+    function abrirNovoRegistro() {
+      const data = document.getElementById('prodDate').value;
+      if (!data) { showToast('Selecione uma data primeiro', 'error'); return; }
+      const html = `<div style="padding:16px;color:#e2e8f0;font-family:'DM Sans',sans-serif;">
+        <h4 style="margin:0 0 12px;color:#fff;">Novo Registro de Produção</h4>
+        <div style="display:grid;gap:10px;">
+          <label style="font-size:12px;color:#94a3b8;">Ponto (nome/número)*
+            <input id="novo_ponto" style="width:100%;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;" placeholder="Ex: 069 - Av. Zeze Diogo">
+          </label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label style="font-size:12px;color:#94a3b8;">Cidade
+              <input id="novo_cidade" style="width:100%;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;" value="Fortaleza">
+            </label>
+            <label style="font-size:12px;color:#94a3b8;">AIS
+              <input id="novo_ais" style="width:100%;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;" placeholder="Ex: 01">
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <label style="font-size:12px;color:#94a3b8;">Latitude
+              <input id="novo_lat" type="number" step="any" style="width:100%;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;" placeholder="-3.72441">
+            </label>
+            <label style="font-size:12px;color:#94a3b8;">Longitude
+              <input id="novo_lng" type="number" step="any" style="width:100%;background:#1e293b;color:#fff;border:1px solid #334155;border-radius:6px;padding:8px;font-size:13px;box-sizing:border-box;" placeholder="-38.46127">
+            </label>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button onclick="salvarNovoRegistro()" style="background:#16a34a;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-weight:700;">Salvar</button>
+            <button onclick="document.getElementById('novoRegistroOverlay').remove()" style="background:#6b7280;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;">Cancelar</button>
+          </div>
+        </div>
+      </div>`;
+      const overlay = document.createElement('div');
+      overlay.id = 'novoRegistroOverlay';
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center;';
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+      const box = document.createElement('div');
+      box.style.cssText = 'background:#0f172a;border:1px solid #334155;border-radius:12px;min-width:400px;max-width:500px;';
+      box.innerHTML = html;
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      document.getElementById('novo_ponto').focus();
+    }
+
+    async function salvarNovoRegistro() {
+      const ponto = document.getElementById('novo_ponto').value.trim();
+      if (!ponto) { showToast('Informe o nome do ponto', 'error'); return; }
+      const token = sessionStorage.getItem('nocToken');
+      const data = document.getElementById('prodDate').value;
+      const payload = {
+        pontoNumero: ponto,
+        cidade: document.getElementById('novo_cidade').value.trim() || null,
+        ais: document.getElementById('novo_ais').value.trim() || null,
+        lat: parseFloat(document.getElementById('novo_lat').value) || null,
+        lng: parseFloat(document.getElementById('novo_lng').value) || null,
+        ts: new Date(data + 'T12:00:00').getTime()
+      };
+      try {
+        const r = await fetch('/api/producao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify(payload)
+        });
+        const j = await r.json();
+        if (j.ok) {
+          document.getElementById('novoRegistroOverlay').remove();
+          showToast('Registro criado!', 'success');
+          await carregarProducaoModal();
+        } else {
+          showToast('Erro: ' + (j.error || 'desconhecido'), 'error');
+        }
+      } catch (e) {
+        showToast('Erro de rede', 'error');
       }
     }
 
@@ -3099,41 +3305,6 @@
       a.download = 'producao_' + (document.getElementById('prodDate').value || 'hoje') + '.csv';
       a.click();
       URL.revokeObjectURL(url);
-    }
-
-    function editarPontoNumero(id) {
-      const reg = prodDados.find(r => r.id === id);
-      if (!reg) return;
-      const cell = document.getElementById('pnum_' + id);
-      if (!cell) return;
-      const valorAtual = reg.pontoNumero || '';
-      cell.innerHTML = `<input type="text" id="pnumInput_${id}" value="${valorAtual.replace(/"/g,'&quot;')}" style="background:#1e293b;color:#fff;border:1px solid #3b82f6;border-radius:4px;padding:2px 6px;font-size:11px;width:140px;"> <button onclick="salvarPontoNumero(${id})" style="background:#22c55e;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✓</button> <button onclick="carregarProducaoModal()" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✗</button>`;
-      document.getElementById('pnumInput_' + id).focus();
-    }
-
-    async function salvarPontoNumero(id) {
-      const input = document.getElementById('pnumInput_' + id);
-      if (!input) return;
-      const novoValor = input.value.trim();
-      const token = sessionStorage.getItem('nocToken');
-      try {
-        const r = await fetch('/api/producao/' + id, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
-          body: JSON.stringify({ pontoNumero: novoValor })
-        });
-        const j = await r.json();
-        if (j.ok) {
-          const reg = prodDados.find(r => r.id === id);
-          if (reg) reg.pontoNumero = novoValor;
-          carregarProducaoModal();
-          showToast('Ponto atualizado!', 'success');
-        } else {
-          showToast('Erro ao salvar', 'error');
-        }
-      } catch (e) {
-        showToast('Erro de rede', 'error');
-      }
     }
 
     window.fazerLogin = fazerLogin;

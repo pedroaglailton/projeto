@@ -161,6 +161,26 @@ class ProducaoStore {
     }
   }
 
+  /**
+   * Remove um registro de producao
+   * @param {number} id - ID do registro
+   * @returns {Promise<boolean>}
+   */
+  async remove(id) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('producao').delete().eq('id', id);
+      if (error) {
+        console.error('[ProducaoStore] erro ao remover:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('[ProducaoStore] erro ao remover:', err.message);
+      return false;
+    }
+  }
+
   /** Retorna snapshot em memoria (compatibilidade) */
   current() {
     return Array.from(this.snapshot.values());

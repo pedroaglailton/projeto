@@ -760,6 +760,9 @@ app.put('/api/equipes/:equipeId', (req, res) => {
   if (!ok) return res.status(404).json({ ok: false, error: 'Equipe nao encontrada' });
   res.json({ ok: true });
 });
+
+/**
+ * Playback: posicoes de uma data (default hoje), filtrado por equipe (opcional).
  * GET /api/playback?data=2026-05-25&equipeId=EQUIPE-01
  */
 app.get('/api/playback', async (req, res) => {

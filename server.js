@@ -747,8 +747,19 @@ app.patch('/api/equipes/:equipeId/ativo', (req, res) => {
   }
 });
 
-/**
- * Playback: posicoes de uma data (default hoje), filtrado por equipe (opcional).
+/** Atualiza nome da equipe (NOC admin). */
+app.put('/api/equipes/:equipeId', (req, res) => {
+  if (!checkAdminKey(req, res)) {
+    const token = req.get('X-Noc-Token');
+    const sessao = token ? validaToken(token) : null;
+    if (!sessao || sessao.perfil !== 'admin') return;
+  }
+  const { nome } = req.body || {};
+  if (!nome) return res.status(400).json({ ok: false, error: 'nome obrigatorio' });
+  const ok = equipesStore.updateNome(req.params.equipeId, nome);
+  if (!ok) return res.status(404).json({ ok: false, error: 'Equipe nao encontrada' });
+  res.json({ ok: true });
+});
  * GET /api/playback?data=2026-05-25&equipeId=EQUIPE-01
  */
 app.get('/api/playback', async (req, res) => {

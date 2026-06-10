@@ -100,6 +100,18 @@ class EquipesStore {
     return this.byId.get(id) || null;
   }
 
+  updateNome(equipeId, novoNome) {
+    const id = String(equipeId || '').trim().toUpperCase();
+    if (!id || !novoNome) return false;
+    const data = this._readRawFile();
+    const eq = data.equipes.find(e => String(e.equipeId).trim().toUpperCase() === id);
+    if (!eq) return false;
+    eq.nome = String(novoNome).trim();
+    this._writeRawFile(data);
+    this.load();
+    return true;
+  }
+
   list() {
     return Array.from(this.byId.values()).map(e => ({
       equipeId: e.equipeId,

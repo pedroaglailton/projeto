@@ -120,7 +120,7 @@ function identificarPontoMaisProximo(lat, lng) {
 
   // Raio dinâmico: metade da distância para o vizinho mais próximo
   // Mínimo 30m, máximo 80m
-  const raio = 25; // 15m fixo — mais seguro e preciso
+  const raio = 50; // 50m — GPS em area urbana pode errar 40-50m
 
   if (distMelhor > raio) return null;
   return { ...melhor, distancia: Math.round(distMelhor), raioUsado: Math.round(raio) };

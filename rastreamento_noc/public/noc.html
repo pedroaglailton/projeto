@@ -1627,6 +1627,7 @@
 
       // Remove popups antigos e adiciona novos
       map.off('click', pontosLayerId, pontosClickHandler);
+      map.off('click', 'pontos-circle-layer', pontosCircleClickHandler);
       if (features.length) {
         pontosClickHandler = (e) => {
           if (e.features && e.features[0]) {
@@ -1634,7 +1635,14 @@
             if (pop) new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
           }
         };
+        pontosCircleClickHandler = (e) => {
+          if (e.features && e.features[0]) {
+            const pop = e.features[0].properties.popup;
+            if (pop) new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
+          }
+        };
         map.on('click', pontosLayerId, pontosClickHandler);
+        map.on('click', 'pontos-circle-layer', pontosCircleClickHandler);
       }
 
       map.setLayoutProperty(pontosLayerId, 'visibility', checked && features.length ? 'visible' : 'none');
@@ -1647,6 +1655,7 @@
       atualizarStatsPontos();
     }
     let pontosClickHandler = null;
+    let pontosCircleClickHandler = null;
 
     // Enquadra o mapa nos pontos atualmente filtrados
     function fitPontos() {

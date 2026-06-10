@@ -685,23 +685,25 @@
       <div class="prod-body">
         <div class="prod-resumo" id="prodResumo"></div>
         <div class="prod-table-wrap">
-          <table class="prod-table">
-            <thead>
-              <tr>
-                <th>Hora</th>
-                <th>Equipe</th>
-                <th>Ponto</th>
-                <th>Cidade</th>
-                <th>AIS</th>
-                <th>Lat</th>
-                <th>Lng</th>
-                <th>Ponto ID</th>
-              </tr>
-            </thead>
-            <tbody id="prodTableBody">
-              <tr><td colspan="8" class="prod-empty">Selecione uma data</td></tr>
-            </tbody>
-          </table>
+           <table class="prod-table">
+             <thead>
+               <tr>
+                 <th>Hora</th>
+                 <th>Equipe</th>
+                 <th>Ponto</th>
+                 <th>Nome</th>
+                 <th>Cidade</th>
+                 <th>AIS</th>
+                 <th>Lat</th>
+                 <th>Lng</th>
+                 <th>Ponto ID</th>
+                 <th></th>
+               </tr>
+             </thead>
+             <tbody id="prodTableBody">
+               <tr><td colspan="10" class="prod-empty">Selecione uma data</td></tr>
+             </tbody>
+           </table>
         </div>
       </div>
     </div>
@@ -2094,6 +2096,17 @@
       el._timer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 5000);
     }
 
+    function showToast(msg, type) {
+      const el = document.getElementById('logoutToast');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      el.style.opacity = '1';
+      el.style.background = type === 'success' ? '#16a34a' : '#dc2626';
+      clearTimeout(el._timer);
+      el._timer = setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }, 3000);
+    }
+
     function showLoginToast(msg) {
       const el = document.getElementById('logoutToast');
       if (!el) return;
@@ -3039,7 +3052,7 @@
       const tbody = document.getElementById('prodTableBody');
       const resumo = document.getElementById('prodResumo');
       const totalEl = document.getElementById('prodTotal');
-      tbody.innerHTML = '<tr><td colspan="8" class="prod-empty">Carregando…</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="prod-empty">Carregando…</td></tr>';
       resumo.innerHTML = '';
       try {
         const r = await fetch('/api/producao?data=' + data);
@@ -3057,14 +3070,14 @@
           resumo.innerHTML += `<div class="prod-resumo-card"><div class="eq-name">${eq}</div><div class="eq-count">${count}</div><div class="eq-label">ponto(s) coletado(s)</div></div>`;
         }
         if (prodDados.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" class="prod-empty">Nenhum registro nesta data</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10" class="prod-empty">Nenhum registro nesta data</td></tr>';
           return;
         }
         tbody.innerHTML = '';
         for (const reg of prodDados) {
           const hora = new Date(reg.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${hora}</td><td>${reg.equipeNome || reg.equipeId || '—'}</td><td>${reg.pontoNumero || '—'}</td><td>${reg.cidade || '—'}</td><td>${reg.ais || '—'}</td><td>${reg.lat ? reg.lat.toFixed(5) : '—'}</td><td>${reg.lng ? reg.lng.toFixed(5) : '—'}</td><td>${reg.pontoId || '—'}</td>`;
+          tr.innerHTML = `<td>${hora}</td><td>${reg.equipeNome || reg.equipeId || '—'}</td><td>${reg.pontoNumero || '—'}</td><td id="pnome_${reg.id}">${reg.pontoNome || '—'}</td><td>${reg.cidade || '—'}</td><td>${reg.ais || '—'}</td><td>${reg.lat ? reg.lat.toFixed(5) : '—'}</td><td>${reg.lng ? reg.lng.toFixed(5) : '—'}</td><td>${reg.pontoId || '—'}</td><td><button onclick="editarPontoNome(${reg.id}, '${(reg.pontoNome||'').replace(/'/g,"\\'")}')" style="background:#1e40af;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">✏️</button></td>`;
           tbody.appendChild(tr);
         }
       } catch (err) {
@@ -3074,10 +3087,10 @@
 
     function exportarProducaoCSV() {
       if (!prodDados.length) return;
-      const header = 'Hora,Equipe,Ponto,Cidade,AIS,Lat,Lng,PontoID\n';
+      const header = 'Hora,Equipe,Ponto,Nome,Cidade,AIS,Lat,Lng,PontoID\n';
       const rows = prodDados.map(reg => {
         const hora = new Date(reg.ts).toLocaleString('pt-BR');
-        return `"${hora}","${reg.equipeNome||reg.equipeId||''}","${reg.pontoNumero||''}","${reg.cidade||''}","${reg.ais||''}","${reg.lat||''}","${reg.lng||''}","${reg.pontoId||''}"`;
+        return `"${hora}","${reg.equipeNome||reg.equipeId||''}","${reg.pontoNumero||''}","${reg.pontoNome||''}","${reg.cidade||''}","${reg.ais||''}","${reg.lat||''}","${reg.lng||''}","${reg.pontoId||''}"`;
       }).join('\n');
       const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -3086,6 +3099,38 @@
       a.download = 'producao_' + (document.getElementById('prodDate').value || 'hoje') + '.csv';
       a.click();
       URL.revokeObjectURL(url);
+    }
+
+    function editarPontoNome(id, nomeAtual) {
+      const cell = document.getElementById('pnome_' + id);
+      if (!cell) return;
+      cell.innerHTML = `<input type="text" id="pnomeInput_${id}" value="${(nomeAtual||'').replace(/"/g,'&quot;')}" style="background:#1e293b;color:#fff;border:1px solid #3b82f6;border-radius:4px;padding:2px 6px;font-size:11px;width:140px;"> <button onclick="salvarPontoNome(${id})" style="background:#22c55e;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✓</button> <button onclick="carregarProducaoModal()" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✗</button>`;
+      document.getElementById('pnomeInput_' + id).focus();
+    }
+
+    async function salvarPontoNome(id) {
+      const input = document.getElementById('pnomeInput_' + id);
+      if (!input) return;
+      const novoNome = input.value.trim();
+      const token = sessionStorage.getItem('nocToken');
+      try {
+        const r = await fetch('/api/producao/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
+          body: JSON.stringify({ pontoNumero: novoNome })
+        });
+        const j = await r.json();
+        if (j.ok) {
+          const reg = prodDados.find(r => r.id === id);
+          if (reg) reg.pontoNumero = novoNome;
+          carregarProducaoModal();
+          showToast('Nome atualizado!', 'success');
+        } else {
+          showToast('Erro ao salvar', 'error');
+        }
+      } catch (e) {
+        showToast('Erro de rede', 'error');
+      }
     }
 
     window.fazerLogin = fazerLogin;

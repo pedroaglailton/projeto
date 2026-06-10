@@ -139,6 +139,27 @@ class ProducaoStore {
     }
   }
 
+  /**
+   * Atualiza um campo de um registro de producao
+   * @param {number} id - ID do registro
+   * @param {object} changes - campos para atualizar (ex: { ponto_numero: 'novo nome' })
+   * @returns {Promise<boolean>}
+   */
+  async update(id, changes) {
+    if (!supabase) return false;
+    try {
+      const { error } = await supabase.from('producao').update(changes).eq('id', id);
+      if (error) {
+        console.error('[ProducaoStore] erro ao atualizar:', error.message);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      console.error('[ProducaoStore] erro ao atualizar:', err.message);
+      return false;
+    }
+  }
+
   /** Retorna snapshot em memoria (compatibilidade) */
   current() {
     return Array.from(this.snapshot.values());

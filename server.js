@@ -521,6 +521,21 @@ app.get('/api/producao', async (req, res) => {
   res.json({ ok: true, data, total: rows.length, rows });
 });
 
+/** Atualiza um registro de producao (NOC admin). */
+app.put('/api/producao/:id', authMiddlewareNoc, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+  const { pontoNumero, pontoNome, cidade, ais } = req.body || {};
+  const changes = {};
+  if (pontoNumero !== undefined) changes.ponto_numero = String(pontoNumero).trim();
+  if (pontoNome !== undefined) changes.ponto_nome = String(pontoNome).trim();
+  if (cidade !== undefined) changes.cidade = String(cidade).trim();
+  if (ais !== undefined) changes.ais = String(ais).trim();
+  if (Object.keys(changes).length === 0) return res.status(400).json({ ok: false, error: 'Nenhum campo para atualizar' });
+  const ok = await producaoStore.update(id, changes);
+  res.json({ ok });
+});
+
 /**
  * Validacao de token sem efeitos colaterais.
  * Retorna 200 com { equipeId, nome } se token bate, 401 se nao.

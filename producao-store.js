@@ -101,6 +101,7 @@ class ProducaoStore {
       }
 
       return (data || []).map(r => ({
+        id: r.id,
         equipeId: r.equipe_id,
         equipeNome: r.equipe_nome,
         pontoNumero: r.ponto_numero,

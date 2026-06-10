@@ -3077,7 +3077,7 @@
         for (const reg of prodDados) {
           const hora = new Date(reg.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${hora}</td><td>${reg.equipeNome || reg.equipeId || '—'}</td><td>${reg.pontoNumero || '—'}</td><td id="pnome_${reg.id}">${reg.pontoNome || '—'}</td><td>${reg.cidade || '—'}</td><td>${reg.ais || '—'}</td><td>${reg.lat ? reg.lat.toFixed(5) : '—'}</td><td>${reg.lng ? reg.lng.toFixed(5) : '—'}</td><td>${reg.pontoId || '—'}</td><td><button onclick="editarPontoNome(${reg.id}, '${(reg.pontoNome||'').replace(/'/g,"\\'")}')" style="background:#1e40af;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">✏️</button></td>`;
+          tr.innerHTML = `<td>${hora}</td><td>${reg.equipeNome || reg.equipeId || '—'}</td><td id="pnum_${reg.id}">${reg.pontoNumero || '—'}</td><td>${reg.pontoNome || '—'}</td><td>${reg.cidade || '—'}</td><td>${reg.ais || '—'}</td><td>${reg.lat ? reg.lat.toFixed(5) : '—'}</td><td>${reg.lng ? reg.lng.toFixed(5) : '—'}</td><td>${reg.pontoId || '—'}</td><td><button onclick="editarPontoNumero(${reg.id})" style="background:#1e40af;color:#fff;border:none;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;">✏️</button></td>`;
           tbody.appendChild(tr);
         }
       } catch (err) {
@@ -3101,30 +3101,33 @@
       URL.revokeObjectURL(url);
     }
 
-    function editarPontoNome(id, nomeAtual) {
-      const cell = document.getElementById('pnome_' + id);
+    function editarPontoNumero(id) {
+      const reg = prodDados.find(r => r.id === id);
+      if (!reg) return;
+      const cell = document.getElementById('pnum_' + id);
       if (!cell) return;
-      cell.innerHTML = `<input type="text" id="pnomeInput_${id}" value="${(nomeAtual||'').replace(/"/g,'&quot;')}" style="background:#1e293b;color:#fff;border:1px solid #3b82f6;border-radius:4px;padding:2px 6px;font-size:11px;width:140px;"> <button onclick="salvarPontoNome(${id})" style="background:#22c55e;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✓</button> <button onclick="carregarProducaoModal()" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✗</button>`;
-      document.getElementById('pnomeInput_' + id).focus();
+      const valorAtual = reg.pontoNumero || '';
+      cell.innerHTML = `<input type="text" id="pnumInput_${id}" value="${valorAtual.replace(/"/g,'&quot;')}" style="background:#1e293b;color:#fff;border:1px solid #3b82f6;border-radius:4px;padding:2px 6px;font-size:11px;width:140px;"> <button onclick="salvarPontoNumero(${id})" style="background:#22c55e;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✓</button> <button onclick="carregarProducaoModal()" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px;">✗</button>`;
+      document.getElementById('pnumInput_' + id).focus();
     }
 
-    async function salvarPontoNome(id) {
-      const input = document.getElementById('pnomeInput_' + id);
+    async function salvarPontoNumero(id) {
+      const input = document.getElementById('pnumInput_' + id);
       if (!input) return;
-      const novoNome = input.value.trim();
+      const novoValor = input.value.trim();
       const token = sessionStorage.getItem('nocToken');
       try {
         const r = await fetch('/api/producao/' + id, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-Noc-Token': token },
-          body: JSON.stringify({ pontoNumero: novoNome })
+          body: JSON.stringify({ pontoNumero: novoValor })
         });
         const j = await r.json();
         if (j.ok) {
           const reg = prodDados.find(r => r.id === id);
-          if (reg) reg.pontoNumero = novoNome;
+          if (reg) reg.pontoNumero = novoValor;
           carregarProducaoModal();
-          showToast('Nome atualizado!', 'success');
+          showToast('Ponto atualizado!', 'success');
         } else {
           showToast('Erro ao salvar', 'error');
         }

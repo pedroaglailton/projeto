@@ -1930,13 +1930,13 @@
         const rows = j.rows || [];
         let adicionados = 0;
         for (const reg of rows) {
-          if (reg.pontoId && !pontosVisitados.has(reg.pontoId)) {
+          if (reg.pontoId != null && !pontosVisitados.has(reg.pontoId)) {
             pontosVisitados.add(reg.pontoId);
             adicionados++;
           }
         }
-        if (adicionados) console.log('[NOC] Visitados carregados do servidor:', adicionados);
-      } catch (_) {}
+        console.log('[NOC] carregarVisitadosHoje:', rows.length, 'registros,', adicionados, 'adicionados. Set:', Array.from(pontosVisitados));
+      } catch (e) { console.warn('[NOC] erro carregarVisitadosHoje:', e); }
     }
 
     // =========================================================================

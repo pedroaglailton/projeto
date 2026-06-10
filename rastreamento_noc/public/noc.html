@@ -3147,12 +3147,11 @@
       const reg = prodDados.find(r => r.id === id);
       if (!reg) return;
       prodEditandoId = id;
-      const campos = {
-        'prod_pnum_' + id: reg.pontoNumero || '',
-        'prod_pnome_' + id: reg.pontoNome || '',
-        'prod_cid_' + id: reg.cidade || '',
-        'prod_ais_' + id: reg.ais || ''
-      };
+      const campos = {};
+      campos['prod_pnum_' + id] = reg.pontoNumero || '';
+      campos['prod_pnome_' + id] = reg.pontoNome || '';
+      campos['prod_cid_' + id] = reg.cidade || '';
+      campos['prod_ais_' + id] = reg.ais || '';
       for (const [cellId, valor] of Object.entries(campos)) {
         const cell = document.getElementById(cellId);
         if (cell) {

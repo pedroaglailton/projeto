@@ -3128,13 +3128,13 @@
                             const numEl = document.getElementById('numeroPonto');
                             const confirmar = confirm(`📍 Ponto #${p.id} — ${p.nome}\nDistância: ${p.distancia}m\n${p.jaFeito ? '✅ Já foi feito hoje' : '⏳ Pendente'}\n\nÉ este o ponto?`);
                             if (confirmar) {
-                                numEl.value = String(p.id);
+                                numEl.value = p.nome || String(p.id);
                                 // Preenche cidade se disponível
                                 const cidadeEl = document.getElementById('ck_cidade_nome');
                                 if (cidadeEl && p.cidade && p.cidade !== 'SEM CIDADE') {
                                     cidadeEl.value = p.cidade;
                                 }
-                                showToast(`Ponto #${p.id} selecionado (${p.distancia}m)`, 'success');
+                                showToast(`Ponto "${p.nome}" selecionado (${p.distancia}m)`, 'success');
                             } else {
                                 numEl.value = '';
                                 numEl.focus();

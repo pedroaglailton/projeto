@@ -1534,10 +1534,10 @@
               14, 7,
               14.9, 9
             ],
-            'circle-color': '#0057b8',
-            'circle-opacity': 0.85,
+            'circle-color': ['coalesce', ['get', 'fc'], '#0057b8'],
+            'circle-opacity': ['coalesce', ['get', 'fo'], 0.85],
             'circle-stroke-width': 1.5,
-            'circle-stroke-color': '#ffffff',
+            'circle-stroke-color': ['coalesce', ['get', 'sc'], '#ffffff'],
             'circle-stroke-opacity': 0.9
           }
         });

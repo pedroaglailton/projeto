@@ -13,6 +13,7 @@ const webPush = require('web-push');
 
 const { EquipesStore, authMiddleware } = require('./auth');
 const { PosicoesStore, todayStr }      = require('./posicoes-store');
+const { ProducaoStore }                = require('./producao-store');
 const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, authMiddlewarePerfil, listarUsuarios, criarUsuario, atualizarUsuario, removerUsuario } = require('./usuarios');
 
 // ============================================================================
@@ -148,6 +149,7 @@ app.set('trust proxy', 'loopback');
 // ----- Lojas (stores) -----
 const equipesStore = new EquipesStore();
 const posicoesStore = new PosicoesStore();
+const producaoStore = new ProducaoStore();
 const requireAuth = authMiddleware(equipesStore);
 
 // ============================================================================
@@ -282,37 +284,8 @@ const producaoEquipesDir = path.join(pwaRoot, 'data', 'producao_equipes');
 fs.mkdirSync(producaoDir, { recursive: true });
 fs.mkdirSync(producaoEquipesDir, { recursive: true });
 
-const producaoSnapshot = new Map();
-const pontosVisitadosHoje = new Set();
-
-function carregarPontosVisitados() {
-  const data = todayStr();
-  const records = readProducao(data);
-  for (const r of records) {
-    if (r.pontoId) pontosVisitadosHoje.add(`${data}:${r.pontoId}`);
-  }
-}
-carregarPontosVisitados();
-
-function producaoFile(data = todayStr()) { return path.join(producaoDir, `${data}.jsonl`); }
-function appendProducao(reg) {
-  const data = todayStr(new Date(reg.ts || Date.now()));
-  fs.appendFileSync(producaoFile(data), JSON.stringify(reg) + '\n', 'utf8');
-  const key = `${data}:${reg.equipeId}:${reg.pontoNumero || 'SEM-PONTO'}`;
-  producaoSnapshot.set(key, reg);
-  if (reg.pontoId) pontosVisitadosHoje.add(`${data}:${reg.pontoId}`);
-}
-function readProducao(data) {
-  const file = producaoFile(data);
-  if (!fs.existsSync(file)) return [];
-  const linhas = fs.readFileSync(file, 'utf8').split('\n').filter(Boolean);
-  const out = [];
-  for (const ln of linhas) {
-    try { out.push(JSON.parse(ln)); } catch (_) {}
-  }
-  out.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-  return out;
-}
+// Carrega pontos visitados hoje do Supabase (async, no boot)
+producaoStore.loadPontosVisitadosHoje();
 
 function safeName(v) {
   return String(v || 'SEM_EQUIPE').trim().replace(/[\\/:*?"<>|\s]+/g, '_').toUpperCase();
@@ -327,12 +300,12 @@ function escXml(v) {
     .replace(/'/g, '&apos;');
 }
 
-function writeEquipeDiaArquivos(reg) {
+async function writeEquipeDiaArquivos(reg) {
   const data = todayStr(new Date(reg.ts || Date.now()));
   const equipeDir = path.join(producaoEquipesDir, safeName(reg.equipeId));
   fs.mkdirSync(equipeDir, { recursive: true });
 
-  const todosDia = readProducao(data).filter(r => String(r.equipeId || '').toUpperCase() === String(reg.equipeId || '').toUpperCase());
+  const todosDia = (await producaoStore.readDay(data)).filter(r => String(r.equipeId || '').toUpperCase() === String(reg.equipeId || '').toUpperCase());
 
   const txtPath = path.join(equipeDir, `${data}.txt`);
   const linhas = [];
@@ -504,7 +477,7 @@ app.post('/api/posicao', requireAuth, (req, res) => {
 });
 
 /** Recebe producao do app (coleta de ponto) para auditoria NOC. */
-app.post('/api/producao', requireAuth, (req, res) => {
+app.post('/api/producao', requireAuth, async (req, res) => {
   const body = req.body || {};
   const reg = {
     equipeId: req.equipe.equipeId,
@@ -532,19 +505,19 @@ app.post('/api/producao', requireAuth, (req, res) => {
     console.log(`[producao] ${reg.equipeId} → nenhum ponto próximo (lat:${reg.lat}, lng:${reg.lng})`);
   }
 
-  appendProducao(reg);
-  writeEquipeDiaArquivos(reg);
+  await producaoStore.append(reg);
+  writeEquipeDiaArquivos(reg).catch(err => console.warn('[producao] erro ao gerar arquivos:', err.message));
   broadcast({ type: 'production', data: reg });
   res.json({ ok: true, pontoIdentificado: pontoIdentificado || null });
 });
 
 /** Lista producao do dia para painel NOC. */
-app.get('/api/producao', (req, res) => {
+app.get('/api/producao', async (req, res) => {
   const data = (req.query.data || todayStr()).toString();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     return res.status(400).json({ ok: false, error: 'Parametro data invalido (YYYY-MM-DD)' });
   }
-  const rows = readProducao(data);
+  const rows = await producaoStore.readDay(data);
   res.json({ ok: true, data, total: rows.length, rows });
 });
 
@@ -766,7 +739,7 @@ app.get('/api/ponto-proximo', (req, res) => {
   const ponto = identificarPontoMaisProximo(lat, lng);
   if (!ponto) return res.json({ ok: true, ponto: null });
   const hoje = todayStr();
-  const jaFeito = pontosVisitadosHoje.has(`${hoje}:${ponto.id}`);
+  const jaFeito = producaoStore.pontosVisitadosHoje.has(`${hoje}:${ponto.id}`);
   res.json({ ok: true, ponto: { id: ponto.id, nome: ponto.nome, cidade: ponto.cidade, lat: ponto.lat, lng: ponto.lng, distancia: ponto.distancia, jaFeito } });
 });
 

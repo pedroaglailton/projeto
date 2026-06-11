@@ -1963,17 +1963,15 @@
         popularFiltroCidades();
         popularFiltroAis();
         popularFiltroCategorias();
-        await carregarVisitadosHoje();
+        await carregarVisitadosHistorico();
         renderPontosLayer();
         atualizarStatsPontos();
       } catch (_) {}
     }
 
-    async function carregarVisitadosHoje() {
+    async function carregarVisitadosHistorico() {
       try {
-        const d = new Date();
-        const hoje = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-        const r = await fetch('/api/producao?data=' + hoje);
+        const r = await fetch('/api/producao?all=1');
         const j = await r.json();
         const rows = j.rows || [];
         let adicionados = 0;
@@ -1983,8 +1981,8 @@
             adicionados++;
           }
         }
-        console.log('[NOC] carregarVisitadosHoje:', rows.length, 'registros,', adicionados, 'adicionados. Map:', pontosVisitados.size);
-      } catch (e) { console.warn('[NOC] erro carregarVisitadosHoje:', e); }
+        console.log('[NOC] carregarVisitadosHistorico:', rows.length, 'registros,', adicionados, 'adicionados. Map:', pontosVisitados.size);
+      } catch (e) { console.warn('[NOC] erro carregarVisitadosHistorico:', e); }
     }
 
     // =========================================================================

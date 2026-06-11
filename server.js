@@ -529,8 +529,12 @@ app.post('/api/producao', async (req, res) => {
   res.json({ ok: true, pontoIdentificado: pontoIdentificado || null });
 });
 
-/** Lista producao do dia para painel NOC. */
+/** Lista producao do dia para painel NOC. Se all=1, retorna todos os registros. */
 app.get('/api/producao', async (req, res) => {
+  if (req.query.all === '1') {
+    const rows = await producaoStore.readAll();
+    return res.json({ ok: true, data: 'ALL', total: rows.length, rows });
+  }
   const data = (req.query.data || todayStr()).toString();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     return res.status(400).json({ ok: false, error: 'Parametro data invalido (YYYY-MM-DD)' });

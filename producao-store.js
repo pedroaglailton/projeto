@@ -124,17 +124,61 @@ class ProducaoStore {
   }
 
   /**
-   * Carrega os pontos visitados hoje ao iniciar o NOC
+   * Le TODOS os registros de producao (sem filtro de data)
+   */
+  async readAll() {
+    if (!supabase) return [];
+
+    try {
+      let query = supabase
+        .from('producao')
+        .select('*')
+        .order('ts', { ascending: true });
+
+      const { data, error } = await query;
+      if (error) {
+        console.error('[ProducaoStore] erro ao ler todos:', error.message);
+        return [];
+      }
+
+      return (data || []).map(r => ({
+        id: r.id,
+        equipeId: r.equipe_id,
+        equipeNome: r.equipe_nome,
+        pontoNumero: r.ponto_numero,
+        cidade: r.cidade,
+        ais: r.ais,
+        lat: r.lat,
+        lng: r.lng,
+        accuracy: r.accuracy,
+        ts: new Date(r.ts).getTime(),
+        origem: r.origem,
+        pontoId: r.ponto_id,
+        pontoNome: r.ponto_nome,
+        pontoCidade: r.ponto_cidade,
+        pontoDistM: r.ponto_dist_m
+      }));
+    } catch (err) {
+      console.error('[ProducaoStore] erro ao ler todos:', err.message);
+      return [];
+    }
+  }
+
+  /**
+   * Carrega os pontos visitados historicamente ao iniciar o NOC
    */
   async loadPontosVisitadosHoje() {
     if (!supabase) return;
-    const hoje = todayStr();
     try {
-      const rows = await this.readDay(hoje);
+      const rows = await this.readAll();
       for (const reg of rows) {
-        if (reg.pontoId) this.pontosVisitadosHoje.add(`${hoje}:${reg.pontoId}`);
+        if (reg.pontoId) {
+          const d = new Date(reg.ts);
+          const dataStr = todayStr(d);
+          this.pontosVisitadosHoje.add(`${dataStr}:${reg.pontoId}`);
+        }
       }
-      console.log(`[ProducaoStore] ${this.pontosVisitadosHoje.size} ponto(s) visitado(s) hoje carregado(s)`);
+      console.log(`[ProducaoStore] ${this.pontosVisitadosHoje.size} ponto(s) visitado(s) historico(s) carregado(s)`);
     } catch (err) {
       console.warn('[ProducaoStore] erro ao carregar visitados:', err.message);
     }

@@ -1,5 +1,5 @@
 // Persistencia de pontos_coletados (dados completos coletados pelo app) no Supabase
-// Salva checklist, cameras e observações como JSONB
+// Checklist como colunas individuais
 
 const { createClient } = require('@supabase/supabase-js');
 
@@ -26,18 +26,51 @@ class PontosColetadosStore {
 
     try {
       const row = {
-        equipe_id: reg.equipeId || null,
-        equipe_nome: reg.equipeNome || null,
-        ponto_numero: reg.pontoNumero || null,
+        equipe_id: reg.equipe_id || null,
+        equipe_nome: reg.equipe_nome || null,
+        ponto_numero: reg.ponto_numero || null,
         operador: reg.operador || null,
         lat: reg.lat ?? null,
         lng: reg.lng ?? null,
         accuracy: reg.accuracy ?? null,
         endereco: reg.endereco || null,
         observacoes: reg.observacoes || null,
-        data_hora: reg.dataHora || new Date().toISOString(),
-        checklist: reg.checklist || {},
-        cameras: reg.cameras || []
+        data_hora: reg.data_hora || new Date().toISOString(),
+        data_inspecao: reg.data_inspecao || null,
+        ais: reg.ais || null,
+        cidade_nome: reg.cidade_nome || null,
+        contrato: reg.contrato || null,
+        config_cameras: reg.config_cameras || null,
+        caixa_hermetica: reg.caixa_hermetica || null,
+        status_caixa_hermetica: reg.status_caixa_hermetica || null,
+        nobreak: reg.nobreak || null,
+        status_nobreak: reg.status_nobreak || null,
+        poste: reg.poste || null,
+        poste_status: reg.poste_status || null,
+        status_poste: reg.status_poste || null,
+        switch_cftv: reg.switch_cftv || null,
+        status_switch: reg.status_switch || null,
+        onu: reg.onu || null,
+        radio_ap: reg.radio_ap || null,
+        switch_ap: reg.switch_ap || null,
+        status_switch_ap: reg.status_switch_ap || null,
+        caixa_padrao: reg.caixa_padrao || null,
+        status_padrao: reg.status_padrao || null,
+        registro_enel: reg.registro_enel || null,
+        lpr01: reg.lpr01 || null,
+        lpr01_sentido: reg.lpr01_sentido || null,
+        lpr02: reg.lpr02 || null,
+        lpr02_sentido: reg.lpr02_sentido || null,
+        lpr03: reg.lpr03 || null,
+        lpr03_sentido: reg.lpr03_sentido || null,
+        lpr04: reg.lpr04 || null,
+        lpr04_sentido: reg.lpr04_sentido || null,
+        ajuste_lpr: reg.ajuste_lpr || null,
+        tombo_cpu: reg.tombo_cpu || null,
+        tombo_bullet: reg.tombo_bullet || null,
+        tombo_switch_cvm: reg.tombo_switch_cvm || null,
+        switch_ligado: reg.switch_ligado || null,
+        ajuste_bullet: reg.ajuste_bullet || null
       };
 
       const { data, error } = await supabase

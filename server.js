@@ -576,39 +576,86 @@ app.delete('/api/producao/:id', authMiddlewareNoc, async (req, res) => {
 app.post('/api/pontos-coletados', requireAuth, async (req, res) => {
   const body = req.body || {};
   const eq = req.equipe;
+  const ck = body.checklist && typeof body.checklist === 'object' ? body.checklist : {};
+
+  const str = (v) => v ? String(v).trim() : null;
 
   const reg = {
-    equipeId: eq.equipeId,
-    equipeNome: eq.nome,
-    pontoNumero: body.pontoNumero ? String(body.pontoNumero).trim() : null,
-    operador: body.operador ? String(body.operador).trim() : null,
+    equipe_id: eq.equipeId,
+    equipe_nome: eq.nome,
+    ponto_numero: body.pontoNumero ? String(body.pontoNumero).trim() : null,
+    operador: str(body.operador),
     lat: typeof body.lat === 'number' ? body.lat : null,
     lng: typeof body.lng === 'number' ? body.lng : null,
     accuracy: typeof body.accuracy === 'number' ? body.accuracy : null,
-    endereco: body.endereco ? String(body.endereco).trim() : null,
-    observacoes: body.observacoes ? String(body.observacoes).trim() : null,
-    dataHora: body.dataHora || new Date().toISOString(),
-    checklist: body.checklist && typeof body.checklist === 'object' ? body.checklist : {},
-    cameras: Array.isArray(body.cameras) ? body.cameras : []
+    endereco: str(body.endereco),
+    observacoes: str(body.observacoes),
+    data_hora: body.dataHora || new Date().toISOString(),
+    // Dados Gerais
+    data_inspecao: str(ck.data_inspecao),
+    ais: str(ck.ais),
+    cidade_nome: str(ck.cidade_nome),
+    contrato: str(ck.contrato),
+    config_cameras: str(ck.cameras),
+    // Equipamentos
+    caixa_hermetica: str(ck.caixa_hermetica),
+    status_caixa_hermetica: str(ck.status_caixa_hermetica),
+    nobreak: str(ck.nobreak),
+    status_nobreak: str(ck.status_nobreak),
+    // Poste
+    poste: str(ck.poste),
+    poste_status: str(ck.poste_status),
+    status_poste: str(ck.status_poste),
+    // Switch / Rede
+    switch_cftv: str(ck.switch_cftv),
+    status_switch: str(ck.status_switch),
+    onu: str(ck.onu),
+    // AP
+    radio_ap: str(ck.radio_ap),
+    switch_ap: str(ck.switch_ap),
+    status_switch_ap: str(ck.status_switch_ap),
+    // Energia
+    caixa_padrao: str(ck.caixa_padrao),
+    status_padrao: str(ck.status_padrao),
+    registro_enel: str(ck.registro_enel),
+    // LPR
+    lpr01: str(ck.lpr01),
+    lpr01_sentido: str(ck.lpr01_sentido),
+    lpr02: str(ck.lpr02),
+    lpr02_sentido: str(ck.lpr02_sentido),
+    lpr03: str(ck.lpr03),
+    lpr03_sentido: str(ck.lpr03_sentido),
+    lpr04: str(ck.lpr04),
+    lpr04_sentido: str(ck.lpr04_sentido),
+    ajuste_lpr: str(ck.ajuste_lpr),
+    // CPU / Bullet / Switch
+    tombo_cpu: str(ck.tombo_cpu),
+    tombo_bullet: str(ck.tombo_bullet),
+    tombo_switch_cvm: str(ck.tombo_switch_cvm),
+    switch_ligado: str(ck.switch_ligado),
+    ajuste_bullet: str(ck.ajuste_bullet)
   };
 
-  if (!reg.pontoNumero) return res.status(400).json({ ok: false, error: 'pontoNumero obrigatorio' });
+  if (!reg.ponto_numero) return res.status(400).json({ ok: false, error: 'pontoNumero obrigatorio' });
 
   const inserted = await pontosColetadosStore.append(reg);
   res.json({ ok: true, id: inserted ? inserted.id : null });
 });
 
-/** Atualiza cameras/checklist de um ponto coletado (edição no app) */
+/** Atualiza campos de um ponto coletado (edição no app) */
 app.put('/api/pontos-coletados/:id', requireAuth, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
 
-  const { cameras, checklist, observacoes } = req.body || {};
+  const allowed = [
+    'observacoes', 'endereco', 'ais', 'cidade_nome', 'config_cameras',
+    'lpr01', 'lpr02', 'lpr03', 'lpr04', 'ajuste_lpr',
+    'tombo_cpu', 'tombo_bullet', 'tombo_switch_cvm'
+  ];
   const changes = {};
-  if (cameras !== undefined) changes.cameras = cameras;
-  if (checklist !== undefined) changes.checklist = checklist;
-  if (observacoes !== undefined) changes.observacoes = String(observacoes).trim();
-
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) changes[key] = String(req.body[key]).trim();
+  }
   if (Object.keys(changes).length === 0) return res.status(400).json({ ok: false, error: 'Nenhum campo para atualizar' });
 
   const ok = await pontosColetadosStore.update(id, changes);

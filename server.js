@@ -14,6 +14,7 @@ const webPush = require('web-push');
 const { EquipesStore, authMiddleware } = require('./auth');
 const { PosicoesStore, todayStr }      = require('./posicoes-store');
 const { ProducaoStore }                = require('./producao-store');
+const { PontosColetadosStore }         = require('./pontos-coletados-store');
 const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, authMiddlewarePerfil, listarUsuarios, criarUsuario, atualizarUsuario, removerUsuario } = require('./usuarios');
 
 // ============================================================================
@@ -150,6 +151,7 @@ app.set('trust proxy', 'loopback');
 const equipesStore = new EquipesStore();
 const posicoesStore = new PosicoesStore();
 const producaoStore = new ProducaoStore();
+const pontosColetadosStore = new PontosColetadosStore();
 const requireAuth = authMiddleware(equipesStore);
 
 // ============================================================================
@@ -564,6 +566,63 @@ app.delete('/api/producao/:id', authMiddlewareNoc, async (req, res) => {
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
   const ok = await producaoStore.remove(id);
   res.json({ ok });
+});
+
+// ============================================================================
+// PONTOS COLETADOS — dados completos do app (checklist, cameras, etc.)
+// ============================================================================
+
+/** Recebe ponto coletado completo do app (localStorage -> Supabase) */
+app.post('/api/pontos-coletados', requireAuth, async (req, res) => {
+  const body = req.body || {};
+  const eq = req.equipe;
+
+  const reg = {
+    equipeId: eq.equipeId,
+    equipeNome: eq.nome,
+    pontoNumero: body.pontoNumero ? String(body.pontoNumero).trim() : null,
+    operador: body.operador ? String(body.operador).trim() : null,
+    lat: typeof body.lat === 'number' ? body.lat : null,
+    lng: typeof body.lng === 'number' ? body.lng : null,
+    accuracy: typeof body.accuracy === 'number' ? body.accuracy : null,
+    endereco: body.endereco ? String(body.endereco).trim() : null,
+    observacoes: body.observacoes ? String(body.observacoes).trim() : null,
+    dataHora: body.dataHora || new Date().toISOString(),
+    checklist: body.checklist && typeof body.checklist === 'object' ? body.checklist : {},
+    cameras: Array.isArray(body.cameras) ? body.cameras : []
+  };
+
+  if (!reg.pontoNumero) return res.status(400).json({ ok: false, error: 'pontoNumero obrigatorio' });
+
+  const inserted = await pontosColetadosStore.append(reg);
+  res.json({ ok: true, id: inserted ? inserted.id : null });
+});
+
+/** Atualiza cameras/checklist de um ponto coletado (edição no app) */
+app.put('/api/pontos-coletados/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+
+  const { cameras, checklist, observacoes } = req.body || {};
+  const changes = {};
+  if (cameras !== undefined) changes.cameras = cameras;
+  if (checklist !== undefined) changes.checklist = checklist;
+  if (observacoes !== undefined) changes.observacoes = String(observacoes).trim();
+
+  if (Object.keys(changes).length === 0) return res.status(400).json({ ok: false, error: 'Nenhum campo para atualizar' });
+
+  const ok = await pontosColetadosStore.update(id, changes);
+  res.json({ ok });
+});
+
+/** Lista pontos coletados do dia */
+app.get('/api/pontos-coletados', requireAuth, async (req, res) => {
+  const data = (req.query.data || new Date().toISOString().slice(0, 10)).toString();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return res.status(400).json({ ok: false, error: 'Parametro data invalido (YYYY-MM-DD)' });
+  }
+  const rows = await pontosColetadosStore.readDay(data, req.equipe.equipeId);
+  res.json({ ok: true, data, total: rows.length, rows });
 });
 
 /**

@@ -1898,6 +1898,93 @@
             }
         }
 
+        // =====================================================================
+        // PONTOS COLETADOS — envia dados completos do ponto pro Supabase
+        // (checklist, cameras, observações — sem fotos)
+        // =====================================================================
+        const PCOL_QUEUE_KEY = 'preventiva_pcol_queue_v1';
+
+        function getPColQueue() {
+            try {
+                const raw = localStorage.getItem(PCOL_QUEUE_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (_) { return []; }
+        }
+
+        function savePColQueue(arr) {
+            try { localStorage.setItem(PCOL_QUEUE_KEY, JSON.stringify(arr.slice(-200))); } catch (_) {}
+        }
+
+        function enqueuePCol(payload) {
+            const q = getPColQueue();
+            q.push(payload);
+            savePColQueue(q);
+        }
+
+        async function flushPColQueue(token) {
+            const q = getPColQueue();
+            if (!q.length) return;
+            const restantes = [];
+            for (const item of q) {
+                try {
+                    const resp = await fetch(apiUrl('/api/pontos-coletados'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Equipe-Token': token
+                        },
+                        body: JSON.stringify(item),
+                        mode: 'cors',
+                        credentials: 'omit'
+                    });
+                    if (!resp.ok) restantes.push(item);
+                } catch (_) {
+                    restantes.push(item);
+                    break;
+                }
+            }
+            savePColQueue(restantes);
+        }
+
+        async function enviarPontoColetado(ponto) {
+            const token = getEquipeToken();
+            if (!token) return;
+
+            const payload = {
+                pontoNumero: ponto.pontoNumero,
+                operador: ponto.operador,
+                lat: ponto.localizacao?.lat ?? null,
+                lng: ponto.localizacao?.lng ?? null,
+                accuracy: ponto.localizacao?.accuracy ?? null,
+                endereco: ponto.localizacao?.endereco || null,
+                observacoes: ponto.observacoes || null,
+                dataHora: ponto.dataHora || new Date().toISOString(),
+                checklist: ponto.checklist || {},
+                cameras: ponto.cameras || []
+            };
+
+            try {
+                const resp = await fetch(apiUrl('/api/pontos-coletados'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Equipe-Token': token
+                    },
+                    body: JSON.stringify(payload),
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+                if (!resp.ok) {
+                    enqueuePCol(payload);
+                } else {
+                    await flushPColQueue(token);
+                }
+            } catch (_) {
+                enqueuePCol(payload);
+            }
+        }
+
         async function enviarPosicaoAutoTracking(coords) {
             const agora = Date.now();
             if (agora - ultimoEnvioTracking < TRACKING_MIN_INTERVAL_MS) return;
@@ -2267,6 +2354,7 @@
                 if (token) {
                     flushTrackingQueue(token);
                     flushProducaoQueue(token);
+                    flushPColQueue(token);
                 }
             } else {
                 enviarUltimaPosicaoBeacon();
@@ -3287,6 +3375,7 @@
             if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
             showToast('✓ Ponto salvo com sucesso!', 'success');
             enviarProducaoPonto(ponto, 'live');
+            enviarPontoColetado(ponto);
             enviarAtividadeNoc('concluido', ponto.pontoNumero, 'Ponto concluido e salvo');
             atividadeColetaAtiva = false;
         }
@@ -5768,6 +5857,7 @@
                     if (token) {
                         flushTrackingQueue(token);
                         flushProducaoQueue(token);
+                        flushPColQueue(token);
                     }
                 }
                 if (event.data && event.data.type === 'ONLINE') {
@@ -5775,6 +5865,7 @@
                     if (token) {
                         flushTrackingQueue(token);
                         flushProducaoQueue(token);
+                        flushPColQueue(token);
                     }
                 }
                 if (event.data && event.data.type === 'OPEN_MESSAGES') {

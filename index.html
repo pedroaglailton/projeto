@@ -1286,6 +1286,9 @@
                     <button class="btn" style="background:#047857;margin-top:10px;" onclick="exportarExcelDia()">
                         <i class="material-icons">table_view</i> Gerar Excel
                     </button>
+                    <button class="btn" style="background:#0057b8;margin-top:10px;" onclick="enviarTodosPontosDoDia()">
+                        <i class="material-icons">cloud_upload</i> Enviar para Supabase
+                    </button>
                     <div style="margin-top:16px;border-top:1px solid #e2e8f0;padding-top:12px;">
                         <label style="font-size:12px;font-weight:600;color:#6b7280;">BUSCAR PATRIMÔNIO</label>
                         <input type="text" id="buscaPatrimonio" class="form-control" placeholder="Digite número de patrimônio" style="margin-top:6px;">
@@ -1982,6 +1985,64 @@
                 }
             } catch (_) {
                 enqueuePCol(payload);
+            }
+        }
+
+        // =====================================================================
+        // ENVIAR TODOS OS PONTOS DO DIA PRO SUPABASE (retroativo)
+        // =====================================================================
+        async function enviarTodosPontosDoDia() {
+            const token = getEquipeToken();
+            if (!token) { showToast('Configure o token da equipe primeiro', 'error'); return; }
+            if (!pontosDoDia.length) { showToast('Nenhum ponto para enviar', 'error'); return; }
+
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="material-icons">hourglass_empty</i> Enviando...';
+
+            let enviados = 0;
+            let erros = 0;
+
+            for (const ponto of pontosDoDia) {
+                const payload = {
+                    pontoNumero: ponto.pontoNumero,
+                    operador: ponto.operador,
+                    lat: ponto.localizacao?.lat ?? null,
+                    lng: ponto.localizacao?.lng ?? null,
+                    accuracy: ponto.localizacao?.accuracy ?? null,
+                    endereco: ponto.localizacao?.endereco || null,
+                    observacoes: ponto.observacoes || null,
+                    dataHora: ponto.dataHora || new Date().toISOString(),
+                    checklist: ponto.checklist || {},
+                    cameras: ponto.cameras || []
+                };
+
+                try {
+                    const resp = await fetch(apiUrl('/api/pontos-coletados'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Equipe-Token': token
+                        },
+                        body: JSON.stringify(payload),
+                        mode: 'cors',
+                        credentials: 'omit'
+                    });
+                    if (resp.ok) enviados++;
+                    else erros++;
+                } catch (_) {
+                    erros++;
+                }
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+
+            if (erros === 0) {
+                showToast(`✓ ${enviados} ponto(s) enviado(s) pro Supabase!`, 'success');
+            } else {
+                showToast(`Enviados: ${enviados} | Erros: ${erros}`, 'error');
             }
         }
 

@@ -2784,7 +2784,7 @@
 
         function carregarDados() {
             const hoje = new Date().toISOString().slice(0, 10);
-            limparHistoricoAntesDe(hoje);
+            
             dataVisualizando = hoje;
             const dados = localStorage.getItem(getDataKey(hoje));
             if (dados) pontosDoDia = JSON.parse(dados);

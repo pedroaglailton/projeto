@@ -2185,7 +2185,6 @@
             if (fallbackTrackingTimer) clearInterval(fallbackTrackingTimer);
             fallbackTrackingTimer = setInterval(() => {
                 if (!navigator.geolocation) return;
-                if (document.visibilityState !== 'visible') return;
                 navigator.geolocation.getCurrentPosition(
                     (pos) => enviarPosicaoAutoTracking(pos.coords),
                     () => {},

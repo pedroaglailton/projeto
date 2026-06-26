@@ -520,6 +520,9 @@
                     <button class="btn btn-primary" onclick="carregarPontos(1)">
                         🔍 Filtrar
                     </button>
+                    <button class="btn btn-success" onclick="abrirModalNovo()">
+                        ➕ Adicionar Ponto
+                    </button>
                     <button class="btn btn-outline" onclick="limparFiltros()">
                         ✖ Limpar
                     </button>
@@ -573,7 +576,7 @@
     <div class="modal-overlay" id="editModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>✏️ Editar Ponto</h3>
+                <h3 id="modalTitle">✏️ Editar Ponto</h3>
                 <button class="modal-close" onclick="fecharModal()">&times;</button>
             </div>
             <div class="modal-body">
@@ -728,7 +731,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
-                <button class="btn btn-success" onclick="salvarEdicao()">💾 Salvar</button>
+                <button class="btn btn-success" onclick="salvarPonto()">💾 Salvar</button>
             </div>
         </div>
     </div>
@@ -985,6 +988,111 @@
 
         function fecharModal() {
             document.getElementById('editModal').classList.remove('open');
+        }
+
+        function salvarPonto() {
+            const id = document.getElementById('editId').value;
+            if (id) {
+                salvarEdicao();
+            } else {
+                salvarNovo();
+            }
+        }
+
+        // ===== Criar Novo Ponto =====
+        function abrirModalNovo() {
+            document.getElementById('modalTitle').textContent = '➕ Novo Ponto';
+            document.getElementById('editId').value = '';
+            document.getElementById('editPontoNumero').value = '';
+            document.getElementById('editOperador').value = '';
+            document.getElementById('editEquipe').value = '';
+            document.getElementById('editDataHora').value = new Date().toLocaleString('pt-BR');
+            document.getElementById('editLat').value = '';
+            document.getElementById('editLng').value = '';
+            document.getElementById('editEndereco').value = '';
+            document.getElementById('editCidade').value = '';
+            document.getElementById('editAis').value = '';
+            document.getElementById('editObservacoes').value = '';
+            document.getElementById('editPoste').value = '';
+            document.getElementById('editPosteStatus').value = '';
+            document.getElementById('editCaixaHermetica').value = '';
+            document.getElementById('editNobreak').value = '';
+            document.getElementById('editSwitchCftv').value = '';
+            document.getElementById('editOnu').value = '';
+            document.getElementById('editLpr01').value = '';
+            document.getElementById('editLpr01Sentido').value = '';
+            document.getElementById('editLpr02').value = '';
+            document.getElementById('editLpr02Sentido').value = '';
+            document.getElementById('editLpr03').value = '';
+            document.getElementById('editLpr03Sentido').value = '';
+            document.getElementById('editLpr04').value = '';
+            document.getElementById('editLpr04Sentido').value = '';
+            document.getElementById('editTomboCpu').value = '';
+            document.getElementById('editTomboBullet').value = '';
+            document.getElementById('editTomboSwitchCvm').value = '';
+            document.getElementById('editAjusteLpr').value = '';
+            document.getElementById('editModal').classList.add('open');
+        }
+
+        async function salvarNovo() {
+            const pontoNumero = document.getElementById('editPontoNumero').value.trim();
+            if (!pontoNumero) {
+                showToast('Número do ponto é obrigatório', 'error');
+                return;
+            }
+
+            const body = {
+                ponto_numero: pontoNumero,
+                equipe_nome: document.getElementById('editEquipe').value,
+                operador: document.getElementById('editOperador').value,
+                lat: parseFloat(document.getElementById('editLat').value) || null,
+                lng: parseFloat(document.getElementById('editLng').value) || null,
+                endereco: document.getElementById('editEndereco').value,
+                cidade_nome: document.getElementById('editCidade').value,
+                ais: document.getElementById('editAis').value,
+                observacoes: document.getElementById('editObservacoes').value,
+                data_hora: new Date().toISOString(),
+                poste: document.getElementById('editPoste').value,
+                poste_status: document.getElementById('editPosteStatus').value,
+                caixa_hermetica: document.getElementById('editCaixaHermetica').value,
+                nobreak: document.getElementById('editNobreak').value,
+                switch_cftv: document.getElementById('editSwitchCftv').value,
+                onu: document.getElementById('editOnu').value,
+                lpr01: document.getElementById('editLpr01').value,
+                lpr01_sentido: document.getElementById('editLpr01Sentido').value,
+                lpr02: document.getElementById('editLpr02').value,
+                lpr02_sentido: document.getElementById('editLpr02Sentido').value,
+                lpr03: document.getElementById('editLpr03').value,
+                lpr03_sentido: document.getElementById('editLpr03Sentido').value,
+                lpr04: document.getElementById('editLpr04').value,
+                lpr04_sentido: document.getElementById('editLpr04Sentido').value,
+                tombo_cpu: document.getElementById('editTomboCpu').value,
+                tombo_bullet: document.getElementById('editTomboBullet').value,
+                tombo_switch_cvm: document.getElementById('editTomboSwitchCvm').value,
+                ajuste_lpr: document.getElementById('editAjusteLpr').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/pontos`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Noc-Token': tokenNoc
+                    },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    showToast('Ponto criado com sucesso! ID: ' + data.id, 'success');
+                    fecharModal();
+                    carregarPontos(1);
+                } else {
+                    showToast(data.error || 'Erro ao criar ponto', 'error');
+                }
+            } catch (err) {
+                showToast('Erro ao criar ponto', 'error');
+            }
         }
 
         async function salvarEdicao() {

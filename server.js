@@ -872,6 +872,77 @@ app.get('/api/pontos-coletados/:id', requireAuth, async (req, res) => {
 // ADMIN — CRUD Completo para Pontos Coletados
 // ============================================================================
 
+/** Cria um novo ponto coletado (admin) */
+app.post('/api/admin/pontos', authMiddlewareNoc, async (req, res) => {
+  try {
+    const str = (v) => v ? String(v).trim() : null;
+
+    const row = {
+      equipe_id: str(req.body.equipe_id),
+      equipe_nome: str(req.body.equipe_nome),
+      ponto_numero: str(req.body.ponto_numero),
+      operador: str(req.body.operador),
+      lat: typeof req.body.lat === 'number' ? req.body.lat : null,
+      lng: typeof req.body.lng === 'number' ? req.body.lng : null,
+      accuracy: typeof req.body.accuracy === 'number' ? req.body.accuracy : null,
+      endereco: str(req.body.endereco),
+      observacoes: str(req.body.observacoes),
+      data_hora: req.body.data_hora || new Date().toISOString(),
+      data_inspecao: str(req.body.data_inspecao),
+      ais: str(req.body.ais),
+      cidade_nome: str(req.body.cidade_nome),
+      contrato: str(req.body.contrato),
+      config_cameras: str(req.body.config_cameras),
+      caixa_hermetica: str(req.body.caixa_hermetica),
+      status_caixa_hermetica: str(req.body.status_caixa_hermetica),
+      nobreak: str(req.body.nobreak),
+      status_nobreak: str(req.body.status_nobreak),
+      poste: str(req.body.poste),
+      poste_status: str(req.body.poste_status),
+      status_poste: str(req.body.status_poste),
+      switch_cftv: str(req.body.switch_cftv),
+      status_switch: str(req.body.status_switch),
+      onu: str(req.body.onu),
+      radio_ap: str(req.body.radio_ap),
+      switch_ap: str(req.body.switch_ap),
+      status_switch_ap: str(req.body.status_switch_ap),
+      caixa_padrao: str(req.body.caixa_padrao),
+      status_padrao: str(req.body.status_padrao),
+      registro_enel: str(req.body.registro_enel),
+      lpr01: str(req.body.lpr01),
+      lpr01_sentido: str(req.body.lpr01_sentido),
+      lpr02: str(req.body.lpr02),
+      lpr02_sentido: str(req.body.lpr02_sentido),
+      lpr03: str(req.body.lpr03),
+      lpr03_sentido: str(req.body.lpr03_sentido),
+      lpr04: str(req.body.lpr04),
+      lpr04_sentido: str(req.body.lpr04_sentido),
+      ajuste_lpr: str(req.body.ajuste_lpr),
+      tombo_cpu: str(req.body.tombo_cpu),
+      tombo_bullet: str(req.body.tombo_bullet),
+      tombo_switch_cvm: str(req.body.tombo_switch_cvm),
+      switch_ligado: str(req.body.switch_ligado),
+      ajuste_bullet: str(req.body.ajuste_bullet)
+    };
+
+    if (!row.ponto_numero) {
+      return res.status(400).json({ ok: false, error: 'Numero do ponto obrigatorio' });
+    }
+
+    const { data, error } = await pontosColetadosStore.client
+      .from('pontos_coletados')
+      .insert([row])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ ok: true, id: data.id, ponto: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 /** Exporta pontos para Excel (admin) — DEVE vir ANTES de /:id */
 app.get('/api/admin/pontos/export', authMiddlewareNoc, async (req, res) => {
   try {

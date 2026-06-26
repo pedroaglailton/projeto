@@ -433,6 +433,13 @@ app.get('/pontos_planejados.json', (_req, res) => {
   }
 });
 
+// ============================================================================
+// Rota para servir a página admin (ANTES do static)
+// ============================================================================
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(pwaRoot, 'admin.html'));
+});
+
 // Arquivos estaticos
 app.use(express.static(pwaRoot));
 app.use('/noc-static', express.static(nocRoot));
@@ -1186,13 +1193,6 @@ app.get('/api/admin/cidades', authMiddlewareNoc, async (req, res) => {
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
-});
-
-// ============================================================================
-// Rota para servir a página admin
-// ============================================================================
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(pwaRoot, 'admin.html'));
 });
 
 /**

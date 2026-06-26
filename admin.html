@@ -794,6 +794,9 @@
                     }
                 } catch (e) {}
             }
+            // Token invalido ou expirado — limpa e mostra login
+            tokenNoc = '';
+            localStorage.removeItem('nocToken');
             document.getElementById('loginContainer').style.display = 'block';
         }
 
@@ -1062,7 +1065,7 @@
         }
 
         // ===== Exportar Excel =====
-        function exportExcel() {
+        async function exportExcel() {
             const params = new URLSearchParams();
             
             const dataInicio = document.getElementById('filterDataInicio').value;
@@ -1075,33 +1078,31 @@
             if (equipe) params.append('equipe', equipe);
             if (cidade) params.append('cidade', cidade);
 
-            const url = `${API_BASE}/api/admin/pontos/export?${params}`;
-            
-            // Download via iframe
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = url + (params.toString() ? '&' : '?') + 'token=' + tokenNoc;
-            document.body.appendChild(iframe);
-            
-            // Alternativa: fetch com blob
-            fetch(url, {
-                headers: { 'X-Noc-Token': tokenNoc }
-            })
-            .then(res => {
-                if (!res.ok) throw new Error('Erro ao exportar');
-                return res.blob();
-            })
-            .then(blob => {
+            const queryString = params.toString();
+            const url = `${API_BASE}/api/admin/pontos/export${queryString ? '?' + queryString : ''}`;
+
+            try {
+                showToast('Gerando planilha...', 'success');
+                
+                const res = await fetch(url, {
+                    headers: { 'X-Noc-Token': tokenNoc }
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Erro ao exportar' }));
+                    throw new Error(err.error || `HTTP ${res.status}`);
+                }
+
+                const blob = await res.blob();
                 const a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
                 a.download = `pontos_coletados_${new Date().toISOString().slice(0,10)}.xlsx`;
                 a.click();
                 URL.revokeObjectURL(a.href);
-                showToast('Arquivo exportado com sucesso!', 'success');
-            })
-            .catch(err => {
-                showToast('Erro ao exportar arquivo', 'error');
-            });
+                showToast('Planilha exportada com sucesso!', 'success');
+            } catch (err) {
+                showToast('Erro ao exportar: ' + err.message, 'error');
+            }
         }
 
         // ===== Utilitários =====

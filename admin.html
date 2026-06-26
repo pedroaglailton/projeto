@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin - Preventiva-CE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        :root {
+            --primary: #0057b8;
+            --primary-dark: #003d82;
+            --success: #047857;
+            --danger: #b91c1c;
+            --warning: #b45309;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s;
+        }
+
+        .header-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* Login */
+        .login-container {
+            max-width: 400px;
+            margin: 80px auto;
+            padding: 32px;
+            background: var(--card);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .login-container h2 {
+            text-align: center;
+            margin-bottom: 24px;
+            color: var(--primary);
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Filtros */
+        .filters {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .filters-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            align-items: end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .filter-group input:focus,
+        .filter-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* Botões */
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #065f46; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #991b1b; }
+        .btn-outline { 
+            background: white; 
+            border: 1px solid var(--border); 
+            color: var(--text); 
+        }
+        .btn-outline:hover { background: #f1f5f9; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* Tabela */
+        .table-container {
+            background: var(--card);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .table-header h2 {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            background: var(--primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .table-scroll {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        th {
+            background: #f8fafc;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:hover { background: #f8fafc; }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-ok { background: #dcfce7; color: #166534; }
+        .status-alert { background: #fef3c7; color: #92400e; }
+        .status-error { background: #fee2e2; color: #991b1b; }
+
+        /* Ações */
+        .actions {
+            display: flex;
+            gap: 4px;
+        }
+
+        .action-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .action-btn.edit { background: #dbeafe; color: #1d4ed8; }
+        .action-btn.edit:hover { background: #bfdbfe; }
+        .action-btn.delete { background: #fee2e2; color: #dc2626; }
+        .action-btn.delete:hover { background: #fecaca; }
+
+        /* Paginação */
+        .pagination {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .pagination-info {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .pagination-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: var(--card);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 700px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalIn 0.2s ease;
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: none;
+            background: #f1f5f9;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #64748b;
+        }
+
+        .modal-close:hover { background: #e2e8f0; }
+
+        .modal-body { padding: 20px; }
+
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        /* Formulário */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.full { grid-column: span 2; }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .section-title {
+            grid-column: span 2;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            margin-top: 8px;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+            z-index: 2000;
+            animation: toastIn 0.3s ease;
+        }
+
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .filters-row { grid-template-columns: 1fr; }
+            .form-grid { grid-template-columns: 1fr; }
+            .form-group.full { grid-column: span 1; }
+            .section-title { grid-column: span 1; }
+            .table-header { flex-direction: column; gap: 12px; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Login -->
+    <div id="loginContainer" class="login-container">
+        <h2>🔐 Acesso Admin</h2>
+        <form id="loginForm">
+            <div class="form-group" style="margin-bottom:16px;">
+                <label>Usuário</label>
+                <input type="text" id="loginUser" required placeholder="Seu usuário">
+            </div>
+            <div class="form-group" style="margin-bottom:20px;">
+                <label>Senha</label>
+                <input type="password" id="loginPass" required placeholder="Sua senha">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;">Entrar</button>
+            <div id="loginError" style="color:red;margin-top:12px;font-size:13px;display:none;"></div>
+        </form>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" style="display:none;">
+        <header class="header">
+            <h1>📊 Painel Admin — Pontos Coletados</h1>
+            <div style="display:flex;gap:12px;">
+                <button class="header-btn" onclick="exportExcel()">
+                    📥 Exportar Excel
+                </button>
+                <button class="header-btn" onclick="logout()">
+                    🚪 Sair
+                </button>
+            </div>
+        </header>
+
+        <div class="container">
+            <!-- Filtros -->
+            <div class="filters">
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Data Início</label>
+                        <input type="date" id="filterDataInicio">
+                    </div>
+                    <div class="filter-group">
+                        <label>Data Fim</label>
+                        <input type="date" id="filterDataFim">
+                    </div>
+                    <div class="filter-group">
+                        <label>Equipe</label>
+                        <select id="filterEquipe">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Cidade</label>
+                        <select id="filterCidade">
+                            <option value="">Todas</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label>Buscar</label>
+                        <input type="text" id="filterSearch" placeholder="Ponto, operador...">
+                    </div>
+                    <button class="btn btn-primary" onclick="carregarPontos(1)">
+                        🔍 Filtrar
+                    </button>
+                    <button class="btn btn-outline" onclick="limparFiltros()">
+                        ✖ Limpar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tabela -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>📋 Pontos Coletados <span class="badge" id="totalBadge">0</span></h2>
+                    <div style="color:var(--text-secondary);font-size:13px;" id="lastUpdate"></div>
+                </div>
+                
+                <div id="tableLoading" class="loading">
+                    <div class="spinner"></div>
+                    Carregando dados...
+                </div>
+
+                <div class="table-scroll" id="tableContent" style="display:none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Ponto</th>
+                                <th>Equipe</th>
+                                <th>Operador</th>
+                                <th>Data/Hora</th>
+                                <th>Cidade</th>
+                                <th>AIS</th>
+                                <th>Poste</th>
+                                <th>Checklist</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <div class="pagination-info" id="paginationInfo">Mostrando 0 de 0</div>
+                    <div class="pagination-btns">
+                        <button class="btn btn-outline btn-sm" onclick="carregarPontos(paginaAtual-1)" id="btnPrev">Anterior</button>
+                        <button class="btn btn-outline btn-sm" onclick="carregarPontos(paginaAtual+1)" id="btnNext">Próxima</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Edição -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>✏️ Editar Ponto</h3>
+                <button class="modal-close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <input type="hidden" id="editId">
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Número do Ponto</label>
+                            <input type="text" id="editPontoNumero">
+                        </div>
+                        <div class="form-group">
+                            <label>Operador</label>
+                            <input type="text" id="editOperador">
+                        </div>
+                        <div class="form-group">
+                            <label>Equipe</label>
+                            <input type="text" id="editEquipe" disabled style="background:#f1f5f9;">
+                        </div>
+                        <div class="form-group">
+                            <label>Data/Hora</label>
+                            <input type="text" id="editDataHora" disabled style="background:#f1f5f9;">
+                        </div>
+                        <div class="form-group">
+                            <label>Latitude</label>
+                            <input type="number" step="any" id="editLat">
+                        </div>
+                        <div class="form-group">
+                            <label>Longitude</label>
+                            <input type="number" step="any" id="editLng">
+                        </div>
+                        <div class="form-group full">
+                            <label>Endereço</label>
+                            <input type="text" id="editEndereco">
+                        </div>
+                        <div class="form-group">
+                            <label>Cidade</label>
+                            <input type="text" id="editCidade">
+                        </div>
+                        <div class="form-group">
+                            <label>AIS</label>
+                            <input type="text" id="editAis">
+                        </div>
+                        <div class="form-group full">
+                            <label>Observações</label>
+                            <textarea id="editObservacoes"></textarea>
+                        </div>
+
+                        <div class="section-title">Equipamentos</div>
+                        
+                        <div class="form-group">
+                            <label>Poste</label>
+                            <select id="editPoste">
+                                <option value="">Selecione</option>
+                                <option value="OK">OK</option>
+                                <option value="RUIM">RUIM</option>
+                                <option value="INEXISTENTE">INEXISTENTE</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status Poste</label>
+                            <input type="text" id="editPosteStatus">
+                        </div>
+                        <div class="form-group">
+                            <label>Caixa Hermética</label>
+                            <select id="editCaixaHermetica">
+                                <option value="">Selecione</option>
+                                <option value="OK">OK</option>
+                                <option value="RUIM">RUIM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Nobreak</label>
+                            <select id="editNobreak">
+                                <option value="">Selecione</option>
+                                <option value="OK">OK</option>
+                                <option value="RUIM">RUIM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Switch CFTV</label>
+                            <select id="editSwitchCftv">
+                                <option value="">Selecione</option>
+                                <option value="OK">OK</option>
+                                <option value="RUIM">RUIM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>ONU</label>
+                            <select id="editOnu">
+                                <option value="">Selecione</option>
+                                <option value="OK">OK</option>
+                                <option value="RUIM">RUIM</option>
+                            </select>
+                        </div>
+
+                        <div class="section-title">LPRs</div>
+
+                        <div class="form-group">
+                            <label>LPR 01</label>
+                            <input type="text" id="editLpr01">
+                        </div>
+                        <div class="form-group">
+                            <label>Sentido LPR 01</label>
+                            <input type="text" id="editLpr01Sentido">
+                        </div>
+                        <div class="form-group">
+                            <label>LPR 02</label>
+                            <input type="text" id="editLpr02">
+                        </div>
+                        <div class="form-group">
+                            <label>Sentido LPR 02</label>
+                            <input type="text" id="editLpr02Sentido">
+                        </div>
+                        <div class="form-group">
+                            <label>LPR 03</label>
+                            <input type="text" id="editLpr03">
+                        </div>
+                        <div class="form-group">
+                            <label>Sentido LPR 03</label>
+                            <input type="text" id="editLpr03Sentido">
+                        </div>
+                        <div class="form-group">
+                            <label>LPR 04</label>
+                            <input type="text" id="editLpr04">
+                        </div>
+                        <div class="form-group">
+                            <label>Sentido LPR 04</label>
+                            <input type="text" id="editLpr04Sentido">
+                        </div>
+
+                        <div class="section-title">Tombo / Equipamentos</div>
+
+                        <div class="form-group">
+                            <label>Tombo CPU</label>
+                            <input type="text" id="editTomboCpu">
+                        </div>
+                        <div class="form-group">
+                            <label>Tombo Bullet</label>
+                            <input type="text" id="editTomboBullet">
+                        </div>
+                        <div class="form-group">
+                            <label>Tombo Switch CVM</label>
+                            <input type="text" id="editTomboSwitchCvm">
+                        </div>
+                        <div class="form-group">
+                            <label>Ajuste LPR</label>
+                            <input type="text" id="editAjusteLpr">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="fecharModal()">Cancelar</button>
+                <button class="btn btn-success" onclick="salvarEdicao()">💾 Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let tokenNoc = localStorage.getItem('nocToken') || '';
+        let paginaAtual = 1;
+        let totalPaginas = 1;
+
+        // ===== Login =====
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const user = document.getElementById('loginUser').value;
+            const pass = document.getElementById('loginPass').value;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ usuario: user, senha: pass })
+                });
+                const data = await res.json();
+                
+                if (data.ok) {
+                    tokenNoc = data.token;
+                    localStorage.setItem('nocToken', tokenNoc);
+                    mostrarAdmin();
+                } else {
+                    showError(data.error || 'Erro ao fazer login');
+                }
+            } catch (err) {
+                showError('Erro de conexão');
+            }
+        });
+
+        function showError(msg) {
+            const el = document.getElementById('loginError');
+            el.textContent = msg;
+            el.style.display = 'block';
+        }
+
+        function logout() {
+            tokenNoc = '';
+            localStorage.removeItem('nocToken');
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('loginContainer').style.display = 'block';
+        }
+
+        // ===== Inicialização =====
+        async function init() {
+            if (tokenNoc) {
+                try {
+                    const res = await fetch(`${API_BASE}/api/auth/me`, {
+                        headers: { 'X-Noc-Token': tokenNoc }
+                    });
+                    if (res.ok) {
+                        mostrarAdmin();
+                        return;
+                    }
+                } catch (e) {}
+            }
+            document.getElementById('loginContainer').style.display = 'block';
+        }
+
+        async function mostrarAdmin() {
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            await Promise.all([carregarEquipes(), carregarCidades()]);
+            carregarPontos(1);
+        }
+
+        // ===== Carregar Filtros =====
+        async function carregarEquipes() {
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/equipes`, {
+                    headers: { 'X-Noc-Token': tokenNoc }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    const sel = document.getElementById('filterEquipe');
+                    sel.innerHTML = '<option value="">Todas</option>';
+                    data.equipes.forEach(eq => {
+                        sel.innerHTML += `<option value="${eq.equipe_nome}">${eq.equipe_nome}</option>`;
+                    });
+                }
+            } catch (e) {}
+        }
+
+        async function carregarCidades() {
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/cidades`, {
+                    headers: { 'X-Noc-Token': tokenNoc }
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    const sel = document.getElementById('filterCidade');
+                    sel.innerHTML = '<option value="">Todas</option>';
+                    data.cidades.forEach(c => {
+                        sel.innerHTML += `<option value="${c}">${c}</option>`;
+                    });
+                }
+            } catch (e) {}
+        }
+
+        // ===== Carregar Pontos =====
+        async function carregarPontos(pagina = 1) {
+            if (pagina < 1) return;
+            paginaAtual = pagina;
+
+            document.getElementById('tableLoading').style.display = 'flex';
+            document.getElementById('tableContent').style.display = 'none';
+
+            const params = new URLSearchParams({
+                page: pagina,
+                limit: 30
+            });
+
+            const dataInicio = document.getElementById('filterDataInicio').value;
+            const dataFim = document.getElementById('filterDataFim').value;
+            const equipe = document.getElementById('filterEquipe').value;
+            const cidade = document.getElementById('filterCidade').value;
+            const search = document.getElementById('filterSearch').value;
+
+            if (dataInicio) params.append('data_inicio', dataInicio);
+            if (dataFim) params.append('data_fim', dataFim);
+            if (equipe) params.append('equipe', equipe);
+            if (cidade) params.append('cidade', cidade);
+            if (search) params.append('search', search);
+
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/pontos?${params}`, {
+                    headers: { 'X-Noc-Token': tokenNoc }
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    renderizarTabela(data.pontos);
+                    totalPaginas = data.pages;
+                    document.getElementById('totalBadge').textContent = data.total;
+                    document.getElementById('paginationInfo').textContent = 
+                        `Mostrando ${data.pontos.length} de ${data.total} pontos`;
+                    document.getElementById('lastUpdate').textContent = 
+                        `Atualizado: ${new Date().toLocaleTimeString('pt-BR')}`;
+                    
+                    document.getElementById('btnPrev').disabled = paginaAtual <= 1;
+                    document.getElementById('btnNext').disabled = paginaAtual >= totalPaginas;
+                }
+            } catch (err) {
+                showToast('Erro ao carregar dados', 'error');
+            }
+
+            document.getElementById('tableLoading').style.display = 'none';
+            document.getElementById('tableContent').style.display = 'block';
+        }
+
+        function renderizarTabela(pontos) {
+            const tbody = document.getElementById('tableBody');
+            
+            if (!pontos || pontos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--text-secondary);">Nenhum ponto encontrado</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = pontos.map(p => {
+                const data = new Date(p.data_hora).toLocaleString('pt-BR');
+                const checks = ['poste', 'caixa_hermetica', 'nobreak', 'switch_cftv', 'onu'];
+                const ok = checks.filter(c => p[c] === 'OK').length;
+                const total = checks.length;
+                
+                let statusClass = 'status-ok';
+                let statusText = `${ok}/${total} OK`;
+                if (ok < total) {
+                    statusClass = ok >= 3 ? 'status-alert' : 'status-error';
+                }
+
+                return `
+                    <tr>
+                        <td><strong>${p.id}</strong></td>
+                        <td><strong>${p.ponto_numero || '-'}</strong></td>
+                        <td>${p.equipe_nome || '-'}</td>
+                        <td>${p.operador || '-'}</td>
+                        <td>${data}</td>
+                        <td>${p.cidade_nome || '-'}</td>
+                        <td>${p.ais || '-'}</td>
+                        <td>${p.poste || '-'}</td>
+                        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                        <td>
+                            <div class="actions">
+                                <button class="action-btn edit" onclick="editarPonto(${p.id})" title="Editar">✏️</button>
+                                <button class="action-btn delete" onclick="deletarPonto(${p.id})" title="Excluir">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ===== Editar =====
+        async function editarPonto(id) {
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/pontos/${id}`, {
+                    headers: { 'X-Noc-Token': tokenNoc }
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    const p = data.ponto;
+                    document.getElementById('editId').value = p.id;
+                    document.getElementById('editPontoNumero').value = p.ponto_numero || '';
+                    document.getElementById('editOperador').value = p.operador || '';
+                    document.getElementById('editEquipe').value = p.equipe_nome || '';
+                    document.getElementById('editDataHora').value = new Date(p.data_hora).toLocaleString('pt-BR');
+                    document.getElementById('editLat').value = p.lat || '';
+                    document.getElementById('editLng').value = p.lng || '';
+                    document.getElementById('editEndereco').value = p.endereco || '';
+                    document.getElementById('editCidade').value = p.cidade_nome || '';
+                    document.getElementById('editAis').value = p.ais || '';
+                    document.getElementById('editObservacoes').value = p.observacoes || '';
+                    
+                    document.getElementById('editPoste').value = p.poste || '';
+                    document.getElementById('editPosteStatus').value = p.poste_status || '';
+                    document.getElementById('editCaixaHermetica').value = p.caixa_hermetica || '';
+                    document.getElementById('editNobreak').value = p.nobreak || '';
+                    document.getElementById('editSwitchCftv').value = p.switch_cftv || '';
+                    document.getElementById('editOnu').value = p.onu || '';
+                    
+                    document.getElementById('editLpr01').value = p.lpr01 || '';
+                    document.getElementById('editLpr01Sentido').value = p.lpr01_sentido || '';
+                    document.getElementById('editLpr02').value = p.lpr02 || '';
+                    document.getElementById('editLpr02Sentido').value = p.lpr02_sentido || '';
+                    document.getElementById('editLpr03').value = p.lpr03 || '';
+                    document.getElementById('editLpr03Sentido').value = p.lpr03_sentido || '';
+                    document.getElementById('editLpr04').value = p.lpr04 || '';
+                    document.getElementById('editLpr04Sentido').value = p.lpr04_sentido || '';
+                    
+                    document.getElementById('editTomboCpu').value = p.tombo_cpu || '';
+                    document.getElementById('editTomboBullet').value = p.tombo_bullet || '';
+                    document.getElementById('editTomboSwitchCvm').value = p.tombo_switch_cvm || '';
+                    document.getElementById('editAjusteLpr').value = p.ajuste_lpr || '';
+
+                    document.getElementById('editModal').classList.add('open');
+                }
+            } catch (err) {
+                showToast('Erro ao buscar dados do ponto', 'error');
+            }
+        }
+
+        function fecharModal() {
+            document.getElementById('editModal').classList.remove('open');
+        }
+
+        async function salvarEdicao() {
+            const id = document.getElementById('editId').value;
+            
+            const body = {
+                ponto_numero: document.getElementById('editPontoNumero').value,
+                operador: document.getElementById('editOperador').value,
+                lat: parseFloat(document.getElementById('editLat').value) || null,
+                lng: parseFloat(document.getElementById('editLng').value) || null,
+                endereco: document.getElementById('editEndereco').value,
+                cidade_nome: document.getElementById('editCidade').value,
+                ais: document.getElementById('editAis').value,
+                observacoes: document.getElementById('editObservacoes').value,
+                poste: document.getElementById('editPoste').value,
+                poste_status: document.getElementById('editPosteStatus').value,
+                caixa_hermetica: document.getElementById('editCaixaHermetica').value,
+                nobreak: document.getElementById('editNobreak').value,
+                switch_cftv: document.getElementById('editSwitchCftv').value,
+                onu: document.getElementById('editOnu').value,
+                lpr01: document.getElementById('editLpr01').value,
+                lpr01_sentido: document.getElementById('editLpr01Sentido').value,
+                lpr02: document.getElementById('editLpr02').value,
+                lpr02_sentido: document.getElementById('editLpr02Sentido').value,
+                lpr03: document.getElementById('editLpr03').value,
+                lpr03_sentido: document.getElementById('editLpr03Sentido').value,
+                lpr04: document.getElementById('editLpr04').value,
+                lpr04_sentido: document.getElementById('editLpr04Sentido').value,
+                tombo_cpu: document.getElementById('editTomboCpu').value,
+                tombo_bullet: document.getElementById('editTomboBullet').value,
+                tombo_switch_cvm: document.getElementById('editTomboSwitchCvm').value,
+                ajuste_lpr: document.getElementById('editAjusteLpr').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/pontos/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Noc-Token': tokenNoc
+                    },
+                    body: JSON.stringify(body)
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    showToast('Ponto atualizado com sucesso!', 'success');
+                    fecharModal();
+                    carregarPontos(paginaAtual);
+                } else {
+                    showToast(data.error || 'Erro ao salvar', 'error');
+                }
+            } catch (err) {
+                showToast('Erro ao salvar alterações', 'error');
+            }
+        }
+
+        // ===== Deletar =====
+        async function deletarPonto(id) {
+            if (!confirm(`Tem certeza que deseja excluir o ponto #${id}?`)) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/pontos/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'X-Noc-Token': tokenNoc }
+                });
+                const data = await res.json();
+
+                if (data.ok) {
+                    showToast('Ponto excluído com sucesso!', 'success');
+                    carregarPontos(paginaAtual);
+                } else {
+                    showToast(data.error || 'Erro ao excluir', 'error');
+                }
+            } catch (err) {
+                showToast('Erro ao excluir ponto', 'error');
+            }
+        }
+
+        // ===== Exportar Excel =====
+        function exportExcel() {
+            const params = new URLSearchParams();
+            
+            const dataInicio = document.getElementById('filterDataInicio').value;
+            const dataFim = document.getElementById('filterDataFim').value;
+            const equipe = document.getElementById('filterEquipe').value;
+            const cidade = document.getElementById('filterCidade').value;
+
+            if (dataInicio) params.append('data_inicio', dataInicio);
+            if (dataFim) params.append('data_fim', dataFim);
+            if (equipe) params.append('equipe', equipe);
+            if (cidade) params.append('cidade', cidade);
+
+            const url = `${API_BASE}/api/admin/pontos/export?${params}`;
+            
+            // Download via iframe
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = url + (params.toString() ? '&' : '?') + 'token=' + tokenNoc;
+            document.body.appendChild(iframe);
+            
+            // Alternativa: fetch com blob
+            fetch(url, {
+                headers: { 'X-Noc-Token': tokenNoc }
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Erro ao exportar');
+                return res.blob();
+            })
+            .then(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `pontos_coletados_${new Date().toISOString().slice(0,10)}.xlsx`;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                showToast('Arquivo exportado com sucesso!', 'success');
+            })
+            .catch(err => {
+                showToast('Erro ao exportar arquivo', 'error');
+            });
+        }
+
+        // ===== Utilitários =====
+        function limparFiltros() {
+            document.getElementById('filterDataInicio').value = '';
+            document.getElementById('filterDataFim').value = '';
+            document.getElementById('filterEquipe').value = '';
+            document.getElementById('filterCidade').value = '';
+            document.getElementById('filterSearch').value = '';
+            carregarPontos(1);
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.className = `toast ${type}`;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3000);
+        }
+
+        // Tecla ESC fecha modal
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') fecharModal();
+        });
+
+        // Iniciar
+        init();
+    </script>
+</body>
+</html>

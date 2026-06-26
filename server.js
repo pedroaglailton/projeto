@@ -14,7 +14,7 @@ const webPush = require('web-push');
 const { EquipesStore, authMiddleware } = require('./auth');
 const { PosicoesStore, todayStr }      = require('./posicoes-store');
 const { ProducaoStore }                = require('./producao-store');
-const { PontosColetadosStore }         = require('./pontos-coletados-store');
+const { PontosColetadosStore } = require('./pontos-coletados-store');
 const { login: authLogin, validaToken, logout: authLogout, authMiddlewareNoc, authMiddlewarePerfil, listarUsuarios, criarUsuario, atualizarUsuario, removerUsuario } = require('./usuarios');
 
 // ============================================================================
@@ -670,6 +670,529 @@ app.get('/api/pontos-coletados', requireAuth, async (req, res) => {
   }
   const rows = await pontosColetadosStore.readDay(data, req.equipe.equipeId);
   res.json({ ok: true, data, total: rows.length, rows });
+});
+
+// ============================================================================
+// API PARA BOT TELEGRAM (do amigo)
+// ============================================================================
+
+/** Middleware de autenticacao para o bot */
+function authBotTelegram(req, res, next) {
+  const apiKey = req.get('X-Bot-API-Key') || req.query.api_key;
+  const validKey = process.env.BOT_API_KEY;
+  
+  if (!validKey) {
+    return res.status(500).json({ ok: false, error: 'BOT_API_KEY nao configurada no servidor' });
+  }
+  
+  if (!apiKey || apiKey !== validKey) {
+    return res.status(401).json({ ok: false, error: 'API key invalida' });
+  }
+  
+  next();
+}
+
+/** Lista pontos coletados (para o bot) */
+app.get('/api/bot/pontos', authBotTelegram, async (req, res) => {
+  try {
+    const data = (req.query.data || new Date().toISOString().slice(0, 10)).toString();
+    const equipeId = req.query.equipe || null;
+    
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      return res.status(400).json({ ok: false, error: 'Parametro data invalido (YYYY-MM-DD)' });
+    }
+    
+    let rows = await pontosColetadosStore.readDay(data, equipeId);
+    
+    // Retornar dados formatados para o bot
+    const pontos = rows.map(p => ({
+      id: p.id,
+      ponto_numero: p.ponto_numero,
+      equipe_nome: p.equipe_nome,
+      equipe_id: p.equipe_id,
+      operador: p.operador,
+      lat: p.lat,
+      lng: p.lng,
+      endereco: p.endereco,
+      cidade_nome: p.cidade_nome,
+      ais: p.ais,
+      data_hora: p.data_hora,
+      config_cameras: p.config_cameras,
+      observacoes: p.observacoes,
+      // Checklist resumido
+      poste: p.poste,
+      caixa_hermetica: p.caixa_hermetica,
+      nobreak: p.nobreak,
+      switch_cftv: p.switch_cftv,
+      onu: p.onu,
+      radio_ap: p.radio_ap
+    }));
+    
+    res.json({ 
+      ok: true, 
+      data, 
+      total: pontos.length, 
+      pontos 
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Detalhes de um ponto especifico (para o bot) */
+app.get('/api/bot/pontos/:id', authBotTelegram, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ ok: false, error: 'ID invalido' });
+    }
+    
+    const { data, error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error || !data) {
+      return res.status(404).json({ ok: false, error: 'Ponto nao encontrado' });
+    }
+    
+    res.json({ ok: true, ponto: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Resumo do dia (para o bot) */
+app.get('/api/bot/resumo', authBotTelegram, async (req, res) => {
+  try {
+    const data = (req.query.data || new Date().toISOString().slice(0, 10)).toString();
+    
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      return res.status(400).json({ ok: false, error: 'Parametro data invalido (YYYY-MM-DD)' });
+    }
+    
+    const rows = await pontosColetadosStore.readDay(data);
+    
+    // Agrupar por equipe
+    const porEquipe = {};
+    for (const p of rows) {
+      const eq = p.equipe_nome || p.equipe_id || 'Desconhecida';
+      if (!porEquipe[eq]) {
+        porEquipe[eq] = { total: 0, pontos: [] };
+      }
+      porEquipe[eq].total++;
+      porEquipe[eq].pontos.push({
+        id: p.id,
+        numero: p.ponto_numero,
+        hora: p.data_hora
+      });
+    }
+    
+    res.json({
+      ok: true,
+      data,
+      total_geral: rows.length,
+      por_equipe: porEquipe
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Lista equipes que coletaram pontos hoje (para o bot) */
+app.get('/api/bot/equipes', authBotTelegram, async (req, res) => {
+  try {
+    const data = (req.query.data || new Date().toISOString().slice(0, 10)).toString();
+    
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+      return res.status(400).json({ ok: false, error: 'Parametro data invalido (YYYY-MM-DD)' });
+    }
+    
+    const rows = await pontosColetadosStore.readDay(data);
+    
+    // Extrair equipes unicas
+    const equipesMap = new Map();
+    for (const p of rows) {
+      const eqId = p.equipe_id;
+      const eqNome = p.equipe_nome;
+      if (eqId && !equipesMap.has(eqId)) {
+        equipesMap.set(eqId, {
+          equipe_id: eqId,
+          equipe_nome: eqNome,
+          total_pontos: 0
+        });
+      }
+      if (eqId) {
+        equipesMap.get(eqId).total_pontos++;
+      }
+    }
+    
+    res.json({
+      ok: true,
+      data,
+      total_equipes: equipesMap.size,
+      equipes: Array.from(equipesMap.values())
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Busca ponto coletado por ID (autenticado) */
+app.get('/api/pontos-coletados/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+  
+  try {
+    const { data, error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error || !data) {
+      return res.status(404).json({ ok: false, error: 'Ponto nao encontrado' });
+    }
+    
+    res.json({ ok: true, ponto: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// ADMIN — CRUD Completo para Pontos Coletados
+// ============================================================================
+
+/** Lista todos os pontos com filtros e paginação (admin) */
+app.get('/api/admin/pontos', authMiddlewareNoc, async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 50, 
+      data_inicio, 
+      data_fim, 
+      equipe, 
+      cidade,
+      search 
+    } = req.query;
+
+    const offset = (Number(page) - 1) * Number(limit);
+    
+    let query = pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('*', { count: 'exact' });
+
+    // Filtros de data
+    if (data_inicio) {
+      query = query.gte('data_hora', `${data_inicio}T00:00:00-03:00`);
+    }
+    if (data_fim) {
+      query = query.lte('data_hora', `${data_fim}T23:59:59-03:00`);
+    }
+
+    // Filtro por equipe
+    if (equipe) {
+      query = query.ilike('equipe_nome', `%${equipe}%`);
+    }
+
+    // Filtro por cidade
+    if (cidade) {
+      query = query.ilike('cidade_nome', `%${cidade}%`);
+    }
+
+    // Busca geral
+    if (search) {
+      query = query.or(`ponto_numero.ilike.%${search}%,operador.ilike.%${search}%,endereco.ilike.%${search}%`);
+    }
+
+    // Paginação e ordenação
+    query = query
+      .order('data_hora', { ascending: false })
+      .range(offset, offset + Number(limit) - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) throw error;
+
+    res.json({
+      ok: true,
+      total: count,
+      page: Number(page),
+      limit: Number(limit),
+      pages: Math.ceil(count / Number(limit)),
+      pontos: data || []
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Busca um ponto por ID (admin) */
+app.get('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+
+    const { data, error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ ok: false, error: 'Ponto nao encontrado' });
+    }
+
+    res.json({ ok: true, ponto: data });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Atualiza um ponto (admin) */
+app.put('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+
+    const allowed = [
+      'ponto_numero', 'operador', 'endereco', 'observacoes', 'cidade_nome', 
+      'ais', 'contrato', 'config_cameras', 'lat', 'lng',
+      'poste', 'poste_status', 'caixa_hermetica', 'nobreak', 'switch_cftv', 
+      'onu', 'radio_ap', 'switch_ap', 'caixa_padrao',
+      'lpr01', 'lpr01_sentido', 'lpr02', 'lpr02_sentido', 
+      'lpr03', 'lpr03_sentido', 'lpr04', 'lpr04_sentido', 'ajuste_lpr',
+      'tombo_cpu', 'tombo_bullet', 'tombo_switch_cvm', 'switch_ligado', 'ajuste_bullet'
+    ];
+
+    const changes = {};
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) {
+        changes[key] = req.body[key] === '' ? null : req.body[key];
+      }
+    }
+
+    if (Object.keys(changes).length === 0) {
+      return res.status(400).json({ ok: false, error: 'Nenhum campo para atualizar' });
+    }
+
+    const { error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .update(changes)
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ ok: true, message: 'Ponto atualizado com sucesso' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Deleta um ponto (admin) */
+app.delete('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
+
+    const { error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ ok: true, message: 'Ponto removido com sucesso' });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Exporta pontos para Excel (admin) */
+app.get('/api/admin/pontos/export', authMiddlewareNoc, async (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const { data_inicio, data_fim, equipe, cidade } = req.query;
+
+    let query = pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('*');
+
+    if (data_inicio) {
+      query = query.gte('data_hora', `${data_inicio}T00:00:00-03:00`);
+    }
+    if (data_fim) {
+      query = query.lte('data_hora', `${data_fim}T23:59:59-03:00`);
+    }
+    if (equipe) {
+      query = query.ilike('equipe_nome', `%${equipe}%`);
+    }
+    if (cidade) {
+      query = query.ilike('cidade_nome', `%${cidade}%`);
+    }
+
+    query = query.order('data_hora', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Nenhum ponto encontrado para exportar' });
+    }
+
+    // Formatar dados para Excel
+    const dados = data.map(p => ({
+      'ID': p.id,
+      'Ponto': p.ponto_numero,
+      'Equipe': p.equipe_nome,
+      'Operador': p.operador,
+      'Data/Hora': new Date(p.data_hora).toLocaleString('pt-BR'),
+      'Latitude': p.lat,
+      'Longitude': p.lng,
+      'Endereço': p.endereco,
+      'Cidade': p.cidade_nome,
+      'AIS': p.ais,
+      'Contrato': p.contrato,
+      'Config Câmeras': p.config_cameras,
+      'Observações': p.observacoes,
+      'Poste': p.poste,
+      'Status Poste': p.poste_status,
+      'Caixa Hermética': p.caixa_hermetica,
+      'Nobreak': p.nobreak,
+      'Switch CFTV': p.switch_cftv,
+      'ONU': p.onu,
+      'Radio AP': p.radio_ap,
+      'Switch AP': p.switch_ap,
+      'Caixa Padrão': p.caixa_padrao,
+      'Registro ENEL': p.registro_enel,
+      'LPR01': p.lpr01,
+      'Sentido LPR01': p.lpr01_sentido,
+      'LPR02': p.lpr02,
+      'Sentido LPR02': p.lpr02_sentido,
+      'LPR03': p.lpr03,
+      'Sentido LPR03': p.lpr03_sentido,
+      'LPR04': p.lpr04,
+      'Sentido LPR04': p.lpr04_sentido,
+      'Ajuste LPR': p.ajuste_lpr,
+      'Tombo CPU': p.tombo_cpu,
+      'Tombo Bullet': p.tombo_bullet,
+      'Tombo Switch CVM': p.tombo_switch_cvm,
+      'Switch Ligado': p.switch_ligado,
+      'Ajuste Bullet': p.ajuste_bullet
+    }));
+
+    // Criar workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(dados);
+
+    // Ajustar largura das colunas
+    const colWidths = [
+      { wch: 8 },   // ID
+      { wch: 12 },  // Ponto
+      { wch: 15 },  // Equipe
+      { wch: 15 },  // Operador
+      { wch: 20 },  // Data/Hora
+      { wch: 12 },  // Lat
+      { wch: 12 },  // Lng
+      { wch: 30 },  // Endereço
+      { wch: 15 },  // Cidade
+      { wch: 10 },  // AIS
+      { wch: 12 },  // Contrato
+      { wch: 15 },  // Config Câmeras
+      { wch: 25 },  // Observações
+      { wch: 8 },   // Poste
+      { wch: 12 },  // Status Poste
+      { wch: 15 },  // Caixa Hermética
+      { wch: 10 },  // Nobreak
+      { wch: 12 },  // Switch CFTV
+      { wch: 8 },   // ONU
+      { wch: 10 },  // Radio AP
+      { wch: 10 },  // Switch AP
+      { wch: 12 },  // Caixa Padrão
+      { wch: 12 },  // Registro ENEL
+      { wch: 12 },  // LPR01
+      { wch: 12 },  // Sentido LPR01
+      { wch: 12 },  // LPR02
+      { wch: 12 },  // Sentido LPR02
+      { wch: 12 },  // LPR03
+      { wch: 12 },  // Sentido LPR03
+      { wch: 12 },  // LPR04
+      { wch: 12 },  // Sentido LPR04
+      { wch: 12 },  // Ajuste LPR
+      { wch: 15 },  // Tombo CPU
+      { wch: 15 },  // Tombo Bullet
+      { wch: 15 },  // Tombo Switch CVM
+      { wch: 12 },  // Switch Ligado
+      { wch: 12 }   // Ajuste Bullet
+    ];
+    ws['!cols'] = colWidths;
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Pontos Coletados');
+
+    // Gerar buffer
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Enviar arquivo
+    const dataStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=pontos_coletados_${dataStr}.xlsx`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Lista equipes distintas (admin) */
+app.get('/api/admin/equipes', authMiddlewareNoc, async (req, res) => {
+  try {
+    const { data, error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('equipe_id, equipe_nome')
+      .not('equipe_nome', 'is', null);
+
+    if (error) throw error;
+
+    // Extrair únicos
+    const equipesMap = new Map();
+    for (const row of (data || [])) {
+      if (row.equipe_id && !equipesMap.has(row.equipe_id)) {
+        equipesMap.set(row.equipe_id, {
+          equipe_id: row.equipe_id,
+          equipe_nome: row.equipe_nome
+        });
+      }
+    }
+
+    res.json({ ok: true, equipes: Array.from(equipesMap.values()) });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+/** Lista cidades distintas (admin) */
+app.get('/api/admin/cidades', authMiddlewareNoc, async (req, res) => {
+  try {
+    const { data, error } = await pontosColetadosStore.supabase
+      .from('pontos_coletados')
+      .select('cidade_nome')
+      .not('cidade_nome', 'is', null);
+
+    if (error) throw error;
+
+    const cidades = [...new Set((data || []).map(r => r.cidade_nome))].sort();
+    res.json({ ok: true, cidades });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ============================================================================
+// Rota para servir a página admin
+// ============================================================================
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(pwaRoot, 'admin.html'));
 });
 
 /**

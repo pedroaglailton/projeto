@@ -1903,6 +1903,7 @@
         // (checklist, cameras, observações — sem fotos)
         // =====================================================================
         const PCOL_QUEUE_KEY = 'preventiva_pcol_queue_v1';
+        const PCOL_SENT_KEY = 'preventiva_pcol_sent_v1';
 
         function getPColQueue() {
             try {
@@ -1914,6 +1915,33 @@
 
         function savePColQueue(arr) {
             try { localStorage.setItem(PCOL_QUEUE_KEY, JSON.stringify(arr.slice(-200))); } catch (_) {}
+        }
+
+        function getPColSent() {
+            try {
+                const raw = localStorage.getItem(PCOL_SENT_KEY);
+                const arr = raw ? JSON.parse(raw) : [];
+                return Array.isArray(arr) ? arr : [];
+            } catch (_) { return []; }
+        }
+
+        function savePColSent(arr) {
+            try { localStorage.setItem(PCOL_SENT_KEY, JSON.stringify(arr.slice(-500))); } catch (_) {}
+        }
+
+        function markAsSent(ponto) {
+            const sent = getPColSent();
+            const key = `${ponto.pontoNumero}_${ponto.dataHora}`;
+            if (!sent.includes(key)) {
+                sent.push(key);
+                savePColSent(sent);
+            }
+        }
+
+        function wasAlreadySent(ponto) {
+            const sent = getPColSent();
+            const key = `${ponto.pontoNumero}_${ponto.dataHora}`;
+            return sent.includes(key);
         }
 
         function enqueuePCol(payload) {
@@ -1951,6 +1979,8 @@
             const token = getEquipeToken();
             if (!token) return;
 
+            if (wasAlreadySent(ponto)) return;
+
             const payload = {
                 pontoNumero: ponto.pontoNumero,
                 operador: ponto.operador,
@@ -1975,11 +2005,16 @@
                     mode: 'cors',
                     credentials: 'omit'
                 });
-                if (!resp.ok) {
-                    enqueuePCol(payload);
-                } else {
+                if (resp.ok) {
+                    markAsSent(ponto);
                     await flushPColQueue(token);
+                } else {
+                    enqueuePCol(payload);
                 }
+            } catch (_) {
+                enqueuePCol(payload);
+            }
+        }
             } catch (_) {
                 enqueuePCol(payload);
             }
@@ -2000,8 +2035,14 @@
 
             let enviados = 0;
             let erros = 0;
+            let jaEnviados = 0;
 
             for (const ponto of pontosDoDia) {
+                if (wasAlreadySent(ponto)) {
+                    jaEnviados++;
+                    continue;
+                }
+
                 const payload = {
                     pontoNumero: ponto.pontoNumero,
                     operador: ponto.operador,
@@ -2026,8 +2067,12 @@
                         mode: 'cors',
                         credentials: 'omit'
                     });
-                    if (resp.ok) enviados++;
-                    else erros++;
+                    if (resp.ok) {
+                        markAsSent(ponto);
+                        enviados++;
+                    } else {
+                        erros++;
+                    }
                 } catch (_) {
                     erros++;
                 }
@@ -2037,9 +2082,12 @@
             btn.innerHTML = originalHTML;
 
             if (erros === 0) {
-                showToast(`✓ ${enviados} ponto(s) enviado(s) pro Supabase!`, 'success');
+                const msg = jaEnviados > 0 
+                    ? `✓ ${enviados} novo(s) enviado(s) | ${jaEnviados} já enviados`
+                    : `✓ ${enviados} ponto(s) enviado(s) pro Supabase!`;
+                showToast(msg, 'success');
             } else {
-                showToast(`Enviados: ${enviados} | Erros: ${erros}`, 'error');
+                showToast(`Enviados: ${enviados} | Erros: ${erros} | Já enviados: ${jaEnviados}`, 'error');
             }
         }
 

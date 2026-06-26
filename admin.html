@@ -594,11 +594,13 @@
                         </div>
                         <div class="form-group">
                             <label>Equipe</label>
-                            <input type="text" id="editEquipe" disabled style="background:#f1f5f9;">
+                            <select id="editEquipe">
+                                <option value="">Selecione</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Data/Hora</label>
-                            <input type="text" id="editDataHora" disabled style="background:#f1f5f9;">
+                            <input type="datetime-local" id="editDataHora">
                         </div>
                         <div class="form-group">
                             <label>Latitude</label>
@@ -820,8 +822,11 @@
                 if (data.ok) {
                     const sel = document.getElementById('filterEquipe');
                     sel.innerHTML = '<option value="">Todas</option>';
+                    const selModal = document.getElementById('editEquipe');
+                    selModal.innerHTML = '<option value="">Selecione</option>';
                     data.equipes.forEach(eq => {
                         sel.innerHTML += `<option value="${eq.equipe_nome}">${eq.equipe_nome}</option>`;
+                        selModal.innerHTML += `<option value="${eq.equipe_nome}">${eq.equipe_nome}</option>`;
                     });
                 }
             } catch (e) {}
@@ -950,7 +955,13 @@
                     document.getElementById('editPontoNumero').value = p.ponto_numero || '';
                     document.getElementById('editOperador').value = p.operador || '';
                     document.getElementById('editEquipe').value = p.equipe_nome || '';
-                    document.getElementById('editDataHora').value = new Date(p.data_hora).toLocaleString('pt-BR');
+                    const dt = new Date(p.data_hora);
+                    const yyyy = dt.getFullYear();
+                    const mm = String(dt.getMonth()+1).padStart(2,'0');
+                    const dd = String(dt.getDate()).padStart(2,'0');
+                    const hh = String(dt.getHours()).padStart(2,'0');
+                    const mi = String(dt.getMinutes()).padStart(2,'0');
+                    document.getElementById('editDataHora').value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
                     document.getElementById('editLat').value = p.lat || '';
                     document.getElementById('editLng').value = p.lng || '';
                     document.getElementById('editEndereco').value = p.endereco || '';
@@ -1006,7 +1017,13 @@
             document.getElementById('editPontoNumero').value = '';
             document.getElementById('editOperador').value = '';
             document.getElementById('editEquipe').value = '';
-            document.getElementById('editDataHora').value = new Date().toLocaleString('pt-BR');
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth()+1).padStart(2,'0');
+            const dd = String(now.getDate()).padStart(2,'0');
+            const hh = String(now.getHours()).padStart(2,'0');
+            const mi = String(now.getMinutes()).padStart(2,'0');
+            document.getElementById('editDataHora').value = `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
             document.getElementById('editLat').value = '';
             document.getElementById('editLng').value = '';
             document.getElementById('editEndereco').value = '';
@@ -1051,7 +1068,7 @@
                 cidade_nome: document.getElementById('editCidade').value,
                 ais: document.getElementById('editAis').value,
                 observacoes: document.getElementById('editObservacoes').value,
-                data_hora: new Date().toISOString(),
+                data_hora: new Date(document.getElementById('editDataHora').value).toISOString(),
                 poste: document.getElementById('editPoste').value,
                 poste_status: document.getElementById('editPosteStatus').value,
                 caixa_hermetica: document.getElementById('editCaixaHermetica').value,

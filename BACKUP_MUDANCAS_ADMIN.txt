@@ -1,0 +1,156 @@
+================================================================================
+BACKUP - MUDANÇAS FEITAS NO PROJETO (PAINEL ADMIN + BOT API)
+Data: 2026-06-25
+================================================================================
+
+RESUMO GERAL:
+- Painel Admin completo em /admin com CRUD, export Excel, filtros e busca universal
+- API para bot Telegram do amigo com autenticação por API key
+- Deduplicação de dados (não envia para Supabase o que já foi enviado)
+
+================================================================================
+ARQUIVOS CRIADOS/MODIFICADOS
+================================================================================
+
+1. admin.html (CRIADO)
+   - Página completa de administração com login NOC
+   - Tabela paginada com todos os pontos coletados
+   - Filtros: data início/fim, equipe, cidade, busca universal (21 campos)
+   - CRUD: listar, editar, deletar, criar novos pontos
+   - Modal de edição com todos os campos do formulário
+   - Modal de criação com equipe (select) e data/hora editáveis
+   - Exportar para Excel via botão
+   - Busca universal em todos os campos de texto
+
+2. server.js (MODIFICADO)
+   - GET  /api/admin/pontos          - Lista pontos com paginação e filtros
+   - POST /api/admin/pontos          - Cria novo ponto (validação de ponto_numero)
+   - PUT  /api/admin/pontos/:id      - Atualiza ponto existente
+   - DELETE /api/admin/pontos/:id    - Deleta ponto
+   - GET  /api/admin/pontos/export   - Exporta para Excel (DEVE vir ANTES de /:id)
+   - GET  /api/admin/equipes         - Lista equipes distintas
+   - GET  /api/admin/cidades         - Lista cidades distintas
+   - GET  /api/bot/pontos            - API para bot Telegram (com BOT_API_KEY)
+   - GET  /api/bot/pontos/:id        - Detalhes de um ponto para bot
+   - GET  /api/bot/resumo            - Resumo para bot (total, hoje, por equipe)
+   - GET  /api/bot/equipes           - Equipes para bot
+   - Rota /admin adicionada antes do express.static
+
+3. package.json (MODIFICADO)
+   - Adicionada dependência "xlsx" para export Excel
+
+4. pontos-coletados-store.js (MODIFICADO)
+   - Adicionado getter "get client()" para expor Supabase client
+   - Necessário para endpoints admin usarem client diretamente
+
+5. index.html (MODIFICADO)
+   - Adicionada deduplicação com chave localStorage "preventiva_pcol_sent_v1"
+   - Funções markAsSent() e wasAlreadySent()
+   - Botão "Enviar para Supabase" fica desabilitado se já enviado
+   - Removidas constantes antigas do Telegram
+
+6. API_DOCUMENTACAO.md (CRIADO)
+   - Documentação completa da API para o bot do amigo
+
+7. GUIA_CONFIGURACAO.md (CRIADO)
+   - Guia passo a passo de configuração
+
+================================================================================
+CHAVE API DO BOT DO AMIGO
+================================================================================
+
+API Key: pc-2026-5f2446255b5a0f9340e051507b876e0e
+Header:  Authorization: Bearer pc-2026-5f2446255b5a0f9340e051507b876e0e
+Variável de ambiente no Render: BOT_API_KEY
+
+================================================================================
+ENDPOINTS DA API DO BOT
+================================================================================
+
+GET /api/bot/pontos?equipe=NOC-01&data=2026-06-25
+GET /api/bot/pontos/:id
+GET /api/bot/resumo
+GET /api/bot/equipes
+
+Todos requerem header Authorization com API key.
+
+================================================================================
+BANCO DE DADOS SUPABASE
+================================================================================
+
+Tabela "pontos_coletados" - dados completos do checklist:
+  id, equipe_id, equipe_nome, ponto_numero, operador, lat, lng,
+  accuracy, endereco, observacoes, data_hora, data_inspecao, ais,
+  cidade_nome, contrato, config_cameras, caixa_hermetica,
+  status_caixa_hermetica, nobreak, status_nobreak, poste, poste_status,
+  status_poste, switch_cftv, status_switch, onu, radio_ap, switch_ap,
+  status_switch_ap, caixa_padrao, status_padrao, registro_enel,
+  lpr01, lpr01_sentido, lpr02, lpr02_sentido, lpr03, lpr03_sentido,
+  lpr04, lpr04_sentido, ajuste_lpr, tombo_cpu, tombo_bullet,
+  tombo_switch_cvm, switch_ligado, ajuste_bullet
+
+Tabela "producao" - tracking leve para NOC:
+  id, ponto_numero, equipe_nome, data_hora, status, operador
+
+================================================================================
+DUAS TABELAS PREENCHIDAS SIMULTANEAMENTE
+================================================================================
+
+Quando técnico salva ponto no app:
+1. dados completos → tabela "pontos_coletados"
+2. registro leve   → tabela "producao"
+
+================================================================================
+COMO ADICIONAR NOVA FUNCIONALIDADE
+================================================================================
+
+Para adicionar campo ao formulário:
+1. Adicionar input no modal em admin.html (linha ~586)
+2. Adicionar no body de salvarNovo() em admin.html
+3. Adicionar no body de salvarEdicao() em admin.html
+4. Adicionar na construção do row em server.js POST /api/admin/pontos
+5. Adicionar na busca universal em server.js GET /api/admin/pontos
+
+Para adicionar coluna à tabela:
+1. Adicionar th no thead em admin.html
+2. Adicionar td no renderTabela() em admin.html
+
+================================================================================
+DEPLOY
+================================================================================
+
+Repositório: https://github.com/pedroaglailton/projeto.git
+Branch: main
+Auto-deploy no Render ao dar push em main
+Hard refresh: Ctrl+Shift+R após deploy
+
+Variáveis de ambiente necessárias no Render:
+- SUPABASE_URL
+- SUPABASE_ANON_KEY
+- BOT_API_KEY (opcional, para bot do amigo)
+
+================================================================================
+COMANDOS GIT UTILIZADOS
+================================================================================
+
+git add admin.html server.js
+git commit -m "feat: ..."
+git push origin main
+
+================================================================================
+ORDENAÇÃO DAS ROTAS (IMPORTANTE)
+================================================================================
+
+No server.js, as rotas DEVEM seguir esta ordem:
+1. POST /api/admin/pontos        (criar)
+2. GET  /api/admin/pontos/export  (exportar - ANTES de /:id)
+3. GET  /api/admin/pontos         (listar)
+4. GET  /api/admin/pontos/:id     (buscar por ID)
+5. PUT  /api/admin/pontos/:id     (atualizar)
+6. DELETE /api/admin/pontos/:id   (deletar)
+
+Se PUT ou GET /:id vier antes de /export, o Express captura "export" como ID.
+
+================================================================================
+FIM DO BACKUP
+================================================================================

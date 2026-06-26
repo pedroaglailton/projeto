@@ -1077,7 +1077,30 @@ app.get('/api/admin/pontos', authMiddlewareNoc, async (req, res) => {
       query = query.ilike('cidade_nome', `%${cidade}%`);
     }
     if (search) {
-      query = query.or(`ponto_numero.ilike.%${search}%,operador.ilike.%${search}%,endereco.ilike.%${search}%`);
+      const s = `%${search}%`;
+      query = query.or([
+        `ponto_numero.ilike.${s}`,
+        `operador.ilike.${s}`,
+        `endereco.ilike.${s}`,
+        `equipe_nome.ilike.${s}`,
+        `cidade_nome.ilike.${s}`,
+        `ais.ilike.${s}`,
+        `observacoes.ilike.${s}`,
+        `tombo_cpu.ilike.${s}`,
+        `tombo_bullet.ilike.${s}`,
+        `tombo_switch_cvm.ilike.${s}`,
+        `lpr01.ilike.${s}`,
+        `lpr02.ilike.${s}`,
+        `lpr03.ilike.${s}`,
+        `lpr04.ilike.${s}`,
+        `poste.ilike.${s}`,
+        `onu.ilike.${s}`,
+        `caixa_hermetica.ilike.${s}`,
+        `nobreak.ilike.${s}`,
+        `switch_cftv.ilike.${s}`,
+        `contrato.ilike.${s}`,
+        `registro_enel.ilike.${s}`
+      ].join(','));
     }
 
     query = query

@@ -872,6 +872,108 @@ app.get('/api/pontos-coletados/:id', requireAuth, async (req, res) => {
 // ADMIN — CRUD Completo para Pontos Coletados
 // ============================================================================
 
+/** Exporta pontos para Excel (admin) — DEVE vir ANTES de /:id */
+app.get('/api/admin/pontos/export', authMiddlewareNoc, async (req, res) => {
+  try {
+    const XLSX = require('xlsx');
+    const { data_inicio, data_fim, equipe, cidade } = req.query;
+
+    let query = pontosColetadosStore.client
+      .from('pontos_coletados')
+      .select('*');
+
+    if (data_inicio) {
+      query = query.gte('data_hora', `${data_inicio}T00:00:00-03:00`);
+    }
+    if (data_fim) {
+      query = query.lte('data_hora', `${data_fim}T23:59:59-03:00`);
+    }
+    if (equipe) {
+      query = query.ilike('equipe_nome', `%${equipe}%`);
+    }
+    if (cidade) {
+      query = query.ilike('cidade_nome', `%${cidade}%`);
+    }
+
+    query = query.order('data_hora', { ascending: false });
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      return res.status(404).json({ ok: false, error: 'Nenhum ponto encontrado para exportar' });
+    }
+
+    // Formatar dados para Excel
+    const dados = data.map(p => ({
+      'ID': p.id,
+      'Ponto': p.ponto_numero,
+      'Equipe': p.equipe_nome,
+      'Operador': p.operador,
+      'Data/Hora': new Date(p.data_hora).toLocaleString('pt-BR'),
+      'Latitude': p.lat,
+      'Longitude': p.lng,
+      'Endereco': p.endereco,
+      'Cidade': p.cidade_nome,
+      'AIS': p.ais,
+      'Contrato': p.contrato,
+      'Config Cameras': p.config_cameras,
+      'Observacoes': p.observacoes,
+      'Poste': p.poste,
+      'Status Poste': p.poste_status,
+      'Caixa Hermetica': p.caixa_hermetica,
+      'Nobreak': p.nobreak,
+      'Switch CFTV': p.switch_cftv,
+      'ONU': p.onu,
+      'Radio AP': p.radio_ap,
+      'Switch AP': p.switch_ap,
+      'Caixa Padrao': p.caixa_padrao,
+      'Registro ENEL': p.registro_enel,
+      'LPR01': p.lpr01,
+      'Sentido LPR01': p.lpr01_sentido,
+      'LPR02': p.lpr02,
+      'Sentido LPR02': p.lpr02_sentido,
+      'LPR03': p.lpr03,
+      'Sentido LPR03': p.lpr03_sentido,
+      'LPR04': p.lpr04,
+      'Sentido LPR04': p.lpr04_sentido,
+      'Ajuste LPR': p.ajuste_lpr,
+      'Tombo CPU': p.tombo_cpu,
+      'Tombo Bullet': p.tombo_bullet,
+      'Tombo Switch CVM': p.tombo_switch_cvm,
+      'Switch Ligado': p.switch_ligado,
+      'Ajuste Bullet': p.ajuste_bullet
+    }));
+
+    // Criar workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(dados);
+
+    // Ajustar largura das colunas
+    ws['!cols'] = [
+      { wch: 8 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 20 },
+      { wch: 12 }, { wch: 12 }, { wch: 30 }, { wch: 15 }, { wch: 10 },
+      { wch: 12 }, { wch: 15 }, { wch: 25 }, { wch: 8 }, { wch: 12 },
+      { wch: 15 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 10 },
+      { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+      { wch: 12 }, { wch: 12 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Pontos Coletados');
+
+    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    const dataStr = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=pontos_coletados_${dataStr}.xlsx`);
+    res.send(buffer);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 /** Lista todos os pontos com filtros e paginação (admin) */
 app.get('/api/admin/pontos', authMiddlewareNoc, async (req, res) => {
   try {
@@ -891,36 +993,27 @@ app.get('/api/admin/pontos', authMiddlewareNoc, async (req, res) => {
       .from('pontos_coletados')
       .select('*', { count: 'exact' });
 
-    // Filtros de data
     if (data_inicio) {
       query = query.gte('data_hora', `${data_inicio}T00:00:00-03:00`);
     }
     if (data_fim) {
       query = query.lte('data_hora', `${data_fim}T23:59:59-03:00`);
     }
-
-    // Filtro por equipe
     if (equipe) {
       query = query.ilike('equipe_nome', `%${equipe}%`);
     }
-
-    // Filtro por cidade
     if (cidade) {
       query = query.ilike('cidade_nome', `%${cidade}%`);
     }
-
-    // Busca geral
     if (search) {
       query = query.or(`ponto_numero.ilike.%${search}%,operador.ilike.%${search}%,endereco.ilike.%${search}%`);
     }
 
-    // Paginação e ordenação
     query = query
       .order('data_hora', { ascending: false })
       .range(offset, offset + Number(limit) - 1);
 
     const { data, error, count } = await query;
-
     if (error) throw error;
 
     res.json({
@@ -1012,140 +1105,6 @@ app.delete('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
     if (error) throw error;
 
     res.json({ ok: true, message: 'Ponto removido com sucesso' });
-  } catch (err) {
-    res.status(500).json({ ok: false, error: err.message });
-  }
-});
-
-/** Exporta pontos para Excel (admin) */
-app.get('/api/admin/pontos/export', authMiddlewareNoc, async (req, res) => {
-  try {
-    const XLSX = require('xlsx');
-    const { data_inicio, data_fim, equipe, cidade } = req.query;
-
-    let query = pontosColetadosStore.client
-      .from('pontos_coletados')
-      .select('*');
-
-    if (data_inicio) {
-      query = query.gte('data_hora', `${data_inicio}T00:00:00-03:00`);
-    }
-    if (data_fim) {
-      query = query.lte('data_hora', `${data_fim}T23:59:59-03:00`);
-    }
-    if (equipe) {
-      query = query.ilike('equipe_nome', `%${equipe}%`);
-    }
-    if (cidade) {
-      query = query.ilike('cidade_nome', `%${cidade}%`);
-    }
-
-    query = query.order('data_hora', { ascending: false });
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      return res.status(404).json({ ok: false, error: 'Nenhum ponto encontrado para exportar' });
-    }
-
-    // Formatar dados para Excel
-    const dados = data.map(p => ({
-      'ID': p.id,
-      'Ponto': p.ponto_numero,
-      'Equipe': p.equipe_nome,
-      'Operador': p.operador,
-      'Data/Hora': new Date(p.data_hora).toLocaleString('pt-BR'),
-      'Latitude': p.lat,
-      'Longitude': p.lng,
-      'Endereço': p.endereco,
-      'Cidade': p.cidade_nome,
-      'AIS': p.ais,
-      'Contrato': p.contrato,
-      'Config Câmeras': p.config_cameras,
-      'Observações': p.observacoes,
-      'Poste': p.poste,
-      'Status Poste': p.poste_status,
-      'Caixa Hermética': p.caixa_hermetica,
-      'Nobreak': p.nobreak,
-      'Switch CFTV': p.switch_cftv,
-      'ONU': p.onu,
-      'Radio AP': p.radio_ap,
-      'Switch AP': p.switch_ap,
-      'Caixa Padrão': p.caixa_padrao,
-      'Registro ENEL': p.registro_enel,
-      'LPR01': p.lpr01,
-      'Sentido LPR01': p.lpr01_sentido,
-      'LPR02': p.lpr02,
-      'Sentido LPR02': p.lpr02_sentido,
-      'LPR03': p.lpr03,
-      'Sentido LPR03': p.lpr03_sentido,
-      'LPR04': p.lpr04,
-      'Sentido LPR04': p.lpr04_sentido,
-      'Ajuste LPR': p.ajuste_lpr,
-      'Tombo CPU': p.tombo_cpu,
-      'Tombo Bullet': p.tombo_bullet,
-      'Tombo Switch CVM': p.tombo_switch_cvm,
-      'Switch Ligado': p.switch_ligado,
-      'Ajuste Bullet': p.ajuste_bullet
-    }));
-
-    // Criar workbook
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(dados);
-
-    // Ajustar largura das colunas
-    const colWidths = [
-      { wch: 8 },   // ID
-      { wch: 12 },  // Ponto
-      { wch: 15 },  // Equipe
-      { wch: 15 },  // Operador
-      { wch: 20 },  // Data/Hora
-      { wch: 12 },  // Lat
-      { wch: 12 },  // Lng
-      { wch: 30 },  // Endereço
-      { wch: 15 },  // Cidade
-      { wch: 10 },  // AIS
-      { wch: 12 },  // Contrato
-      { wch: 15 },  // Config Câmeras
-      { wch: 25 },  // Observações
-      { wch: 8 },   // Poste
-      { wch: 12 },  // Status Poste
-      { wch: 15 },  // Caixa Hermética
-      { wch: 10 },  // Nobreak
-      { wch: 12 },  // Switch CFTV
-      { wch: 8 },   // ONU
-      { wch: 10 },  // Radio AP
-      { wch: 10 },  // Switch AP
-      { wch: 12 },  // Caixa Padrão
-      { wch: 12 },  // Registro ENEL
-      { wch: 12 },  // LPR01
-      { wch: 12 },  // Sentido LPR01
-      { wch: 12 },  // LPR02
-      { wch: 12 },  // Sentido LPR02
-      { wch: 12 },  // LPR03
-      { wch: 12 },  // Sentido LPR03
-      { wch: 12 },  // LPR04
-      { wch: 12 },  // Sentido LPR04
-      { wch: 12 },  // Ajuste LPR
-      { wch: 15 },  // Tombo CPU
-      { wch: 15 },  // Tombo Bullet
-      { wch: 15 },  // Tombo Switch CVM
-      { wch: 12 },  // Switch Ligado
-      { wch: 12 }   // Ajuste Bullet
-    ];
-    ws['!cols'] = colWidths;
-
-    XLSX.utils.book_append_sheet(wb, ws, 'Pontos Coletados');
-
-    // Gerar buffer
-    const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-    // Enviar arquivo
-    const dataStr = new Date().toISOString().slice(0, 10);
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename=pontos_coletados_${dataStr}.xlsx`);
-    res.send(buffer);
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

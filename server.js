@@ -754,7 +754,7 @@ app.get('/api/bot/pontos/:id', authBotTelegram, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'ID invalido' });
     }
     
-    const { data, error } = await pontosColetadosStore.supabase
+    const { data, error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .select('*')
       .eq('id', id)
@@ -852,7 +852,7 @@ app.get('/api/pontos-coletados/:id', requireAuth, async (req, res) => {
   if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
   
   try {
-    const { data, error } = await pontosColetadosStore.supabase
+    const { data, error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .select('*')
       .eq('id', id)
@@ -887,7 +887,7 @@ app.get('/api/admin/pontos', authMiddlewareNoc, async (req, res) => {
 
     const offset = (Number(page) - 1) * Number(limit);
     
-    let query = pontosColetadosStore.supabase
+    let query = pontosColetadosStore.client
       .from('pontos_coletados')
       .select('*', { count: 'exact' });
 
@@ -942,7 +942,7 @@ app.get('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
 
-    const { data, error } = await pontosColetadosStore.supabase
+    const { data, error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .select('*')
       .eq('id', id)
@@ -985,7 +985,7 @@ app.put('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
       return res.status(400).json({ ok: false, error: 'Nenhum campo para atualizar' });
     }
 
-    const { error } = await pontosColetadosStore.supabase
+    const { error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .update(changes)
       .eq('id', id);
@@ -1004,7 +1004,7 @@ app.delete('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ ok: false, error: 'ID invalido' });
 
-    const { error } = await pontosColetadosStore.supabase
+    const { error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .delete()
       .eq('id', id);
@@ -1023,7 +1023,7 @@ app.get('/api/admin/pontos/export', authMiddlewareNoc, async (req, res) => {
     const XLSX = require('xlsx');
     const { data_inicio, data_fim, equipe, cidade } = req.query;
 
-    let query = pontosColetadosStore.supabase
+    let query = pontosColetadosStore.client
       .from('pontos_coletados')
       .select('*');
 
@@ -1154,7 +1154,7 @@ app.get('/api/admin/pontos/export', authMiddlewareNoc, async (req, res) => {
 /** Lista equipes distintas (admin) */
 app.get('/api/admin/equipes', authMiddlewareNoc, async (req, res) => {
   try {
-    const { data, error } = await pontosColetadosStore.supabase
+    const { data, error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .select('equipe_id, equipe_nome')
       .not('equipe_nome', 'is', null);
@@ -1181,7 +1181,7 @@ app.get('/api/admin/equipes', authMiddlewareNoc, async (req, res) => {
 /** Lista cidades distintas (admin) */
 app.get('/api/admin/cidades', authMiddlewareNoc, async (req, res) => {
   try {
-    const { data, error } = await pontosColetadosStore.supabase
+    const { data, error } = await pontosColetadosStore.client
       .from('pontos_coletados')
       .select('cidade_nome')
       .not('cidade_nome', 'is', null);

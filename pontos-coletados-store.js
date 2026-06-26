@@ -16,6 +16,10 @@ if (supabaseUrl && supabaseKey) {
 
 class PontosColetadosStore {
 
+  get client() {
+    return supabase;
+  }
+
   /**
    * Insere um ponto coletado completo no Supabase
    * @param {object} reg - registro com equipe_id, ponto_numero, checklist, cameras, etc.

@@ -1153,9 +1153,11 @@ app.put('/api/admin/pontos/:id', authMiddlewareNoc, async (req, res) => {
 
     const allowed = [
       'ponto_numero', 'operador', 'endereco', 'observacoes', 'cidade_nome', 
-      'ais', 'contrato', 'config_cameras', 'lat', 'lng',
-      'poste', 'poste_status', 'caixa_hermetica', 'nobreak', 'switch_cftv', 
-      'onu', 'radio_ap', 'switch_ap', 'caixa_padrao',
+      'ais', 'contrato', 'config_cameras', 'lat', 'lng', 'data_hora', 'equipe_nome',
+      'caixa_hermetica', 'status_caixa_hermetica', 'nobreak', 'status_nobreak',
+      'poste', 'poste_status', 'status_poste', 'switch_cftv', 'status_switch',
+      'onu', 'radio_ap', 'switch_ap', 'status_switch_ap',
+      'caixa_padrao', 'status_padrao', 'registro_enel',
       'lpr01', 'lpr01_sentido', 'lpr02', 'lpr02_sentido', 
       'lpr03', 'lpr03_sentido', 'lpr04', 'lpr04_sentido', 'ajuste_lpr',
       'tombo_cpu', 'tombo_bullet', 'tombo_switch_cvm', 'switch_ligado', 'ajuste_bullet'

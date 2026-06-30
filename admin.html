@@ -620,7 +620,66 @@
                         </div>
                         <div class="form-group">
                             <label>AIS</label>
-                            <input type="text" id="editAis">
+                            <select id="editAis">
+                                <option value="">Selecione</option>
+                                <option value="INTERIOR">INTERIOR</option>
+                                <option value="AIS 10">AIS 10</option>
+                                <option value="AIS 09">AIS 09</option>
+                                <option value="AIS 08">AIS 08</option>
+                                <option value="AIS 07">AIS 07</option>
+                                <option value="AIS 06">AIS 06</option>
+                                <option value="AIS 05">AIS 05</option>
+                                <option value="AIS 04">AIS 04</option>
+                                <option value="AIS 03">AIS 03</option>
+                                <option value="AIS 02">AIS 02</option>
+                                <option value="AIS 01">AIS 01</option>
+                                <option value="T01">T01</option>
+                                <option value="T02">T02</option>
+                                <option value="T03">T03</option>
+                                <option value="T04">T04</option>
+                                <option value="T05">T05</option>
+                                <option value="T06">T06</option>
+                                <option value="T07">T07</option>
+                                <option value="T08">T08</option>
+                                <option value="T09">T09</option>
+                                <option value="METROFOR">METROFOR</option>
+                                <option value="ZPE">ZPE</option>
+                                <option value="CEASA">CEASA</option>
+                                <option value="PARQUE DO COCO">PARQUE DO COCO</option>
+                                <option value="SEDE FORTALEZA">SEDE FORTALEZA</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Contrato</label>
+                            <select id="editContrato">
+                                <option value="">Selecione</option>
+                                <option value="AIS">AIS</option>
+                                <option value="TORRES">TORRES</option>
+                                <option value="METROFOR">METROFOR</option>
+                                <option value="ZPE">ZPE</option>
+                                <option value="CEASA">CEASA</option>
+                                <option value="PQC">PQC</option>
+                                <option value="LEGADO">LEGADO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Config. Câmeras</label>
+                            <select id="editCameras">
+                                <option value="">Selecione</option>
+                                <option value="LPR">LPR</option>
+                                <option value="PTZ">PTZ</option>
+                                <option value="PTZ + LPR">PTZ + LPR</option>
+                                <option value="PTZ + LPR + LPR">PTZ + LPR + LPR</option>
+                                <option value="PTZ + LPR + LPR + LPR">PTZ + LPR + LPR + LPR</option>
+                                <option value="PTZ + LPR + LPR + LPR + LPR">PTZ + LPR + LPR + LPR + LPR</option>
+                                <option value="PTZ + DOME">PTZ + DOME</option>
+                                <option value="DOME + DOME">DOME + DOME</option>
+                                <option value="DOME">DOME</option>
+                                <option value="BULLET">BULLET</option>
+                                <option value="PTZ + DOME + DOME">PTZ + DOME + DOME</option>
+                                <option value="PTZ + BULLET + BULLET">PTZ + BULLET + BULLET</option>
+                                <option value="PTZ + PTZ + DOME">PTZ + PTZ + DOME</option>
+                            </select>
                         </div>
                         <div class="form-group full">
                             <label>Observações</label>
@@ -630,87 +689,206 @@
                         <div class="section-title">Equipamentos</div>
                         
                         <div class="form-group">
-                            <label>Poste</label>
+                            <label>Pat. Hermética</label>
+                            <input type="text" id="editCaixaHermetica">
+                        </div>
+                        <div class="form-group">
+                            <label>Status Caixa Hermética</label>
+                            <select id="editStatusCaixaHermetica">
+                                <option value="">Selecione</option>
+                                <option value="NORMAL">NORMAL</option>
+                                <option value="TROCAR">TROCAR</option>
+                                <option value="RUIM">RUIM</option>
+                                <option value="NAO ENCONTRADO">NAO ENCONTRADO</option>
+                                <option value="FERRUGEM">FERRUGEM</option>
+                                <option value="LATERAIS RUIM">LATERAIS RUIM</option>
+                                <option value="CHAVE DANIFICADA">CHAVE DANIFICADA</option>
+                                <option value="FERRUGEM TOTAL">FERRUGEM TOTAL</option>
+                                <option value="FITA BAP TROCAR">FITA BAP TROCAR</option>
+                                <option value="ENTRANDO AGUA">ENTRANDO AGUA</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Pat. Nobreak</label>
+                            <input type="text" id="editNobreak">
+                        </div>
+                        <div class="form-group">
+                            <label>Status Nobreak</label>
+                            <select id="editStatusNobreak">
+                                <option value="">Selecione</option>
+                                <option value="NORMAL">NORMAL</option>
+                                <option value="NAO ARMA BATERIA">NAO ARMA BATERIA</option>
+                                <option value="NAO ENCONTRADO">NAO ENCONTRADO</option>
+                                <option value="RUIM">RUIM</option>
+                            </select>
+                        </div>
+
+                        <div class="section-title">Poste</div>
+
+                        <div class="form-group">
+                            <label>Nomenclatura Poste</label>
                             <select id="editPoste">
                                 <option value="">Selecione</option>
-                                <option value="OK">OK</option>
-                                <option value="RUIM">RUIM</option>
-                                <option value="INEXISTENTE">INEXISTENTE</option>
+                                <option value="COM NOMENCLATURA">COM NOMENCLATURA</option>
+                                <option value="SEM NOMENCLATURA">SEM NOMENCLATURA</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Status Poste</label>
-                            <input type="text" id="editPosteStatus">
+                            <label>Condição do Poste</label>
+                            <select id="editPosteStatus">
+                                <option value="">Selecione</option>
+                                <option value="SEM AVARIAS">SEM AVARIAS</option>
+                                <option value="COM FERRUGEM">COM FERRUGEM</option>
+                                <option value="TORTO">TORTO</option>
+                                <option value="QUEBRADO">QUEBRADO</option>
+                            </select>
+                        </div>
+                        <div class="form-group full">
+                            <label>Observação Poste</label>
+                            <input type="text" id="editStatusPoste">
+                        </div>
+
+                        <div class="section-title">Switch / Rede</div>
+
+                        <div class="form-group">
+                            <label>Patrimônio Switch CFTV</label>
+                            <input type="text" id="editSwitchCftv">
                         </div>
                         <div class="form-group">
-                            <label>Caixa Hermética</label>
-                            <select id="editCaixaHermetica">
+                            <label>Status Switch</label>
+                            <select id="editStatusSwitch">
                                 <option value="">Selecione</option>
-                                <option value="OK">OK</option>
+                                <option value="NORMAL">NORMAL</option>
                                 <option value="RUIM">RUIM</option>
+                                <option value="TROCAR">TROCAR</option>
+                                <option value="NAO ENCONTRADO">NAO ENCONTRADO</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Nobreak</label>
-                            <select id="editNobreak">
-                                <option value="">Selecione</option>
-                                <option value="OK">OK</option>
-                                <option value="RUIM">RUIM</option>
-                            </select>
+                            <label>Patrimônio ONU</label>
+                            <input type="text" id="editOnu">
+                        </div>
+
+                        <div class="section-title">AP</div>
+
+                        <div class="form-group">
+                            <label>Rádio AP</label>
+                            <input type="text" id="editRadioAp">
                         </div>
                         <div class="form-group">
-                            <label>Switch CFTV</label>
-                            <select id="editSwitchCftv">
-                                <option value="">Selecione</option>
-                                <option value="OK">OK</option>
-                                <option value="RUIM">RUIM</option>
-                            </select>
+                            <label>Modelo/Patrimônio SW-AP</label>
+                            <input type="text" id="editSwitchAp">
                         </div>
                         <div class="form-group">
-                            <label>ONU</label>
-                            <select id="editOnu">
+                            <label>Status SW-AP</label>
+                            <select id="editStatusSwitchAp">
                                 <option value="">Selecione</option>
-                                <option value="OK">OK</option>
+                                <option value="NORMAL">NORMAL</option>
                                 <option value="RUIM">RUIM</option>
+                                <option value="TROCAR">TROCAR</option>
+                                <option value="NAO ENCONTRADO">NAO ENCONTRADO</option>
                             </select>
                         </div>
 
-                        <div class="section-title">LPRs</div>
+                        <div class="section-title">Energia</div>
 
                         <div class="form-group">
-                            <label>LPR 01</label>
+                            <label>Ligação Caixa Padrão</label>
+                            <select id="editCaixaPadrao">
+                                <option value="">Selecione</option>
+                                <option value="LIGACAO ENEL">LIGACAO ENEL</option>
+                                <option value="TERCEIROS">TERCEIROS</option>
+                                <option value="PREFEITURA">PREFEITURA</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status Caixa Padrão</label>
+                            <select id="editStatusPadrao">
+                                <option value="">Selecione</option>
+                                <option value="NAO ENCONTRADA">NAO ENCONTRADA</option>
+                                <option value="SEM TAMPA">SEM TAMPA</option>
+                                <option value="NORMAL">NORMAL</option>
+                                <option value="TROCAR">TROCAR</option>
+                                <option value="RUIM">RUIM</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Registro ENEL</label>
+                            <input type="text" id="editRegistroEnel">
+                        </div>
+
+                        <div class="section-title">LPR</div>
+
+                        <div class="form-group">
+                            <label>Tombo LPR01</label>
                             <input type="text" id="editLpr01">
                         </div>
                         <div class="form-group">
-                            <label>Sentido LPR 01</label>
-                            <input type="text" id="editLpr01Sentido">
+                            <label>Sentido LPR01</label>
+                            <select id="editLpr01Sentido">
+                                <option value="">Selecione</option>
+                                <option value="N/S">N/S</option>
+                                <option value="S/N">S/N</option>
+                                <option value="L/O">L/O</option>
+                                <option value="O/L">O/L</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>LPR 02</label>
+                            <label>Tombo LPR02</label>
                             <input type="text" id="editLpr02">
                         </div>
                         <div class="form-group">
-                            <label>Sentido LPR 02</label>
-                            <input type="text" id="editLpr02Sentido">
+                            <label>Sentido LPR02</label>
+                            <select id="editLpr02Sentido">
+                                <option value="">Selecione</option>
+                                <option value="N/S">N/S</option>
+                                <option value="S/N">S/N</option>
+                                <option value="L/O">L/O</option>
+                                <option value="O/L">O/L</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>LPR 03</label>
+                            <label>Tombo LPR03</label>
                             <input type="text" id="editLpr03">
                         </div>
                         <div class="form-group">
-                            <label>Sentido LPR 03</label>
-                            <input type="text" id="editLpr03Sentido">
+                            <label>Sentido LPR03</label>
+                            <select id="editLpr03Sentido">
+                                <option value="">Selecione</option>
+                                <option value="N/S">N/S</option>
+                                <option value="S/N">S/N</option>
+                                <option value="L/O">L/O</option>
+                                <option value="O/L">O/L</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>LPR 04</label>
+                            <label>Tombo LPR04</label>
                             <input type="text" id="editLpr04">
                         </div>
                         <div class="form-group">
-                            <label>Sentido LPR 04</label>
-                            <input type="text" id="editLpr04Sentido">
+                            <label>Sentido LPR04</label>
+                            <select id="editLpr04Sentido">
+                                <option value="">Selecione</option>
+                                <option value="N/S">N/S</option>
+                                <option value="S/N">S/N</option>
+                                <option value="L/O">L/O</option>
+                                <option value="O/L">O/L</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Ajuste LPR</label>
+                            <select id="editAjusteLpr">
+                                <option value="">Selecione</option>
+                                <option value="LPR01">LPR01</option>
+                                <option value="LPR02">LPR02</option>
+                                <option value="LPR03">LPR03</option>
+                                <option value="LPR04">LPR04</option>
+                                <option value="TODAS">TODAS</option>
+                                <option value="NENHUMA">NENHUMA</option>
+                            </select>
                         </div>
 
-                        <div class="section-title">Tombo / Equipamentos</div>
+                        <div class="section-title">CPU / Bullet / Switch</div>
 
                         <div class="form-group">
                             <label>Tombo CPU</label>
@@ -725,8 +903,16 @@
                             <input type="text" id="editTomboSwitchCvm">
                         </div>
                         <div class="form-group">
-                            <label>Ajuste LPR</label>
-                            <input type="text" id="editAjusteLpr">
+                            <label>Switch Ligado</label>
+                            <input type="text" id="editSwitchLigado">
+                        </div>
+                        <div class="form-group">
+                            <label>Ajuste Bullet</label>
+                            <select id="editAjusteBullet">
+                                <option value="">Selecione</option>
+                                <option value="SIM">SIM</option>
+                                <option value="NAO">NAO</option>
+                            </select>
                         </div>
                     </div>
                 </form>
@@ -967,14 +1153,30 @@
                     document.getElementById('editEndereco').value = p.endereco || '';
                     document.getElementById('editCidade').value = p.cidade_nome || '';
                     document.getElementById('editAis').value = p.ais || '';
+                    document.getElementById('editContrato').value = p.contrato || '';
+                    document.getElementById('editCameras').value = p.config_cameras || p.cameras || '';
                     document.getElementById('editObservacoes').value = p.observacoes || '';
+                    
+                    document.getElementById('editCaixaHermetica').value = p.caixa_hermetica || '';
+                    document.getElementById('editStatusCaixaHermetica').value = p.status_caixa_hermetica || '';
+                    document.getElementById('editNobreak').value = p.nobreak || '';
+                    document.getElementById('editStatusNobreak').value = p.status_nobreak || '';
                     
                     document.getElementById('editPoste').value = p.poste || '';
                     document.getElementById('editPosteStatus').value = p.poste_status || '';
-                    document.getElementById('editCaixaHermetica').value = p.caixa_hermetica || '';
-                    document.getElementById('editNobreak').value = p.nobreak || '';
+                    document.getElementById('editStatusPoste').value = p.status_poste || '';
+                    
                     document.getElementById('editSwitchCftv').value = p.switch_cftv || '';
+                    document.getElementById('editStatusSwitch').value = p.status_switch || '';
                     document.getElementById('editOnu').value = p.onu || '';
+                    
+                    document.getElementById('editRadioAp').value = p.radio_ap || '';
+                    document.getElementById('editSwitchAp').value = p.switch_ap || '';
+                    document.getElementById('editStatusSwitchAp').value = p.status_switch_ap || '';
+                    
+                    document.getElementById('editCaixaPadrao').value = p.caixa_padrao || '';
+                    document.getElementById('editStatusPadrao').value = p.status_padrao || '';
+                    document.getElementById('editRegistroEnel').value = p.registro_enel || '';
                     
                     document.getElementById('editLpr01').value = p.lpr01 || '';
                     document.getElementById('editLpr01Sentido').value = p.lpr01_sentido || '';
@@ -984,11 +1186,13 @@
                     document.getElementById('editLpr03Sentido').value = p.lpr03_sentido || '';
                     document.getElementById('editLpr04').value = p.lpr04 || '';
                     document.getElementById('editLpr04Sentido').value = p.lpr04_sentido || '';
+                    document.getElementById('editAjusteLpr').value = p.ajuste_lpr || '';
                     
                     document.getElementById('editTomboCpu').value = p.tombo_cpu || '';
                     document.getElementById('editTomboBullet').value = p.tombo_bullet || '';
                     document.getElementById('editTomboSwitchCvm').value = p.tombo_switch_cvm || '';
-                    document.getElementById('editAjusteLpr').value = p.ajuste_lpr || '';
+                    document.getElementById('editSwitchLigado').value = p.switch_ligado || '';
+                    document.getElementById('editAjusteBullet').value = p.ajuste_bullet || '';
 
                     document.getElementById('editModal').classList.add('open');
                 }
@@ -1029,13 +1233,25 @@
             document.getElementById('editEndereco').value = '';
             document.getElementById('editCidade').value = '';
             document.getElementById('editAis').value = '';
+            document.getElementById('editContrato').value = '';
+            document.getElementById('editCameras').value = '';
             document.getElementById('editObservacoes').value = '';
+            document.getElementById('editCaixaHermetica').value = '';
+            document.getElementById('editStatusCaixaHermetica').value = '';
+            document.getElementById('editNobreak').value = '';
+            document.getElementById('editStatusNobreak').value = '';
             document.getElementById('editPoste').value = '';
             document.getElementById('editPosteStatus').value = '';
-            document.getElementById('editCaixaHermetica').value = '';
-            document.getElementById('editNobreak').value = '';
+            document.getElementById('editStatusPoste').value = '';
             document.getElementById('editSwitchCftv').value = '';
+            document.getElementById('editStatusSwitch').value = '';
             document.getElementById('editOnu').value = '';
+            document.getElementById('editRadioAp').value = '';
+            document.getElementById('editSwitchAp').value = '';
+            document.getElementById('editStatusSwitchAp').value = '';
+            document.getElementById('editCaixaPadrao').value = '';
+            document.getElementById('editStatusPadrao').value = '';
+            document.getElementById('editRegistroEnel').value = '';
             document.getElementById('editLpr01').value = '';
             document.getElementById('editLpr01Sentido').value = '';
             document.getElementById('editLpr02').value = '';
@@ -1044,10 +1260,12 @@
             document.getElementById('editLpr03Sentido').value = '';
             document.getElementById('editLpr04').value = '';
             document.getElementById('editLpr04Sentido').value = '';
+            document.getElementById('editAjusteLpr').value = '';
             document.getElementById('editTomboCpu').value = '';
             document.getElementById('editTomboBullet').value = '';
             document.getElementById('editTomboSwitchCvm').value = '';
-            document.getElementById('editAjusteLpr').value = '';
+            document.getElementById('editSwitchLigado').value = '';
+            document.getElementById('editAjusteBullet').value = '';
             document.getElementById('editModal').classList.add('open');
         }
 
@@ -1067,14 +1285,26 @@
                 endereco: document.getElementById('editEndereco').value,
                 cidade_nome: document.getElementById('editCidade').value,
                 ais: document.getElementById('editAis').value,
+                contrato: document.getElementById('editContrato').value,
+                config_cameras: document.getElementById('editCameras').value,
                 observacoes: document.getElementById('editObservacoes').value,
                 data_hora: new Date(document.getElementById('editDataHora').value).toISOString(),
+                caixa_hermetica: document.getElementById('editCaixaHermetica').value,
+                status_caixa_hermetica: document.getElementById('editStatusCaixaHermetica').value,
+                nobreak: document.getElementById('editNobreak').value,
+                status_nobreak: document.getElementById('editStatusNobreak').value,
                 poste: document.getElementById('editPoste').value,
                 poste_status: document.getElementById('editPosteStatus').value,
-                caixa_hermetica: document.getElementById('editCaixaHermetica').value,
-                nobreak: document.getElementById('editNobreak').value,
+                status_poste: document.getElementById('editStatusPoste').value,
                 switch_cftv: document.getElementById('editSwitchCftv').value,
+                status_switch: document.getElementById('editStatusSwitch').value,
                 onu: document.getElementById('editOnu').value,
+                radio_ap: document.getElementById('editRadioAp').value,
+                switch_ap: document.getElementById('editSwitchAp').value,
+                status_switch_ap: document.getElementById('editStatusSwitchAp').value,
+                caixa_padrao: document.getElementById('editCaixaPadrao').value,
+                status_padrao: document.getElementById('editStatusPadrao').value,
+                registro_enel: document.getElementById('editRegistroEnel').value,
                 lpr01: document.getElementById('editLpr01').value,
                 lpr01_sentido: document.getElementById('editLpr01Sentido').value,
                 lpr02: document.getElementById('editLpr02').value,
@@ -1083,10 +1313,12 @@
                 lpr03_sentido: document.getElementById('editLpr03Sentido').value,
                 lpr04: document.getElementById('editLpr04').value,
                 lpr04_sentido: document.getElementById('editLpr04Sentido').value,
+                ajuste_lpr: document.getElementById('editAjusteLpr').value,
                 tombo_cpu: document.getElementById('editTomboCpu').value,
                 tombo_bullet: document.getElementById('editTomboBullet').value,
                 tombo_switch_cvm: document.getElementById('editTomboSwitchCvm').value,
-                ajuste_lpr: document.getElementById('editAjusteLpr').value
+                switch_ligado: document.getElementById('editSwitchLigado').value,
+                ajuste_bullet: document.getElementById('editAjusteBullet').value
             };
 
             try {
@@ -1118,18 +1350,32 @@
             const body = {
                 ponto_numero: document.getElementById('editPontoNumero').value,
                 operador: document.getElementById('editOperador').value,
+                equipe_nome: document.getElementById('editEquipe').value,
                 lat: parseFloat(document.getElementById('editLat').value) || null,
                 lng: parseFloat(document.getElementById('editLng').value) || null,
                 endereco: document.getElementById('editEndereco').value,
                 cidade_nome: document.getElementById('editCidade').value,
                 ais: document.getElementById('editAis').value,
+                contrato: document.getElementById('editContrato').value,
+                config_cameras: document.getElementById('editCameras').value,
                 observacoes: document.getElementById('editObservacoes').value,
+                data_hora: new Date(document.getElementById('editDataHora').value).toISOString(),
+                caixa_hermetica: document.getElementById('editCaixaHermetica').value,
+                status_caixa_hermetica: document.getElementById('editStatusCaixaHermetica').value,
+                nobreak: document.getElementById('editNobreak').value,
+                status_nobreak: document.getElementById('editStatusNobreak').value,
                 poste: document.getElementById('editPoste').value,
                 poste_status: document.getElementById('editPosteStatus').value,
-                caixa_hermetica: document.getElementById('editCaixaHermetica').value,
-                nobreak: document.getElementById('editNobreak').value,
+                status_poste: document.getElementById('editStatusPoste').value,
                 switch_cftv: document.getElementById('editSwitchCftv').value,
+                status_switch: document.getElementById('editStatusSwitch').value,
                 onu: document.getElementById('editOnu').value,
+                radio_ap: document.getElementById('editRadioAp').value,
+                switch_ap: document.getElementById('editSwitchAp').value,
+                status_switch_ap: document.getElementById('editStatusSwitchAp').value,
+                caixa_padrao: document.getElementById('editCaixaPadrao').value,
+                status_padrao: document.getElementById('editStatusPadrao').value,
+                registro_enel: document.getElementById('editRegistroEnel').value,
                 lpr01: document.getElementById('editLpr01').value,
                 lpr01_sentido: document.getElementById('editLpr01Sentido').value,
                 lpr02: document.getElementById('editLpr02').value,
@@ -1138,10 +1384,12 @@
                 lpr03_sentido: document.getElementById('editLpr03Sentido').value,
                 lpr04: document.getElementById('editLpr04').value,
                 lpr04_sentido: document.getElementById('editLpr04Sentido').value,
+                ajuste_lpr: document.getElementById('editAjusteLpr').value,
                 tombo_cpu: document.getElementById('editTomboCpu').value,
                 tombo_bullet: document.getElementById('editTomboBullet').value,
                 tombo_switch_cvm: document.getElementById('editTomboSwitchCvm').value,
-                ajuste_lpr: document.getElementById('editAjusteLpr').value
+                switch_ligado: document.getElementById('editSwitchLigado').value,
+                ajuste_bullet: document.getElementById('editAjusteBullet').value
             };
 
             try {

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NOC — Rastreamento em Tempo Real</title>
   <link rel="icon" href="data:,">
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.css" rel="stylesheet">
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.24.0/mapbox-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet">
+  <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
@@ -429,8 +429,8 @@
     .pin-marker.stale .pin-body { opacity:0.45; }
     .pin-marker.stale .pin-label { opacity:0.45; }
 
-    /* ── Popup do Mapbox — sobrescreve estilos padrão ── */
-    .mapboxgl-popup-content {
+    /* ── Popup do MapLibre — sobrescreve estilos padrão ── */
+    .maplibregl-popup-content {
       background: #1e293b !important;
       color: #e2e8f0 !important;
       border: 1px solid #334155 !important;
@@ -441,10 +441,10 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
       min-width: 180px;
     }
-    .mapboxgl-popup-content b { color: #7dd3fc; }
-    .mapboxgl-popup-tip { border-top-color: #1e293b !important; border-bottom-color: #1e293b !important; }
-    .mapboxgl-popup-close-button { color: #94a3b8 !important; font-size: 18px !important; }
-    .mapboxgl-popup-close-button:hover { color: #fff !important; background: transparent !important; }
+    .maplibregl-popup-content b { color: #7dd3fc; }
+    .maplibregl-popup-tip { border-top-color: #1e293b !important; border-bottom-color: #1e293b !important; }
+    .maplibregl-popup-close-button { color: #94a3b8 !important; font-size: 18px !important; }
+    .maplibregl-popup-close-button:hover { color: #fff !important; background: transparent !important; }
 
     /* ── Indicador de clima no topo ── */
     .weather-indicator { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#94a3b8; margin-left:10px; }
@@ -766,19 +766,44 @@
 
     // Boot: verifica sessao ou mostra login + Setup do mapa (dentro de onload igual ma.html)
     window.onload = () => {
-      window.map = new mapboxgl.Map({
-        accessToken: 'pk.eyJ1IjoicGVkcm9hZ2xhaWx0b24iLCJhIjoiY21xMDQ2aDg3MDJrMjJ0cTBjd3dwYXJnOCJ9.4Ap4xEzCJ0US5mxDfmEf0g',
+      window.map = new maplibregl.Map({
         container: 'map',
         zoom: 12,
         center: [-38.5267, -3.7319],
         pitch: 60,
         bearing: 0,
         hash: true,
-        style: 'mapbox://styles/mapbox/standard'
+        antialias: true,
+        // OpenFreeMap "liberty" — estilo vetorial 100% open source, sem chave/API key,
+        // já inclui prédios 3D (fill-extrusion) nativamente.
+        style: 'https://tiles.openfreemap.org/styles/liberty'
       });
-      window.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      window.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
       window.mapPronto = false;
-      window.map.on('load', () => { window.mapPronto = true; });
+      window.map.on('load', () => {
+        window.mapPronto = true;
+        // Terreno 3D real (elevação) — fonte aberta AWS/Terrarium (ex-Mapzen), sem chave.
+        try {
+          if (!window.map.getSource('terrarium-dem')) {
+            window.map.addSource('terrarium-dem', {
+              type: 'raster-dem',
+              tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              maxzoom: 13,
+              encoding: 'terrarium'
+            });
+          }
+          window.map.setTerrain({ source: 'terrarium-dem', exaggeration: 1.2 });
+          window.map.setSky({
+            'sky-color': '#0b1220',
+            'sky-horizon-blend': 0.5,
+            'horizon-color': '#1e293b',
+            'horizon-fog-blend': 0.5,
+            'fog-color': '#334155',
+            'fog-ground-blend': 0.3
+          });
+        } catch (e) { console.warn('[NOC] terreno 3D indisponível:', e.message); }
+      });
       initClima();
 
       (async () => {
@@ -792,8 +817,8 @@
       })();
     };
 
-    // ── Wrapper MapboxMarker (interface compatível com L.marker) ──
-    class MapboxMarker {
+    // ── Wrapper MapMarker (interface compatível com L.marker) — sobre MapLibre GL JS ──
+    class MapMarker {
       constructor(lat, lng, equipeId, stale, forceColor) {
         this._el = criarPinoTeardrop(equipeId, stale, forceColor);
         this._popupHtml = '';
@@ -802,7 +827,7 @@
         this._stale = stale;
         this._forceColor = forceColor;
         this._clickFn = null;
-        this._mk = new mapboxgl.Marker({ element: this._el, anchor: 'bottom' })
+        this._mk = new maplibregl.Marker({ element: this._el, anchor: 'bottom' })
           .setLngLat([lng, lat]);
         this._mk._wrapper = this;
       }
@@ -823,7 +848,7 @@
       _updatePopup() {
         if (this._popupHtml) {
           if (!this._popup) {
-            this._popup = new mapboxgl.Popup({ offset: 45, closeButton: true, maxWidth: '280px' });
+            this._popup = new maplibregl.Popup({ offset: 45, closeButton: true, maxWidth: '280px' });
           }
           this._popup.setHTML(this._popupHtml);
         }
@@ -855,14 +880,14 @@
       getElement() { return this._mk.getElement(); }
       // Reconstrói o elemento visual com nova cor/estado
       setIcon(newState) {
-        // setElement não existe no Mapbox GL JS v3 — recria o marker inteiro
+        // setElement não existe no MapLibre GL JS — recria o marker inteiro
         const lngLat = this._mk.getLngLat();
         const map = this._map;
         this._mk.remove();
 
         const novoEl = criarPinoTeardrop(this._equipeId, this._stale, this._forceColor);
         this._el = novoEl;
-        this._mk = new mapboxgl.Marker({ element: novoEl, anchor: 'bottom' })
+        this._mk = new maplibregl.Marker({ element: novoEl, anchor: 'bottom' })
           .setLngLat(lngLat);
         this._mk._wrapper = this;
 
@@ -895,7 +920,8 @@
 
     function applyRainEffect(intensity) {
       if (!window.map || !window.map.getStyle || !window.map.getStyle()) return;
-      // setRain só existe no estilo Standard do Mapbox
+      // setRain era exclusivo do estilo "Standard" do Mapbox GL JS (proprietário).
+      // MapLibre/OpenFreeMap não tem esse efeito de partículas — sai de cena com segurança.
       if (typeof window.map.setRain !== 'function') return;
       try {
         if (intensity <= 0) {
@@ -992,7 +1018,7 @@
         const layerCount = window.map.getStyle()?.layers?.length || 0;
         console.log(`[NOC] style.load — nome: "${styleName}", layers: ${layerCount}, setRain: ${typeof window.map.setRain}`);
         applyRainEffect(currentRainIntensity);
-        // Esconde os POIs 3D azuis do Mapbox (landmarks, transit, etc.)
+        // Esconde POIs de landmarks/transit do estilo, se existirem
         const st = window.map.getStyle();
         for (const layer of (st && st.layers) || []) {
           const id = (layer.id || '').toLowerCase();
@@ -1016,7 +1042,7 @@
             return;
           }
           if (window.map.hasImage('poste-camera')) {
-            // Mapbox não permite updateImage com dimensões diferentes;
+            // MapLibre não permite updateImage com dimensões diferentes;
             // remove e readiciona (flash rápido, mas aceitável)
             window.map.removeImage('poste-camera');
           }
@@ -1234,7 +1260,7 @@
     let pontosLayerInitialized = false;
     const pontosPlanejados = [];
     const pontosVisitados = new Map(); // pontoId -> {equipeNome, ts}
-    const pontosFeatureIds = new Map(); // pontoId -> feature id no source Mapbox
+    const pontosFeatureIds = new Map(); // pontoId -> feature id no source do mapa
     const alertaAproximacao = new Map();
     const equipesProximas = new Map();
     const equipeValidacao = new Map();
@@ -1470,7 +1496,7 @@
 
       if (!markers.has(reg.equipeId)) {
         const snappedFirst = snapToRoad(reg.lat, reg.lng) || { lat: reg.lat, lng: reg.lng };
-        const m = new MapboxMarker(snappedFirst.lat, snappedFirst.lng, reg.equipeId, false, null)
+        const m = new MapMarker(snappedFirst.lat, snappedFirst.lng, reg.equipeId, false, null)
           .addTo(window.map || map)
           .bindPopup(txt)
           .bindTooltip(reg.equipeNome);
@@ -1671,13 +1697,13 @@
         pontosClickHandler = (e) => {
           if (e.features && e.features[0]) {
             const pop = e.features[0].properties.popup;
-            if (pop) new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
+            if (pop) new maplibregl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
           }
         };
         pontosCircleClickHandler = (e) => {
           if (e.features && e.features[0]) {
             const pop = e.features[0].properties.popup;
-            if (pop) new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
+            if (pop) new maplibregl.Popup().setLngLat(e.lngLat).setHTML(pop).addTo(map);
           }
         };
         map.on('click', pontosLayerId, pontosClickHandler);
@@ -1706,7 +1732,7 @@
         console.warn('[NOC] nenhum ponto para enquadrar');
         return;
       }
-      const bounds = new mapboxgl.LngLatBounds();
+      const bounds = new maplibregl.LngLatBounds();
       for (const f of data.features) bounds.extend(f.geometry.coordinates);
       map.fitBounds(bounds, { padding: 60, maxZoom: 17, duration: 800 });
     }
@@ -2845,7 +2871,7 @@
       map.on('click', PB_CIRCLE_LAYER, (e) => {
         if (e.features && e.features[0]) {
           const p = e.features[0].properties;
-          new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(`<b>${p.equipe}</b><br>${p.tipo}: ${p.ts}`).addTo(map);
+          new maplibregl.Popup().setLngLat(e.lngLat).setHTML(`<b>${p.equipe}</b><br>${p.tipo}: ${p.ts}`).addTo(map);
         }
       });
 

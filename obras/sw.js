@@ -1,8 +1,8 @@
 const CACHE_NAME = 'scanner-onu-v1';
 const urlsToCache = [
-    '/',
-    '/index.html',
-    '/manifest.json',
+    './',
+    './index.html',
+    './manifest.json',
     'https://unpkg.com/html5-qrcode'
 ];
 
@@ -10,7 +10,7 @@ self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
-                console('Cache aberto');
+                console.log('Cache aberto');
                 return cache.addAll(urlsToCache);
             })
     );

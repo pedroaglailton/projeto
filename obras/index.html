@@ -4,21 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner ONU Huawei</title>
-    <link rel="manifest" href="manifest.json">
+    <!-- Caminho relativo (./) para funcionar dentro da pasta obras -->
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#007bff">
     <!-- Biblioteca de leitura de código de barras -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
+        /* Usando fontes do próprio sistema (não precisa de internet) */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; 
+        }
         h1 { font-size: 24px; text-align: center; }
         #reader { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        .btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; }
+        .btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; text-align: center; box-sizing: border-box; }
         .btn-danger { background-color: #dc3545; }
         .btn-success { background-color: #28a745; }
         #lista-macs { max-width: 400px; margin: 20px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .mac-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .mac-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; word-break: break-all; }
         .mac-item:last-child { border-bottom: none; }
-        .status { text-align: center; font-weight: bold; margin-top: 10px; }
+        .status { text-align: center; font-weight: bold; margin-top: 10px; min-height: 24px; }
     </style>
 </head>
 <body>
@@ -34,7 +39,7 @@
     <button class="btn btn-success" id="btn-start">Iniciar Scanner</button>
     <button class="btn btn-danger" id="btn-stop" style="display:none;">Parar Scanner</button>
     <button class="btn" id="btn-export" style="background-color:#6c757d;">Exportar CSV</button>
-    <button class="btn btn-danger" id="btn-clear" style="background-color:#ffc107; color:black;">Limpar Lista</button>
+    <button class="btn" id="btn-clear" style="background-color:#ffc107; color:black;">Limpar Lista</button>
 
     <!-- Lista de MACs lidos -->
     <div id="lista-macs">
@@ -142,10 +147,10 @@
             }
         };
 
-        // Registra o Service Worker (para funcionar como App)
+        // Registra o Service Worker (caminho relativo)
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').then(registration => {
+                navigator.serviceWorker.register('./sw.js').then(registration => {
                     console.log('ServiceWorker registrado com sucesso');
                 }).catch(err => {
                     console.log('Falha ao registrar ServiceWorker:', err);

@@ -3,254 +3,296 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner ONU Huawei</title>
-    <!-- Caminho relativo (./) para funcionar dentro da pasta obras -->
-    <link rel="manifest" href="manifest.json">
+    <title>Controle de Equipamentos ONU</title>
+    <link rel="manifest" href="./manifest.json">
     <meta name="theme-color" content="#007bff">
-    <!-- Biblioteca de leitura de código de barras -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
-        /* Usando fontes do próprio sistema (não precisa de internet) */
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; 
-        }
-        h1 { font-size: 24px; text-align: center; }
-        #reader { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        .btn { display: block; width: 100%; max-width: 400px; margin: 20px auto; padding: 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; text-align: center; box-sizing: border-box; }
-        .btn-danger { background-color: #dc3545; }
-        .btn-success { background-color: #28a745; }
-        #lista-macs { max-width: 400px; margin: 20px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .mac-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; word-break: break-all; }
-        .mac-item:last-child { border-bottom: none; }
-        .status { text-align: center; font-weight: bold; margin-top: 10px; min-height: 24px; }
-        .btn-secondary { background-color: #17a2b8; }
-        .btn-secondary.ativa { background-color: #ffc107; color: black; }
-        #camera-controls { max-width: 400px; margin: 10px auto; display: flex; gap: 10px; }
-        #camera-controls .btn { margin: 0; }
-        #manual-entry { max-width: 400px; margin: 15px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        #manual-entry label { display: block; font-size: 14px; color: #666; margin-bottom: 6px; }
-        #manual-entry .linha { display: flex; gap: 8px; }
-        #manual-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; text-transform: uppercase; }
-        #btn-add-manual { width: auto; margin: 0; padding: 12px 18px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
+        h1 { font-size: 24px; text-align: center; color: #007bff; }
+        h3 { margin-top: 0; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+        
+        .card { max-width: 450px; margin: 15px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; }
+        .status { text-align: center; font-weight: bold; margin: 10px 0; min-height: 24px; color: #007bff;}
+        
+        label { display: block; font-size: 14px; font-weight: 600; margin-top: 12px; margin-bottom: 4px; color: #555; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; box-sizing: border-box; }
+        
+        .btn { display: block; width: 100%; padding: 15px; border: none; border-radius: 5px; font-size: 18px; cursor: pointer; text-align: center; margin-top: 15px; box-sizing: border-box; font-weight: bold; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn-sec { background-color: #6c757d; color: white; }
+        .btn-warning { background-color: #ffc107; color: black; }
+        
+        .geo-row { display: flex; gap: 10px; align-items: center; }
+        .geo-row input { flex: 1; }
+        .geo-row button { width: auto; margin-top: 0; padding: 12px; white-space: nowrap; }
+        
+        #lista-registros { max-width: 450px; margin: 20px auto; }
+        .registro-item { background: white; padding: 15px; margin-bottom: 10px; border-left: 5px solid #28a745; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 14px; }
+        .registro-item b { color: #007bff; }
+        .delete-btn { float: right; color: #dc3545; font-weight: bold; cursor: pointer; border: none; background: none; font-size: 18px;}
     </style>
 </head>
 <body>
 
-    <h1>Scanner de MAC ONU</h1>
+    <h1>📋 Controle de ONU</h1>
     
     <!-- Área da Câmera -->
-    <div id="reader"></div>
-    
-    <div class="status" id="status-text">Clique em Iniciar Scanner</div>
-
-    <!-- Controles da câmera (aparecem só enquanto o scanner está ativo) -->
-    <div id="camera-controls" style="display:none;">
-        <button class="btn btn-secondary" id="btn-torch" style="margin:0;">💡 Lanterna</button>
+    <div class="card" style="padding: 10px;">
+        <div id="reader"></div>
+        <div class="status" id="status-text">Clique em escanear para iniciar</div>
+        <button class="btn btn-primary" id="btn-start">📷 Escanear Etiqueta (3 Códigos)</button>
+        <button class="btn btn-danger" id="btn-stop" style="display:none;">⏹️ Parar Câmera</button>
     </div>
 
-    <!-- Botões -->
-    <button class="btn btn-success" id="btn-start">Iniciar Scanner</button>
-    <button class="btn btn-danger" id="btn-stop" style="display:none;">Parar Scanner</button>
-    <button class="btn" id="btn-export" style="background-color:#6c757d;">Exportar CSV</button>
-    <button class="btn" id="btn-clear" style="background-color:#ffc107; color:black;">Limpar Lista</button>
-
-    <!-- Entrada manual (fallback quando a etiqueta não escaneia) -->
-    <div id="manual-entry">
-        <label for="manual-input">Etiqueta ilegível? Digite o MAC manualmente:</label>
-        <div class="linha">
-            <input type="text" id="manual-input" placeholder="Ex: 5CC0A0DD106B" maxlength="20">
-            <button id="btn-add-manual" class="btn" style="background-color:#28a745;">Adicionar</button>
+    <!-- Formulário de Coleta -->
+    <div class="card">
+        <h3>Dados do Equipamento</h3>
+        
+        <div style="display: flex; gap: 10px;">
+            <div style="flex:1">
+                <label>1. SN (Série):</label>
+                <input type="text" id="input-sn" placeholder="Escaneado ou manual">
+            </div>
+            <div style="flex:1">
+                <label>2. MAC:</label>
+                <input type="text" id="input-mac" placeholder="Escaneado ou manual">
+            </div>
         </div>
+
+        <label>3. Patrimônio (Último código):</label>
+        <input type="text" id="input-patrimonio" placeholder="Escaneado ou manual">
+
+        <label>Definição do Equipamento:</label>
+        <select id="input-definicao">
+            <option value="ONU Residencial">ONU Residencial</option>
+            <option value="ONU Empresarial">ONU Empresarial</option>
+            <option value="OLT">OLT</option>
+            <option value="NAP">NAP / Splitter</option>
+            <option value="CEO">CEO (Caixa de Emenda)</option>
+            <option value="Outro">Outro</option>
+        </select>
+
+        <label>Local (Rua, Número, Bairro):</label>
+        <input type="text" id="input-local" placeholder="Ex: Rua das Flores, 123">
+
+        <label>Ponto de Referência:</label>
+        <input type="text" id="input-referencia" placeholder="Ex: Poste em frente à padaria">
+
+        <label>Geolocalização (GPS):</label>
+        <div class="geo-row">
+            <input type="text" id="input-geo" readonly placeholder="Lat, Lon">
+            <button class="btn btn-sec" id="btn-geo" style="margin:0;">📍 Pegar GPS</button>
+        </div>
+
+        <button class="btn btn-success" id="btn-save">💾 Salvar Registro</button>
+        <button class="btn btn-warning" id="btn-clear-form" style="margin-top: 5px; background-color: #e2e6ea; color: black;">🧹 Limpar Campos Escaneados</button>
     </div>
 
-    <!-- Lista de MACs lidos -->
-    <div id="lista-macs">
-        <h3>MACs Coletados:</h3>
-        <div id="macs-container"></div>
+    <!-- Ações e Lista -->
+    <div id="lista-registros">
+        <button class="btn btn-warning" id="btn-export">📄 Exportar TXT do Dia</button>
+        <button class="btn btn-danger" id="btn-clear" style="margin-bottom: 20px;">🗑️ Limpar Todos Registros</button>
+        <div id="registros-container"></div>
     </div>
 
     <script>
         const html5QrCode = new Html5Qrcode("reader");
         let isScanning = false;
-        let macsSalvos = JSON.parse(localStorage.getItem('macsOnu')) || [];
+        let registros = JSON.parse(localStorage.getItem('registrosOnu')) || [];
 
-        // Atualiza a lista na tela
-        function atualizarLista() {
-            const container = document.getElementById('macs-container');
-            if(macsSalvos.length === 0) {
-                container.innerHTML = '<p style="color:#999;">Nenhum MAC escaneado ainda.</p>';
-                return;
-            }
-            container.innerHTML = macsSalvos.map((mac, index) => 
-                `<div class="mac-item"><span>${index + 1}. ${mac}</span></div>`
-            ).join('');
-        }
-
-        // Função chamada ao ler um código de barras com sucesso
-        function onScanSuccess(decodedText, decodedResult) {
-            // Limpa o texto (remove espaços, caracteres especiais)
-            let macLimpo = decodedText.trim().toUpperCase();
-            
-            // Evita duplicatas
-            if (!macsSalvos.includes(macLimpo)) {
-                macsSalvos.push(macLimpo);
-                localStorage.setItem('macsOnu', JSON.stringify(macsSalvos));
-                atualizarLista();
-                
-                // Feedback vibratório (se o celular permitir)
-                if (navigator.vibrate) navigator.vibrate(200);
-                
-                document.getElementById('status-text').innerHTML = `✅ MAC Adicionado: <br><b>${macLimpo}</b>`;
-                document.getElementById('status-text').style.color = 'green';
-            } else {
-                document.getElementById('status-text').innerHTML = `⚠️ MAC já na lista: <br><b>${macLimpo}</b>`;
-                document.getElementById('status-text').style.color = 'orange';
-            }
-        }
-
-        // Configuração do leitor
         const config = { 
-            fps: 15,
-            // Caixa retangular e larga: etiquetas de ONU têm código de barras largo e baixo,
-            // não quadrado como QR code. Isso ajuda a câmera focar só na faixa de barras.
-            qrbox: { width: 300, height: 110 },
-            aspectRatio: 1.7777778, // 16:9, dá mais campo de visão horizontal
-            disableFlip: false,
-            // Vários formatos de código de barras lineares, além do CODE_128 (algumas
-            // etiquetas usam CODE_39 ou variações; manter EAN_13 não atrapalha)
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.CODE_93,
-                Html5QrcodeSupportedFormats.ITF,
-                Html5QrcodeSupportedFormats.CODABAR,
-                Html5QrcodeSupportedFormats.EAN_13
-            ],
-            experimentalFeatures: {
-                useBarCodeDetectorIfSupported: true // usa o leitor nativo do Chrome/Android quando disponível, mais rápido e mais preciso
-            }
+            fps: 15, qrbox: { width: 300, height: 110 }, aspectRatio: 1.7777778,
+            formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13 ],
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true }
         };
 
-        let torchLigada = false;
+        // --- FUNÇÕES DA CÂMERA (LEITURA SEQUENCIAL) ---
+        function onScanSuccess(decodedText) {
+            const txt = decodedText.trim().toUpperCase();
+            const snField = document.getElementById('input-sn');
+            const macField = document.getElementById('input-mac');
+            const patField = document.getElementById('input-patrimonio');
+            
+            // Evita beep e vibração se ler o mesmo código repetidas vezes
+            if (txt === snField.value || txt === macField.value || txt === patField.value) return;
 
-        // Iniciar Scanner
+            if (navigator.vibrate) navigator.vibrate(100);
+            const statusEl = document.getElementById('status-text');
+
+            // Lógica em sequência: 1º preenche SN, 2º MAC, 3º Patrimônio
+            if (!snField.value) {
+                snField.value = txt;
+                statusEl.innerText = "✅ SN Capturado! Aponte para o MAC (meio)...";
+                statusEl.style.color = "blue";
+            } else if (!macField.value) {
+                macField.value = txt;
+                statusEl.innerText = "✅ MAC Capturado! Aponte para o Patrimônio (último)...";
+                statusEl.style.color = "blue";
+            } else if (!patField.value) {
+                patField.value = txt;
+                statusEl.innerText = "✅ Patrimônio Capturado! Câmera encerrada.";
+                statusEl.style.color = "green";
+                stopScanner(); // Desliga a câmera após ler os 3
+            }
+        }
+
         document.getElementById('btn-start').onclick = async () => {
+            // Limpa os campos antes de iniciar uma nova leitura
+            document.getElementById('input-sn').value = '';
+            document.getElementById('input-mac').value = '';
+            document.getElementById('input-patrimonio').value = '';
+            
             try {
-                await html5QrCode.start(
-                    { facingMode: "environment" }, // Usa a câmera traseira
-                    config,
-                    onScanSuccess
-                );
-
-                // Tenta forçar foco contínuo (ajuda muito em etiquetas próximas e curvas)
-                try {
-                    await html5QrCode.applyVideoConstraints({
-                        advanced: [{ focusMode: "continuous" }]
-                    });
-                } catch (e) {
-                    console.log('Foco contínuo não suportado neste aparelho:', e);
-                }
-
+                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+                try { await html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch(e) {}
                 isScanning = true;
-                torchLigada = false;
-                document.getElementById('btn-torch').classList.remove('ativa');
-                document.getElementById('btn-torch').innerText = '💡 Lanterna';
-                document.getElementById('camera-controls').style.display = 'flex';
                 document.getElementById('btn-start').style.display = 'none';
                 document.getElementById('btn-stop').style.display = 'block';
-                document.getElementById('status-text').innerText = 'Aponte para o código de barras da ONU';
-                document.getElementById('status-text').style.color = 'black';
-            } catch (err) {
-                alert("Erro ao acessar a câmera: " + err);
-            }
+                document.getElementById('status-text').innerText = "Aponte para o 1º código (SN)...";
+                document.getElementById('status-text').style.color = "black";
+            } catch (err) { alert("Erro câmera: " + err); }
         };
 
-        // Parar Scanner
-        document.getElementById('btn-stop').onclick = async () => {
+        async function stopScanner() {
             if (isScanning) {
                 await html5QrCode.stop();
                 isScanning = false;
-                document.getElementById('camera-controls').style.display = 'none';
                 document.getElementById('btn-start').style.display = 'block';
                 document.getElementById('btn-stop').style.display = 'none';
-                document.getElementById('status-text').innerText = 'Scanner parado';
             }
+        }
+        document.getElementById('btn-stop').onclick = stopScanner;
+
+        // Botão para limpar manualmente os 3 campos de código caso o técnico erre
+        document.getElementById('btn-clear-form').onclick = () => {
+            document.getElementById('input-sn').value = '';
+            document.getElementById('input-mac').value = '';
+            document.getElementById('input-patrimonio').value = '';
         };
 
-        // Liga/desliga lanterna (ajuda muito com reflexo em etiqueta plástica)
-        document.getElementById('btn-torch').onclick = async () => {
-            if (!isScanning) return;
-            try {
-                torchLigada = !torchLigada;
-                await html5QrCode.applyVideoConstraints({
-                    advanced: [{ torch: torchLigada }]
-                });
-                const btnTorch = document.getElementById('btn-torch');
-                btnTorch.classList.toggle('ativa', torchLigada);
-                btnTorch.innerText = torchLigada ? '💡 Lanterna (ligada)' : '💡 Lanterna';
-            } catch (err) {
-                torchLigada = false;
-                alert("Este aparelho não permite controlar a lanterna pelo navegador.");
-            }
+        // --- FUNÇÃO DE GPS ---
+        document.getElementById('btn-geo').onclick = () => {
+            if (!navigator.geolocation) { alert("GPS não suportado neste celular."); return; }
+            document.getElementById('input-geo').value = "Buscando localização...";
+            navigator.geolocation.getCurrentPosition(pos => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lon = pos.coords.longitude.toFixed(6);
+                document.getElementById('input-geo').value = `${lat}, ${lon}`;
+            }, err => {
+                alert("Erro ao obter GPS. Verifique se está ligado.");
+                document.getElementById('input-geo').value = "Erro no GPS";
+            }, { enableHighAccuracy: true });
         };
 
-        // Adiciona MAC digitado manualmente (fallback quando a etiqueta não escaneia)
-        document.getElementById('btn-add-manual').onclick = () => {
-            const input = document.getElementById('manual-input');
-            const valor = input.value.trim().toUpperCase();
-            if (!valor) {
-                alert("Digite o MAC antes de adicionar.");
-                return;
-            }
-            onScanSuccess(valor, null);
-            input.value = '';
+        // --- SALVAR REGISTRO ---
+        document.getElementById('btn-save').onclick = () => {
+            const sn = document.getElementById('input-sn').value.trim();
+            const mac = document.getElementById('input-mac').value.trim();
+            const pat = document.getElementById('input-patrimonio').value.trim();
+            const def = document.getElementById('input-definicao').value;
+            const local = document.getElementById('input-local').value.trim();
+            const ref = document.getElementById('input-referencia').value.trim();
+            const geo = document.getElementById('input-geo').value.trim();
+
+            if (!mac || !local) { alert("Preencha pelo menos o MAC e o Local!"); return; }
+
+            const dataHora = new Date().toLocaleString('pt-BR');
+            
+            registros.push({ dataHora, sn, mac, pat, def, local, ref, geo });
+            localStorage.setItem('registrosOnu', JSON.stringify(registros));
+            
+            atualizarLista();
+            
+            // Limpa o formulário para o próximo equipamento
+            document.getElementById('input-sn').value = '';
+            document.getElementById('input-mac').value = '';
+            document.getElementById('input-patrimonio').value = '';
+            document.getElementById('input-local').value = '';
+            document.getElementById('input-referencia').value = '';
+            document.getElementById('input-geo').value = '';
+            alert("Registro salvo com sucesso!");
         };
 
-        // Permite apertar Enter no campo manual em vez de clicar no botão
-        document.getElementById('manual-input').addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('btn-add-manual').click();
-            }
-        });
+        // --- ATUALIZAR TELA ---
+        function atualizarLista() {
+            const container = document.getElementById('registros-container');
+            if(registros.length === 0) { container.innerHTML = '<p style="text-align:center;color:#999;">Nenhum registro ainda.</p>'; return; }
+            container.innerHTML = registros.map((r, i) => 
+                `<div class="registro-item">
+                    <button class="delete-btn" onclick="deletarRegistro(${i})">✖</button>
+                    <b>MAC: ${r.mac}</b><br>
+                    SN: ${r.sn || 'N/I'} | Patrimônio: ${r.pat || 'N/I'}<br>
+                    Equip: ${r.def}<br>
+                    📍 ${r.local}<br>
+                    📌 ${r.ref || 'Sem referência'}<br>
+                    🌍 ${r.geo || 'Sem GPS'}<br>
+                    🕒 ${r.dataHora}
+                </div>`
+            ).join('');
+        }
 
-        // Exportar para CSV
+        window.deletarRegistro = (index) => {
+            registros.splice(index, 1);
+            localStorage.setItem('registrosOnu', JSON.stringify(registros));
+            atualizarLista();
+        };
+
+        // --- EXPORTAR TXT ---
         document.getElementById('btn-export').onclick = () => {
-            if(macsSalvos.length === 0) {
-                alert("Nenhum MAC para exportar.");
-                return;
-            }
-            let csvContent = "data:text/csv;charset=utf-8,MAC\r\n" + macsSalvos.join("\r\n");
-            const encodedUri = encodeURI(csvContent);
+            if(registros.length === 0) { alert("Nenhum registro para exportar."); return; }
+            
+            const hoje = new Date();
+            const dia = String(hoje.getDate()).padStart(2, '0');
+            const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+            const ano = hoje.getFullYear();
+            const nomeArquivo = `Controle_ONU_${dia}_${mes}_${ano}.txt`;
+
+            let txtContent = `CONTROLE DE EQUIPAMENTOS - DATA: ${hoje.toLocaleDateString('pt-BR')}\n`;
+            txtContent += `=================================================================\n\n`;
+            
+            registros.forEach((r, i) => {
+                txtContent += `REGISTRO ${i + 1}\n`;
+                txtContent += `Data/Hora:      ${r.dataHora}\n`;
+                txtContent += `SN (Serie):     ${r.sn || 'Nao informado'}\n`;
+                txtContent += `MAC Address:    ${r.mac}\n`;
+                txtContent += `Patrimonio:     ${r.pat || 'Nao informado'}\n`;
+                txtContent += `Equipamento:    ${r.def}\n`;
+                txtContent += `Local:          ${r.local}\n`;
+                txtContent += `Referencia:     ${r.ref || 'Nao informado'}\n`;
+                txtContent += `Geolocalizacao: ${r.geo || 'Nao capturada'}\n`;
+                txtContent += `-----------------------------------------------------------------\n`;
+            });
+
+            const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
             const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "macs_onu.csv");
+            link.href = URL.createObjectURL(blob);
+            link.download = nomeArquivo;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
         };
 
-        // Limpar Lista
+        // --- LIMPAR TUDO ---
         document.getElementById('btn-clear').onclick = () => {
-            if(confirm("Deseja apagar todos os MACs da lista?")) {
-                macsSalvos = [];
-                localStorage.setItem('macsOnu', JSON.stringify(macsSalvos));
+            if(confirm("TEM CERTEZA? Isso vai apagar todos os registros salvos no aparelho.")) {
+                registros = [];
+                localStorage.setItem('registrosOnu', JSON.stringify(registros));
                 atualizarLista();
             }
         };
 
-        // Registra o Service Worker (caminho relativo)
+        // Service Worker
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').then(registration => {
-                    console.log('ServiceWorker registrado com sucesso');
-                }).catch(err => {
-                    console.log('Falha ao registrar ServiceWorker:', err);
-                });
+                navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Erro:', err));
             });
         }
 
-        // Inicializa a tela
         atualizarLista();
     </script>
 </body>

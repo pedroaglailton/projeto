@@ -14,7 +14,7 @@
         
         .card { max-width: 450px; margin: 15px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
         
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; display: none; /* Esconde até clicar */ }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; display: none; }
         .status { text-align: center; font-weight: bold; margin: 10px 0; min-height: 24px; color: #007bff; display: none;}
         
         label { display: block; font-size: 14px; font-weight: 600; margin-top: 12px; margin-bottom: 4px; color: #555; }
@@ -44,7 +44,7 @@
 
     <h1>📋 Controle de ONU</h1>
     
-    <!-- Área da Câmera (fica escondida até clicar em escanear) -->
+    <!-- Área da Câmera -->
     <div class="card" style="padding: 10px;">
         <div class="status" id="status-text"></div>
         <div id="reader"></div>
@@ -109,7 +109,7 @@
         const html5QrCode = new Html5Qrcode("reader");
         let isScanning = false;
         let registros = JSON.parse(localStorage.getItem('registrosOnu')) || [];
-        let currentTargetId = null; // Guarda qual campo estamos escaneando
+        let currentTargetId = null; 
 
         const config = { 
             fps: 10, 
@@ -125,7 +125,6 @@
                 document.getElementById(currentTargetId).value = txt;
                 if (navigator.vibrate) navigator.vibrate(200);
                 
-                // Mensagem de sucesso
                 const statusEl = document.getElementById('status-text');
                 statusEl.innerText = `✅ Capturado: ${txt}`;
                 statusEl.style.color = "green";
@@ -142,24 +141,22 @@
                 document.getElementById('status-text').style.display = 'block';
                 document.getElementById('btn-stop').style.display = 'block';
                 
-                // Força resolução alta para ler códigos pequenos
-                const videoConstraints = {
-                    facingMode: "environment",
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 }
-                };
-
-                await html5QrCode.start(videoConstraints, config, onScanSuccess);
+                // 1. Inicia a câmera apenas informando qual usar (traseira)
+                await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
                 
+                // 2. Após iniciar, tenta forçar a resolução e o foco contínuo
                 try { 
-                    await html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: "continuous" }] }); 
+                    await html5QrCode.applyVideoConstraints({ 
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        advanced: [{ focusMode: "continuous" }] 
+                    }); 
                 } catch(e) {}
                 
                 isScanning = true;
                 document.getElementById('status-text').innerText = "Aponte para o código de barras...";
                 document.getElementById('status-text').style.color = "black";
                 
-                // Rola a tela para mostrar a câmera
                 document.getElementById('reader').scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
             } catch (err) { 
@@ -210,7 +207,6 @@
             
             atualizarLista();
             
-            // Limpa o formulário
             document.getElementById('input-sn').value = '';
             document.getElementById('input-mac').value = '';
             document.getElementById('input-patrimonio').value = '';

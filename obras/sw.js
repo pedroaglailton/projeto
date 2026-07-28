@@ -1,4 +1,4 @@
-const CACHE_NAME = 'scanner-onu-v1';
+const CACHE_NAME = 'scanner-onu-v2';
 const urlsToCache = [
     './',
     './index.html',

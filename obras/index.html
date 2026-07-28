@@ -24,6 +24,15 @@
         .mac-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; word-break: break-all; }
         .mac-item:last-child { border-bottom: none; }
         .status { text-align: center; font-weight: bold; margin-top: 10px; min-height: 24px; }
+        .btn-secondary { background-color: #17a2b8; }
+        .btn-secondary.ativa { background-color: #ffc107; color: black; }
+        #camera-controls { max-width: 400px; margin: 10px auto; display: flex; gap: 10px; }
+        #camera-controls .btn { margin: 0; }
+        #manual-entry { max-width: 400px; margin: 15px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        #manual-entry label { display: block; font-size: 14px; color: #666; margin-bottom: 6px; }
+        #manual-entry .linha { display: flex; gap: 8px; }
+        #manual-input { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; text-transform: uppercase; }
+        #btn-add-manual { width: auto; margin: 0; padding: 12px 18px; }
     </style>
 </head>
 <body>
@@ -35,11 +44,25 @@
     
     <div class="status" id="status-text">Clique em Iniciar Scanner</div>
 
+    <!-- Controles da câmera (aparecem só enquanto o scanner está ativo) -->
+    <div id="camera-controls" style="display:none;">
+        <button class="btn btn-secondary" id="btn-torch" style="margin:0;">💡 Lanterna</button>
+    </div>
+
     <!-- Botões -->
     <button class="btn btn-success" id="btn-start">Iniciar Scanner</button>
     <button class="btn btn-danger" id="btn-stop" style="display:none;">Parar Scanner</button>
     <button class="btn" id="btn-export" style="background-color:#6c757d;">Exportar CSV</button>
     <button class="btn" id="btn-clear" style="background-color:#ffc107; color:black;">Limpar Lista</button>
+
+    <!-- Entrada manual (fallback quando a etiqueta não escaneia) -->
+    <div id="manual-entry">
+        <label for="manual-input">Etiqueta ilegível? Digite o MAC manualmente:</label>
+        <div class="linha">
+            <input type="text" id="manual-input" placeholder="Ex: 5CC0A0DD106B" maxlength="20">
+            <button id="btn-add-manual" class="btn" style="background-color:#28a745;">Adicionar</button>
+        </div>
+    </div>
 
     <!-- Lista de MACs lidos -->
     <div id="lista-macs">
@@ -88,10 +111,28 @@
 
         // Configuração do leitor
         const config = { 
-            fps: 10, 
-            qrbox: { width: 250, height: 150 }, // Tamanho da área de foco
-            formatsToSupport: [ Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.EAN_13 ] 
+            fps: 15,
+            // Caixa retangular e larga: etiquetas de ONU têm código de barras largo e baixo,
+            // não quadrado como QR code. Isso ajuda a câmera focar só na faixa de barras.
+            qrbox: { width: 300, height: 110 },
+            aspectRatio: 1.7777778, // 16:9, dá mais campo de visão horizontal
+            disableFlip: false,
+            // Vários formatos de código de barras lineares, além do CODE_128 (algumas
+            // etiquetas usam CODE_39 ou variações; manter EAN_13 não atrapalha)
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.CODE_93,
+                Html5QrcodeSupportedFormats.ITF,
+                Html5QrcodeSupportedFormats.CODABAR,
+                Html5QrcodeSupportedFormats.EAN_13
+            ],
+            experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true // usa o leitor nativo do Chrome/Android quando disponível, mais rápido e mais preciso
+            }
         };
+
+        let torchLigada = false;
 
         // Iniciar Scanner
         document.getElementById('btn-start').onclick = async () => {
@@ -101,7 +142,21 @@
                     config,
                     onScanSuccess
                 );
+
+                // Tenta forçar foco contínuo (ajuda muito em etiquetas próximas e curvas)
+                try {
+                    await html5QrCode.applyVideoConstraints({
+                        advanced: [{ focusMode: "continuous" }]
+                    });
+                } catch (e) {
+                    console.log('Foco contínuo não suportado neste aparelho:', e);
+                }
+
                 isScanning = true;
+                torchLigada = false;
+                document.getElementById('btn-torch').classList.remove('ativa');
+                document.getElementById('btn-torch').innerText = '💡 Lanterna';
+                document.getElementById('camera-controls').style.display = 'flex';
                 document.getElementById('btn-start').style.display = 'none';
                 document.getElementById('btn-stop').style.display = 'block';
                 document.getElementById('status-text').innerText = 'Aponte para o código de barras da ONU';
@@ -116,11 +171,48 @@
             if (isScanning) {
                 await html5QrCode.stop();
                 isScanning = false;
+                document.getElementById('camera-controls').style.display = 'none';
                 document.getElementById('btn-start').style.display = 'block';
                 document.getElementById('btn-stop').style.display = 'none';
                 document.getElementById('status-text').innerText = 'Scanner parado';
             }
         };
+
+        // Liga/desliga lanterna (ajuda muito com reflexo em etiqueta plástica)
+        document.getElementById('btn-torch').onclick = async () => {
+            if (!isScanning) return;
+            try {
+                torchLigada = !torchLigada;
+                await html5QrCode.applyVideoConstraints({
+                    advanced: [{ torch: torchLigada }]
+                });
+                const btnTorch = document.getElementById('btn-torch');
+                btnTorch.classList.toggle('ativa', torchLigada);
+                btnTorch.innerText = torchLigada ? '💡 Lanterna (ligada)' : '💡 Lanterna';
+            } catch (err) {
+                torchLigada = false;
+                alert("Este aparelho não permite controlar a lanterna pelo navegador.");
+            }
+        };
+
+        // Adiciona MAC digitado manualmente (fallback quando a etiqueta não escaneia)
+        document.getElementById('btn-add-manual').onclick = () => {
+            const input = document.getElementById('manual-input');
+            const valor = input.value.trim().toUpperCase();
+            if (!valor) {
+                alert("Digite o MAC antes de adicionar.");
+                return;
+            }
+            onScanSuccess(valor, null);
+            input.value = '';
+        };
+
+        // Permite apertar Enter no campo manual em vez de clicar no botão
+        document.getElementById('manual-input').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('btn-add-manual').click();
+            }
+        });
 
         // Exportar para CSV
         document.getElementById('btn-export').onclick = () => {

@@ -67,12 +67,6 @@
       "ativo": true
     },
     {
-      "equipeId": "IMPLANTACAO2",
-      "nome": "MARCIO/SIDNEY",
-      "token": "009b424c0309f953047bf15786023fddaf2e34ad96ee865b5b817311d28970f6",
-      "ativo": true
-    },
-    {
       "equipeId": "EQUIPE2IMPLANTACAO",
       "nome": "Marcio/Sidney",
       "token": "21ebda50eba24a9730ba80501c5748281b0cbabbf54469e4bef5f0b0fca7cc6e",
